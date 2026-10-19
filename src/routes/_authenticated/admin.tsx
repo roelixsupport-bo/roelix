@@ -257,8 +257,12 @@ type DashboardRole = "admin" | "staff";
 function mapCloudOrder(value: unknown): Order | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
-  const governorate = row["governorate"];
-  const status = String(row["status"]).toLowerCase();
+
+  // Fallback defaults for missing/optional fields
+  const governorate = (row["governorate"] as string) || "Other";
+  const statusStr = (row["status"] as string) || "Pending";
+  const status = statusStr.toLowerCase();
+  
   const statuses: Record<string, Order["status"]> = {
     pending: "Pending",
     processing: "Processing",
@@ -266,57 +270,38 @@ function mapCloudOrder(value: unknown): Order | null {
     delivered: "Delivered",
     cancelled: "Cancelled",
   };
-  if (
-    typeof row["id"] !== "string" ||
-    typeof row["customer_name"] !== "string" ||
-    typeof row["phone"] !== "string" ||
-    typeof row["address"] !== "string" ||
-    typeof governorate !== "string" ||
-    !Object.hasOwn(BOSTA_SHIPPING_RATES, governorate) ||
-    !Array.isArray(row["items"]) ||
-    !statuses[status]
-  ) {
-    return null;
-  }
-  const items = row["items"].flatMap((item: unknown) => {
-    if (typeof item !== "object" || item === null || Array.isArray(item)) return [];
-    const line = item as Record<string, unknown>;
-    if (
-      typeof line["id"] !== "string" ||
-      typeof line["qty"] !== "number" ||
-      typeof line["size"] !== "string" ||
-      typeof line["color"] !== "string"
-    ) {
-      return [];
-    }
-    return [
-      {
-        id: line["id"],
-        qty: line["qty"],
-        size: line["size"],
-        color: line["color"],
-        ...(typeof line["name"] === "string" ? { name: line["name"] } : {}),
-        ...(typeof line["price"] === "number" ? { price: line["price"] } : {}),
-      },
-    ];
-  });
+
+  // Ensure mandatory fields for display exist, or use defaults
+  const id = String(row["id"] ?? "unknown");
+  const customerName = String(row["customer_name"] ?? "Guest");
+  const phone = String(row["phone"] ?? "");
+  const address = String(row["address"] ?? "No address provided");
+  const items = Array.isArray(row["items"]) ? row["items"] : [];
+  
   return {
-    id: row["id"],
-    createdAt: typeof row["created_at"] === "string" ? row["created_at"] : "",
+    id,
+    createdAt: typeof row["created_at"] === "string" ? row["created_at"] : new Date().toISOString(),
     customer: {
-      name: row["customer_name"],
+      name: customerName,
       email: "",
-      phone: row["phone"],
-      address: row["address"],
+      phone,
+      address,
       city: "",
       governorate: governorate as EgyptGovernorate,
       country: "Egypt",
     },
-    items,
-    subtotal: Number(row["subtotal"]),
-    shipping: Number(row["shipping_cost"]),
-    total: Number(row["total_amount"]),
-    status: statuses[status]!,
+    items: items.map((item: any) => ({
+        id: item?.id ?? "unknown",
+        qty: item?.qty ?? 0,
+        size: item?.size ?? "N/A",
+        color: item?.color ?? "N/A",
+        name: item?.name ?? "Unknown item",
+        price: item?.price ?? 0
+    })),
+    subtotal: Number(row["subtotal"] ?? 0),
+    shipping: Number(row["shipping_cost"] ?? 0),
+    total: Number(row["total_amount"] ?? 0),
+    status: statuses[status] || "Pending",
   };
 }
 
@@ -369,6 +354,9 @@ function Admin() {
         throw ordersError;
       }
       console.log("Fetched cloudOrders:", cloudOrders);
+      if (cloudOrders && cloudOrders.length > 0) {
+        console.log("Raw cloud order item:", cloudOrders[0]);
+      }
       const mappedOrders = (cloudOrders ?? []).map(mapCloudOrder).filter((order): order is Order => !!order);
       console.log("Mapped orders:", mappedOrders);
       setOrders(mappedOrders);
