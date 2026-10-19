@@ -364,7 +364,11 @@ function Admin() {
         .from("orders")
         .select("*")
         .order("created_at", { ascending: false });
-      if (ordersError) throw ordersError;
+      if (ordersError) {
+        console.error("Orders fetch error:", ordersError);
+        throw ordersError;
+      }
+      console.log("Fetched cloudOrders:", cloudOrders);
       setOrders((cloudOrders ?? []).map(mapCloudOrder).filter((order): order is Order => !!order));
 
       if (profile.role === "admin") {
