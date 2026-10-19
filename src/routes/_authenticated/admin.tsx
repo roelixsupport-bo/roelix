@@ -369,7 +369,9 @@ function Admin() {
         throw ordersError;
       }
       console.log("Fetched cloudOrders:", cloudOrders);
-      setOrders((cloudOrders ?? []).map(mapCloudOrder).filter((order): order is Order => !!order));
+      const mappedOrders = (cloudOrders ?? []).map(mapCloudOrder).filter((order): order is Order => !!order);
+      console.log("Mapped orders:", mappedOrders);
+      setOrders(mappedOrders);
 
       if (profile.role === "admin") {
         await reloadProducts();
