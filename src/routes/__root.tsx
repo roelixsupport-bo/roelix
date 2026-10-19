@@ -8,7 +8,7 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { StoreProvider } from "@/lib/store";
@@ -17,6 +17,7 @@ import { Footer } from "@/components/site/footer";
 import { CartDrawer } from "@/components/site/cartdrawer";
 import { Concierge } from "@/components/site/concierge";
 import { Toaster } from "@/components/ui/sonner";
+import { initMetaPixel } from "@/utils/metaPixel";
 
 function NotFoundComponent() {
   return (
@@ -117,6 +118,11 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    // تفعيل Meta Pixel لتتبع زوار موقع Roelix تلقائياً عند تحميل الموقع
+    initMetaPixel();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
