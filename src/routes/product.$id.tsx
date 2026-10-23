@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Heart, Minus, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -25,6 +25,7 @@ export const Route = createFileRoute("/product/$id")({
 
 function ProductPage() {
   const { id } = Route.useParams();
+  const navigate = useNavigate();
   const s = useStore();
   const p = s.find(id);
   const [img, setImg] = useState(0);
@@ -93,7 +94,12 @@ function ProductPage() {
 
   const handleAddToCart = () => {
     const added = s.addToCart({ id: p.id, size: sz ?? "", color: col ?? "" }, qty);
-    if (!added) showQuantityWarning();
+    if (added) {
+      // توجيه العميل فوراً إلى صفحة إتمام الشراء والتفاصيل
+      navigate({ to: "/checkout" });
+    } else {
+      showQuantityWarning();
+    }
   };
 
   return (
@@ -214,7 +220,7 @@ function ProductPage() {
                 : "In stock — ships within 24 hours"}
           </p>
 
-          {/* التحكم بالكمية وأزرار إضافة إلى السلة الأساسية بتصميم واضح ومستجيب */}
+          {/* أزرار إضافة المنتج إلى السلة */}
           <div className="mt-6 flex items-center gap-2 sm:gap-3">
             <div className="flex items-center border border-gray-300 rounded bg-background" aria-label="Quantity">
               <button
@@ -250,7 +256,6 @@ function ProductPage() {
               </button>
             </div>
 
-            {/* زر إضافة للسلة واضح باللون الأسود البارز والخط العريض */}
             <button
               disabled={p.stock === 0 || maxAddQty === 0}
               onClick={handleAddToCart}
@@ -335,23 +340,16 @@ function ProductPage() {
               <p className="eyebrow text-muted-foreground">Total</p>
               <p className="font-serif text-2xl sm:text-3xl">{s.fmt(bundleTotal)}</p>
               <button
-                onClick={() =>
+                onClick={() => {
                   bundle.forEach((b) => {
-                    if (
-                      !s.addToCart({
-                        id: b.id,
-                        size: b.sizes[0] ?? "",
-                        color: b.colors[0]?.name ?? "",
-                      })
-                    ) {
-                      toast.warning(
-                        s.lang === "ar"
-                          ? `عذراً، الكمية المتاحة في المخزون هي ${b.stock} فقط`
-                          : `Sorry, only ${b.stock} units are available in stock`,
-                      );
-                    }
-                  })
-                }
+                    s.addToCart({
+                      id: b.id,
+                      size: b.sizes[0] ?? "",
+                      color: b.colors[0]?.name ?? "",
+                    });
+                  });
+                  navigate({ to: "/checkout" });
+                }}
                 className="bg-black text-white font-bold py-3 px-6 rounded text-xs sm:text-sm uppercase tracking-wider mt-4 w-full sm:w-auto hover:bg-zinc-800 transition"
               >
                 Add All to Bag
@@ -361,7 +359,7 @@ function ProductPage() {
         </section>
       )}
 
-      {/* شريط شراء ثابت في أسفل شاشة الهاتف (Sticky Bottom Mobile Bar) بوضوح وشكل فاخر */}
+      {/* شريط الشراء السريع بأسفل الموبايل */}
       <div className="fixed bottom-0 start-0 end-0 z-50 flex items-center justify-between gap-3 border-t bg-black text-white p-3.5 lg:hidden shadow-2xl">
         <div>
           <p className="font-serif text-xs font-medium line-clamp-1 text-gray-200">
@@ -372,7 +370,7 @@ function ProductPage() {
         <button
           disabled={p.stock === 0 || maxAddQty === 0}
           onClick={handleAddToCart}
-          className="bg-amber-500 hover:bg-amber-600 text-black font-bold py-2.5 px-5 text-xs tracking-wider uppercase rounded transition whitespace-nowrap disabled:opacity-50"
+          className="bg-amber-500 hover:bg-amber-600 text-black font-bold py-2.5 px-5 text-xs tracking-wider uppercase rounded transition whitespace-nowrap disabled:opacity-50 cursor-pointer"
         >
           {s.t.add || "ADD TO BAG"}
         </button>
