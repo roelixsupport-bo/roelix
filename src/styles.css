@@ -175,3 +175,30 @@
 @utility animate-rise {
   animation: rise 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
+/* إجبار المتصفح على تطبيق اللون الذهبي والنص بوضوح */
+.text-gold {
+  color: var(--gold) !important;
+}
+
+.bg-navy {
+  background-color: var(--navy) !important;
+}
+
+.text-navy-foreground {
+  color: var(--navy-foreground) !important;
+}
+
+/* حماية ألوان الأشرطة العلوية والفوتر على الموبايل */
+@media (max-width: 768px) {
+  .bg-navy {
+    background-color: oklch(0.26 0.03 245) !important;
+  }
+  .text-gold {
+    color: oklch(0.76 0.13 88) !important;
+  }
+  
+  /* إعادة تحسين حجم خط الهيدر لشاشات الموبايل */
+  .eyebrow {
+    letter-spacing: 0.15em !important;
+  }
+}
