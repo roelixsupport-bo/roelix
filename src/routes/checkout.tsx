@@ -44,22 +44,55 @@ function Checkout() {
   const [newsletterOptIn, setNewsletterOptIn] = useState(false);
   const [orderTrackingOptIn, setOrderTrackingOptIn] = useState(false);
   const [pay, setPay] = useState<"card" | "cod">("cod");
+
   const shipping = f.governorate ? shippingFor(f.governorate) : undefined;
   const total = s.subtotal * EGP_PER_USD + (shipping ?? 0);
   const up = (k: keyof typeof f, v: string) => setF((x) => ({ ...x, [k]: v }));
+
   const addrOk =
-    f.name &&
-    /\S+@\S+/.test(f.email) &&
-    f.phone &&
-    f.address &&
-    f.city &&
-    f.governorate &&
-    f.country;
+    Boolean(f.name.trim()) &&
+    /\S+@\S+/.test(f.email.trim()) &&
+    Boolean(f.phone.trim()) &&
+    Boolean(f.address.trim()) &&
+    Boolean(f.city.trim()) &&
+    Boolean(f.governorate) &&
+    Boolean(f.country.trim());
+
+  const handleContinueToPayment = () => {
+    if (!f.name.trim()) {
+      toast.error(s.lang === "ar" ? "يرجى إدخال الاسم بالكامل" : "Please enter your full name");
+      return;
+    }
+    if (!/\S+@\S+/.test(f.email.trim())) {
+      toast.error(s.lang === "ar" ? "يرجى إدخال بريد إلكتروني صحيح" : "Please enter a valid email address");
+      return;
+    }
+    if (!f.phone.trim()) {
+      toast.error(s.lang === "ar" ? "يرجى إدخال رقم الهاتف" : "Please enter your phone number");
+      return;
+    }
+    if (!f.governorate) {
+      toast.error(s.lang === "ar" ? "يرجى اختيار المحافظة لحساب الشحن" : "Please select a governorate");
+      return;
+    }
+    if (!f.city.trim()) {
+      toast.error(s.lang === "ar" ? "يرجى إدخال المدينة" : "Please enter your city");
+      return;
+    }
+    if (!f.address.trim()) {
+      toast.error(s.lang === "ar" ? "يرجى إدخال العنوان بالتفصيل" : "Please enter your street address");
+      return;
+    }
+
+    setStep(2);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   if (s.lines.length === 0)
     return (
-      <div className="py-40 text-center">
-        <p className="font-serif text-3xl">{s.t.empty}</p>
-        <Link to="/shop" className="btn-lux mt-8">
+      <div className="py-28 sm:py-40 text-center px-4">
+        <p className="font-serif text-2xl sm:text-3xl">{s.t.empty}</p>
+        <Link to="/shop" className="bg-black hover:bg-zinc-800 text-white font-bold py-3.5 px-8 rounded text-sm uppercase inline-block mt-8 transition shadow-md">
           Explore The Collection
         </Link>
       </div>
@@ -143,9 +176,6 @@ function Checkout() {
           });
         } catch (error) {
           console.error("Order placed, but could not save optional email preferences", error);
-          toast.warning(
-            "Your order was placed, but we couldn't save the optional email preferences.",
-          );
         }
       }
       s.clearCart();
@@ -160,88 +190,52 @@ function Checkout() {
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-16 px-6 py-16 lg:grid-cols-[1fr_380px]">
+    <div className="mx-auto grid max-w-6xl gap-8 lg:gap-16 px-4 sm:px-6 py-8 sm:py-16 lg:grid-cols-[1fr_380px]">
       <div>
-        <div className="mb-10 flex gap-8 eyebrow">
+        {/* مراحل الخطوات */}
+        <div className="mb-8 flex gap-4 sm:gap-8 eyebrow text-xs sm:text-sm">
           {["Details", "Payment", "Review"].map((x, i) => (
             <span
               key={x}
-              className={step === i + 1 ? "text-gold" : step > i + 1 ? "" : "text-muted-foreground"}
+              className={step === i + 1 ? "text-gold font-bold" : step > i + 1 ? "text-foreground" : "text-muted-foreground"}
             >
               {i + 1}. {x}
             </span>
           ))}
         </div>
+
+        {/* الخطوة الأولى: البيانات */}
         {step === 1 && (
           <div className="grid gap-4 sm:grid-cols-2">
             <input
-              className="input-lux sm:col-span-2"
-              placeholder="Full name"
+              className="input-lux sm:col-span-2 text-sm p-3 border rounded"
+              placeholder="Full name *"
               value={f.name}
               onChange={(e) => up("name", e.target.value)}
+              required
             />
             <input
-              className="input-lux"
-              placeholder="Email"
+              className="input-lux text-sm p-3 border rounded"
+              placeholder="Email *"
               type="email"
               autoComplete="email"
               value={f.email}
               onChange={(e) => up("email", e.target.value)}
+              required
             />
-            <div className="space-y-3 sm:col-span-2">
-              <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={newsletterOptIn}
-                  onChange={(event) => setNewsletterOptIn(event.target.checked)}
-                  className="mt-1 accent-[var(--gold)]"
-                />
-                <span>
-                  أرغب اختياريًا في الاشتراك بنشرة ROELIX لمعرفة جديد المفروشات الفاخرة والعروض.
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={orderTrackingOptIn}
-                  onChange={(event) => setOrderTrackingOptIn(event.target.checked)}
-                  className="mt-1 accent-[var(--gold)]"
-                />
-                <span>
-                  أوافق اختياريًا على حفظ بريدي الإلكتروني لتسهيل التواصل بشأن تتبع طلباتي مستقبلًا.
-                </span>
-              </label>
-              <p className="text-xs text-muted-foreground">
-                يمكنك إتمام الشراء كضيف دون تحديد أي خيار. يظل البريد الإلكتروني مطلوبًا لتفاصيل هذا
-                الطلب.
-              </p>
-            </div>
             <input
-              className="input-lux"
-              placeholder="Phone"
+              className="input-lux text-sm p-3 border rounded"
+              placeholder="Phone *"
+              type="tel"
               value={f.phone}
               onChange={(e) => up("phone", e.target.value)}
+              required
             />
-            <input
-              className="input-lux"
-              placeholder="Postcode (lookup)"
-              value={f.postcode}
-              onChange={(e) => {
-                up("postcode", e.target.value);
-                const c = CITIES[e.target.value.toUpperCase()];
-                if (c) up("city", c);
-              }}
-            />
-            <input
-              className="input-lux"
-              placeholder="City"
-              value={f.city}
-              onChange={(e) => up("city", e.target.value)}
-            />
+
             <label className="sm:col-span-2">
-              <span className="mb-2 block text-sm">Governorate / المحافظة</span>
+              <span className="mb-1.5 block text-xs sm:text-sm font-medium">Governorate / المحافظة *</span>
               <select
-                className="input-lux w-full"
+                className="input-lux w-full text-sm p-3 border rounded bg-background"
                 value={f.governorate}
                 onChange={(event) =>
                   setF((current) => ({
@@ -259,114 +253,166 @@ function Checkout() {
                 ))}
               </select>
             </label>
+
             <input
-              className="input-lux sm:col-span-2"
-              placeholder="Street address"
-              value={f.address}
-              onChange={(e) => up("address", e.target.value)}
+              className="input-lux text-sm p-3 border rounded"
+              placeholder="City *"
+              value={f.city}
+              onChange={(e) => up("city", e.target.value)}
+              required
             />
             <input
-              className="input-lux sm:col-span-2"
+              className="input-lux text-sm p-3 border rounded"
+              placeholder="Postcode (optional)"
+              value={f.postcode}
+              onChange={(e) => {
+                up("postcode", e.target.value);
+                const c = CITIES[e.target.value.toUpperCase()];
+                if (c) up("city", c);
+              }}
+            />
+
+            <input
+              className="input-lux sm:col-span-2 text-sm p-3 border rounded"
+              placeholder="Street address *"
+              value={f.address}
+              onChange={(e) => up("address", e.target.value)}
+              required
+            />
+            <input
+              className="input-lux sm:col-span-2 text-sm p-3 border rounded"
               placeholder="Country"
               value={f.country}
               onChange={(e) => up("country", e.target.value)}
             />
+
+            <div className="space-y-3 sm:col-span-2 my-2">
+              <label className="flex cursor-pointer items-start gap-3 text-xs sm:text-sm leading-5 text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={newsletterOptIn}
+                  onChange={(event) => setNewsletterOptIn(event.target.checked)}
+                  className="mt-0.5 accent-amber-500"
+                />
+                <span>
+                  أرغب اختياريًا في الاشتراك بنشرة ROELIX لمعرفة جديد المفروشات الفاخرة والعروض.
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 text-xs sm:text-sm leading-5 text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={orderTrackingOptIn}
+                  onChange={(event) => setOrderTrackingOptIn(event.target.checked)}
+                  className="mt-0.5 accent-amber-500"
+                />
+                <span>
+                  أوافق اختياريًا على حفظ بريدي الإلكتروني لتسهيل التواصل بشأن تتبع طلباتي مستقبلًا.
+                </span>
+              </label>
+            </div>
+
             <button
-              disabled={!addrOk}
-              onClick={() => setStep(2)}
-              className="btn-lux sm:col-span-2 mt-4"
+              type="button"
+              onClick={handleContinueToPayment}
+              className="bg-black hover:bg-zinc-800 text-white font-bold py-4 px-6 rounded text-sm uppercase tracking-wider transition shadow-md w-full sm:col-span-2 mt-4 cursor-pointer text-center"
             >
               Continue to Payment
             </button>
           </div>
         )}
+
+        {/* الخطوة الثانية: الدفع */}
         {step === 2 && (
           <div className="space-y-4">
             {(["card", "cod"] as const).map((m) => (
               <label
                 key={m}
-                className={`flex cursor-pointer items-center gap-3 border p-5 ${pay === m ? "border-gold" : ""}`}
+                className={`flex cursor-pointer items-center gap-3 border p-4 sm:p-5 rounded transition ${pay === m ? "border-amber-500 bg-amber-500/5" : "border-gray-200"}`}
               >
                 <input
                   type="radio"
                   checked={pay === m}
                   onChange={() => setPay(m)}
-                  className="accent-[var(--gold)]"
+                  className="accent-amber-500"
                 />
-                <span className="font-serif text-xl">
-                  {m === "card" ? "Credit Card" : "Cash on Delivery"}
+                <span className="font-serif text-lg sm:text-xl">
+                  {m === "card" ? "Credit Card" : "Cash on Delivery (الدفع عند الاستلام)"}
                 </span>
               </label>
             ))}
-            <p className="text-sm text-muted-foreground">
-              Local checkout records demonstration orders only; no payment is processed.
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              الدفع عند الاستلام متوفر لجميع المحافظات.
             </p>
             <div className="flex gap-3 pt-4">
-              <button onClick={() => setStep(1)} className="btn-ghost-lux">
+              <button onClick={() => setStep(1)} className="border border-gray-300 px-6 py-3 rounded text-sm hover:bg-gray-50">
                 Back
               </button>
-              <button onClick={() => setStep(3)} className="btn-lux flex-1">
+              <button onClick={() => { setStep(3); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="bg-black text-white font-bold py-3.5 px-6 rounded text-sm flex-1 uppercase tracking-wider hover:bg-zinc-800 transition">
                 Review Order
               </button>
             </div>
           </div>
         )}
+
+        {/* الخطوة الثالثة: المراجعة والتأكيد */}
         {step === 3 && (
           <div className="space-y-6">
-            <div className="border p-6 text-sm">
-              <p className="eyebrow mb-2 text-gold">Deliver to</p>
-              {f.name}
-              <br />
-              {f.address}, {f.city}, {f.governorate}, {f.country}
-              <br />
-              الشحن عبر شركة بوستا (Bosta): {s.fmtEgp(shipping ?? 0)}
-              <br />
-              الإجمالي النهائي: {s.fmtEgp(total)}
-              <br />
-              {f.email} · {f.phone}
+            <div className="border p-4 sm:p-6 text-sm rounded space-y-1">
+              <p className="eyebrow mb-2 text-gold font-bold">Deliver to</p>
+              <p className="font-semibold">{f.name}</p>
+              <p>{f.address}, {f.city}, {f.governorate}, {f.country}</p>
+              <p className="text-xs text-muted-foreground mt-2">الشحن عبر شركة بوستا (Bosta): {s.fmtEgp(shipping ?? 0)}</p>
+              <p className="text-xs font-semibold text-emerald-600">الإجمالي النهائي: {s.fmtEgp(total)}</p>
+              <p className="text-xs text-muted-foreground">{f.email} · {f.phone}</p>
             </div>
-            <div className="border p-6 text-sm">
-              <p className="eyebrow mb-2 text-gold">Payment</p>
-              {pay === "card" ? "Card (not charged in local mode)" : "Cash on Delivery"}
+            <div className="border p-4 sm:p-6 text-sm rounded">
+              <p className="eyebrow mb-2 text-gold font-bold">Payment Method</p>
+              {pay === "card" ? "Credit Card" : "Cash on Delivery (الدفع عند الاستلام)"}
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setStep(2)} className="btn-ghost-lux">
+              <button onClick={() => setStep(2)} className="border border-gray-300 px-6 py-3 rounded text-sm hover:bg-gray-50">
                 Back
               </button>
-              <button onClick={place} className="btn-lux flex-1">
-                Place Order · {s.fmtEgp(total)}
+              <button 
+                disabled={placing} 
+                onClick={place} 
+                className="bg-black hover:bg-zinc-800 text-white font-bold py-4 px-6 rounded text-sm uppercase tracking-wider flex-1 transition shadow-md disabled:opacity-50 cursor-pointer text-center"
+              >
+                {placing ? "Processing..." : `Place Order · ${s.fmtEgp(total)}`}
               </button>
             </div>
           </div>
         )}
       </div>
-      <aside className="h-fit bg-secondary p-8">
-        <h2 className="text-2xl">Order Summary</h2>
-        <div className="mt-6 space-y-4">
+
+      {/* ملخص الطلب */}
+      <aside className="h-fit bg-secondary p-5 sm:p-8 rounded-lg border border-gray-200">
+        <h2 className="text-xl sm:text-2xl font-serif border-b pb-3">Order Summary</h2>
+        <div className="mt-4 space-y-3">
           {s.lines.map((l) => (
-            <div key={l.id + l.size + l.color} className="flex justify-between gap-3 text-sm">
+            <div key={l.id + l.size + l.color} className="flex justify-between gap-3 text-xs sm:text-sm">
               <span>
                 {l.product.name}{" "}
                 <span className="text-muted-foreground">
                   × {l.qty} · {l.size}
                 </span>
               </span>
-              <span>{s.fmt((l.unitPrice ?? l.product.price) * l.qty)}</span>
+              <span className="font-medium">{s.fmt((l.unitPrice ?? l.product.price) * l.qty)}</span>
             </div>
           ))}
         </div>
-        <div className="mt-6 space-y-2 border-t pt-4 text-sm">
+        <div className="mt-6 space-y-2 border-t pt-4 text-xs sm:text-sm">
           <div className="flex justify-between">
             <span>Subtotal</span>
             <span>{s.fmt(s.subtotal)}</span>
           </div>
           <div className="flex justify-between">
             <span>الشحن عبر شركة بوستا (Bosta)</span>
-            <span>{shipping === undefined ? "اختاري المحافظة" : s.fmtEgp(shipping)}</span>
+            <span className="font-semibold text-emerald-600">{shipping === undefined ? "اختاري المحافظة" : s.fmtEgp(shipping)}</span>
           </div>
-          <div className="flex justify-between pt-2 font-serif text-xl">
+          <div className="flex justify-between pt-3 border-t font-serif text-lg sm:text-xl font-bold">
             <span>Total</span>
-            <span>{s.fmtEgp(total)}</span>
+            <span className="text-amber-600">{s.fmtEgp(total)}</span>
           </div>
         </div>
       </aside>
