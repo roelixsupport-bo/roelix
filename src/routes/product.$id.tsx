@@ -99,9 +99,8 @@ function ProductPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-14 pb-28 sm:pb-14">
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-14">
-        {/* معرض الصور - متجوب كلياً على الموبايل والديسكتوب */}
+        {/* معرض الصور */}
         <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
-          {/* المصغرات Horizontal على الموبايل و Vertical على الشاشات الكبيرة */}
           <div className="flex sm:flex-col gap-2 overflow-x-auto sm:overflow-x-visible pb-2 sm:pb-0 scrollbar-none">
             {p.images.map((im, i) => (
               <button
@@ -124,7 +123,6 @@ function ProductPage() {
             </button>
           </div>
 
-          {/* الصورة الرئيسية */}
           <div className="relative flex-1">
             {video ? (
               <div className="relative aspect-[4/5] overflow-hidden bg-navy rounded-sm">
@@ -205,7 +203,7 @@ function ProductPage() {
           </div>
 
           <p
-            className={`mt-4 sm:mt-6 text-xs sm:text-sm ${p.stock === 0 ? "text-destructive" : p.stock < 10 ? "text-gold" : "text-emerald"}`}
+            className={`mt-4 sm:mt-6 text-xs sm:text-sm ${p.stock === 0 ? "text-destructive" : p.stock < 10 ? "text-gold" : "text-emerald-600 font-semibold"}`}
           >
             {p.stock === 0
               ? s.lang === "ar"
@@ -216,12 +214,12 @@ function ProductPage() {
                 : "In stock — ships within 24 hours"}
           </p>
 
-          {/* التحكم بالكمية وأزرار إضافة إلى السلة الأساسية */}
-          <div className="mt-6 flex gap-2 sm:gap-3">
-            <div className="flex items-center border" aria-label="Quantity">
+          {/* التحكم بالكمية وأزرار إضافة إلى السلة الأساسية بتصميم واضح ومستجيب */}
+          <div className="mt-6 flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center border border-gray-300 rounded bg-background" aria-label="Quantity">
               <button
                 type="button"
-                className="p-2 sm:p-3"
+                className="p-2 sm:p-3 hover:bg-gray-100 transition"
                 aria-label="Decrease quantity"
                 onClick={() => updateQuantity(qty - 1)}
                 disabled={qty <= 1 || p.stock === 0 || maxAddQty === 0}
@@ -236,11 +234,11 @@ function ProductPage() {
                 aria-label="Quantity"
                 onChange={(e) => updateQuantity(e.currentTarget.valueAsNumber)}
                 disabled={p.stock === 0 || maxAddQty === 0}
-                className="w-10 sm:w-12 bg-transparent text-center text-xs sm:text-sm outline-none disabled:opacity-50"
+                className="w-10 sm:w-12 bg-transparent text-center text-xs sm:text-sm font-bold outline-none disabled:opacity-50"
               />
               <button
                 type="button"
-                className="p-2 sm:p-3"
+                className="p-2 sm:p-3 hover:bg-gray-100 transition"
                 aria-label="Increase quantity"
                 onClick={() => {
                   if (qty >= maxAddQty) showQuantityWarning();
@@ -252,20 +250,21 @@ function ProductPage() {
               </button>
             </div>
 
+            {/* زر إضافة للسلة واضح باللون الأسود البارز والخط العريض */}
             <button
               disabled={p.stock === 0 || maxAddQty === 0}
               onClick={handleAddToCart}
-              className="btn-lux flex-1 text-xs sm:text-sm"
+              className="flex-1 bg-black hover:bg-zinc-800 text-white font-bold py-3.5 px-6 rounded text-xs sm:text-sm tracking-wider uppercase transition shadow-md disabled:opacity-50 cursor-pointer text-center"
             >
-              {s.t.add}
+              {s.t.add || "ADD TO BAG"}
             </button>
 
             <button
               onClick={() => s.toggleWish(p.id)}
-              className="border px-3 sm:px-4"
+              className="border border-gray-300 p-3 rounded hover:bg-gray-50 transition"
               aria-label="Wishlist"
             >
-              <Heart size={16} className={s.wishlist.includes(p.id) ? "fill-gold text-gold" : ""} />
+              <Heart size={18} className={s.wishlist.includes(p.id) ? "fill-gold text-gold" : "text-gray-700"} />
             </button>
           </div>
 
@@ -353,7 +352,7 @@ function ProductPage() {
                     }
                   })
                 }
-                className="btn-lux mt-4 w-full sm:w-auto"
+                className="bg-black text-white font-bold py-3 px-6 rounded text-xs sm:text-sm uppercase tracking-wider mt-4 w-full sm:w-auto hover:bg-zinc-800 transition"
               >
                 Add All to Bag
               </button>
@@ -362,20 +361,20 @@ function ProductPage() {
         </section>
       )}
 
-      {/* شريط شراء ثابت في أسفل شاشة الهاتف (Sticky Bottom Mobile Bar) */}
-      <div className="fixed bottom-0 start-0 end-0 z-40 flex items-center justify-between gap-3 border-t bg-background/95 p-3 backdrop-blur lg:hidden shadow-lg">
+      {/* شريط شراء ثابت في أسفل شاشة الهاتف (Sticky Bottom Mobile Bar) بوضوح وشكل فاخر */}
+      <div className="fixed bottom-0 start-0 end-0 z-50 flex items-center justify-between gap-3 border-t bg-black text-white p-3.5 lg:hidden shadow-2xl">
         <div>
-          <p className="font-serif text-sm font-medium line-clamp-1">
+          <p className="font-serif text-xs font-medium line-clamp-1 text-gray-200">
             {s.lang === "ar" ? p.nameAr : p.name}
           </p>
-          <p className="text-xs font-semibold text-gold">{s.fmt(p.price)}</p>
+          <p className="text-xs font-bold text-amber-400 mt-0.5">{s.fmt(p.price)}</p>
         </div>
         <button
           disabled={p.stock === 0 || maxAddQty === 0}
           onClick={handleAddToCart}
-          className="btn-lux py-2.5 px-5 text-xs whitespace-nowrap"
+          className="bg-amber-500 hover:bg-amber-600 text-black font-bold py-2.5 px-5 text-xs tracking-wider uppercase rounded transition whitespace-nowrap disabled:opacity-50"
         >
-          {s.t.add}
+          {s.t.add || "ADD TO BAG"}
         </button>
       </div>
     </div>
