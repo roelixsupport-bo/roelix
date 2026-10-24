@@ -24,51 +24,60 @@ export function Footer() {
   }
 
   return (
-    <footer className="mt-32 bg-navy text-navy-foreground">
-      <div className="mx-auto grid max-w-7xl gap-12 px-6 py-20 md:grid-cols-6">
+    <footer className="mt-16 sm:mt-32 bg-navy text-navy-foreground border-t border-white/10">
+      <div className="mx-auto grid max-w-7xl gap-8 sm:gap-12 px-5 sm:px-6 py-12 sm:py-20 grid-cols-1 md:grid-cols-6">
+        {/* الوصف وشعار الماركة */}
         <div className="md:col-span-2">
-          <p className="font-serif text-3xl tracking-[0.35em]">ROELIX</p>
-          <p className="mt-4 max-w-sm text-sm opacity-60">
+          <p className="font-serif text-2xl sm:text-3xl tracking-[0.35em] font-bold text-white">ROELIX</p>
+          <p className="mt-3 max-w-sm text-xs sm:text-sm text-navy-foreground/80 leading-relaxed font-light">
             Hotel-grade bedding and linens, woven from the world’s finest fibres for those who
             consider sleep an art.
           </p>
         </div>
-        <div className="space-y-3 text-sm opacity-80">
-          <p className="eyebrow text-gold mb-4">Maison</p>
-          <Link to="/shop" className="block hover:text-gold">
+
+        {/* المجموعات */}
+        <div className="space-y-2.5 text-xs sm:text-sm">
+          <p className="eyebrow text-gold font-bold mb-3 sm:mb-4">Maison</p>
+          <Link to="/shop" className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium">
             Collections
           </Link>
         </div>
-        <div className="space-y-3 text-sm opacity-80">
-          <p className="eyebrow text-gold mb-4">Client Care</p>
-          <a href={`mailto:${STORE_SUPPORT_EMAIL}`} className="block hover:text-gold">
+
+        {/* خدمة العملاء */}
+        <div className="space-y-2.5 text-xs sm:text-sm">
+          <p className="eyebrow text-gold font-bold mb-3 sm:mb-4">Client Care</p>
+          <a href={`mailto:${STORE_SUPPORT_EMAIL}`} className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium truncate">
             {STORE_SUPPORT_EMAIL}
           </a>
-          <p>ROELIX Personal Concierge</p>
-          <p>Premium Nationwide Delivery</p>
+          <p className="text-navy-foreground/80">ROELIX Personal Concierge</p>
+          <p className="text-navy-foreground/80">Premium Nationwide Delivery</p>
         </div>
+
+        {/* معلومات المتجر بالعربية */}
         <nav
           aria-label="السياسات ومعلومات المتجر"
           dir="rtl"
-          className="space-y-3 text-right text-sm opacity-80"
+          className="space-y-2.5 text-right text-xs sm:text-sm"
         >
-          <p className="mb-4 font-serif text-lg text-gold">معلومات المتجر</p>
-          <Link to="/privacy" className="block hover:text-gold">
+          <p className="mb-3 sm:mb-4 font-serif text-base sm:text-lg text-gold font-bold">معلومات المتجر</p>
+          <Link to="/privacy" className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium">
             سياسة الخصوصية
           </Link>
-          <Link to="/shipping" className="block hover:text-gold">
+          <Link to="/shipping" className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium">
             الشحن والتوصيل
           </Link>
-          <Link to="/refunds" className="block hover:text-gold">
+          <Link to="/refunds" className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium">
             الاستبدال والاسترجاع
           </Link>
-          <Link to="/terms" className="block hover:text-gold">
+          <Link to="/terms" className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium">
             الشروط والأحكام
           </Link>
         </nav>
+
+        {/* النشرة البريدية */}
         <div dir="rtl" className="text-right">
-          <p className="mb-4 font-serif text-lg text-gold">نشرة ROELIX البريدية</p>
-          <p className="mb-4 text-sm leading-7 opacity-75">
+          <p className="mb-3 sm:mb-4 font-serif text-base sm:text-lg text-gold font-bold">نشرة ROELIX البريدية</p>
+          <p className="mb-3 text-xs sm:text-sm leading-6 text-navy-foreground/80">
             الاشتراك اختياري ليصلك جديد تشكيلات المفروشات الفاخرة والعروض.
           </p>
           <form onSubmit={subscribe} className="space-y-3">
@@ -83,15 +92,17 @@ export function Footer() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="بريدك الإلكتروني"
-              className="w-full border border-navy-foreground/30 bg-transparent px-3 py-2 text-sm text-navy-foreground outline-none placeholder:text-navy-foreground/50 focus:border-gold"
+              className="w-full border border-navy-foreground/40 bg-navy-foreground/5 px-3.5 py-2.5 text-xs sm:text-sm text-navy-foreground outline-none placeholder:text-navy-foreground/50 focus:border-gold rounded-sm"
             />
-            <button type="submit" className="btn-ghost-lux w-full text-xs">
+            <button type="submit" className="btn-ghost-lux w-full text-xs font-bold py-2.5">
               اشترك اختياريًا
             </button>
           </form>
         </div>
       </div>
-      <div className="border-t border-navy-foreground/10 py-6 text-center eyebrow opacity-50">
+
+      {/* حقوق النشر والملكية */}
+      <div className="border-t border-navy-foreground/10 py-5 text-center eyebrow text-xs text-navy-foreground/60 font-medium">
         © 2026 ROELIX Maison
       </div>
     </footer>
