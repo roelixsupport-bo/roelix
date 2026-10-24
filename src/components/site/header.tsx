@@ -33,50 +33,55 @@ export function Header() {
 
   return (
     <header className="relative w-full z-40 bg-background border-b overflow-x-hidden">
-      {/* Top Announcement Bar - شريط التنبيهات الفاخر */}
+      {/* Top Announcement Bar - شريط الإعلانات العلوي */}
       <div className="bg-navy text-navy-foreground w-full border-b border-white/10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 py-2 text-[0.68rem] sm:text-[0.72rem] tracking-wider uppercase">
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 py-2 text-[0.62rem] sm:text-[0.72rem] tracking-[0.15em] uppercase">
+          {/* العملة واللغة */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <span className="font-semibold">{s.lang === "ar" ? "ج.م" : "EGP"}</span>
             <span className="opacity-40">·</span>
             <button
               onClick={() => s.setLang(s.lang === "en" ? "ar" : "en")}
-              className="hover:text-gold transition-colors font-medium"
+              className="hover:text-gold transition-colors font-semibold"
             >
               {s.lang === "en" ? "العربية" : "English"}
             </button>
           </div>
-          <span dir="auto" className="text-center font-medium text-gold truncate px-2 text-xs sm:text-sm">
+
+          {/* نص الإعلان الذهبي في المنتصف */}
+          <span dir="auto" className="text-center font-medium text-gold px-1 text-[0.65rem] sm:text-xs leading-tight">
             {s.t.announce}
           </span>
-          <span className="hidden justify-self-end whitespace-nowrap opacity-75 sm:block shrink-0 text-xs">
+
+          {/* رقم الـ Concierge */}
+          <span className="whitespace-nowrap opacity-80 shrink-0 text-[0.6rem] sm:text-xs">
             Concierge · +1 800 ROELIX
           </span>
         </div>
       </div>
 
-      {/* Main Navigation Bar - شريط التصفح الرئيسي */}
+      {/* Main Navigation Bar - الشريط الرئيسي */}
       <div className="bg-background/95 backdrop-blur" onMouseLeave={() => setMega(false)}>
         <div
           dir="ltr"
-          className="mx-auto flex max-w-7xl items-center justify-between gap-3 sm:gap-6 px-4 sm:px-6 py-3.5 sm:py-5"
+          className="mx-auto flex max-w-7xl items-center justify-between gap-2 sm:gap-6 px-3 sm:px-6 py-3 sm:py-5"
         >
-          {/* اليسار: أزرار التحكم والقائمة في الموبايل */}
-          <div className="flex items-center gap-2.5 sm:gap-4">
+          {/* الأيقونات جهة اليسار */}
+          <div className="flex items-center gap-2 sm:gap-4">
             <button 
-              className="lg:hidden p-1.5 hover:text-gold transition-colors text-foreground" 
+              className="lg:hidden p-1 hover:text-gold transition-colors text-foreground" 
               onClick={() => setMobile(!mobile)} 
               aria-label="Menu"
             >
-              {mobile ? <X size={24} /> : <Menu size={24} />}
+              {mobile ? <X size={22} /> : <Menu size={22} />}
             </button>
             
             <button
               onClick={() => s.setCartOpen(true)}
               aria-label={s.t.cart}
-              className="relative p-1.5 hover:text-gold transition-colors text-foreground"
+              className="relative p-1 hover:text-gold transition-colors text-foreground"
             >
-              <ShoppingBag size={22} />
+              <ShoppingBag size={20} />
               {s.count > 0 && <Badge n={s.count} />}
             </button>
             
@@ -84,25 +89,25 @@ export function Header() {
               to="/shop"
               search={{ wish: true }}
               aria-label={s.t.wishlist}
-              className="relative p-1.5 hover:text-gold transition-colors text-foreground"
+              className="relative p-1 hover:text-gold transition-colors text-foreground"
             >
-              <Heart size={22} />
+              <Heart size={20} />
               {s.wishlist.length > 0 && <Badge n={s.wishlist.length} />}
             </Link>
 
-            {/* زر البحث على الموبايل */}
+            {/* زر البحث للموبايل */}
             <button 
-              className="md:hidden p-1.5 hover:text-gold transition-colors text-foreground"
+              className="md:hidden p-1 hover:text-gold transition-colors text-foreground"
               onClick={() => setSearchOpenMobile(!searchOpenMobile)}
               aria-label="Search"
             >
-              <Search size={22} />
+              <Search size={20} />
             </button>
 
-            {/* مربع البحث الخاص بالكمبيوتر */}
+            {/* مربع البحث للديسكتوب */}
             <div className="relative hidden md:block">
               <div className="flex items-center gap-2 border-b border-border pb-1">
-                <Search size={16} className="text-muted-foreground" />
+                <Search size={15} className="text-muted-foreground" />
                 <input
                   dir="auto"
                   value={q}
@@ -139,33 +144,33 @@ export function Header() {
             </div>
           </div>
 
-          {/* اسم المتجر / الشعار في المنتصف */}
+          {/* اللوجو بالمنتصف */}
           <Link
             to="/"
-            className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold tracking-[0.2em] sm:tracking-[0.3em] text-center text-foreground hover:text-gold transition-colors"
+            className="font-serif text-xl sm:text-3xl font-bold tracking-[0.2em] sm:tracking-[0.3em] text-center text-foreground hover:text-gold transition-colors"
           >
             ROELIX
           </Link>
 
-          {/* روابط القائمة اليمنى للكمبيوتر */}
+          {/* روابط المجموعات (للديسكتوب فقط) */}
           <nav className="hidden items-center justify-end gap-6 lg:gap-8 eyebrow lg:flex font-semibold text-xs sm:text-sm">
             <Link to="/shop" search={{ c: "Luxury Towels" }} className="hover:text-gold transition-colors text-foreground">
-              Bath
+              BATH
             </Link>
             <Link to="/shop" search={{ c: "Bedding Sets" }} className="hover:text-gold transition-colors text-foreground">
-              Bedding
+              BEDDING
             </Link>
             <button
               onMouseEnter={() => setMega(true)}
               onClick={() => setMega(!mega)}
               className="hover:text-gold transition-colors text-foreground cursor-pointer"
             >
-              Groups
+              GROUPS
             </button>
           </nav>
         </div>
 
-        {/* حقل البحث المتجاوب الخاص بالشاشات الصغيرة */}
+        {/* حقل البحث الخاص بالهاتف عند النقر على الأيقونة */}
         {searchOpenMobile && (
           <div className="p-3 border-t bg-background md:hidden">
             <div className="flex items-center gap-2 border border-border rounded px-3 py-2 bg-muted/30">
@@ -211,13 +216,13 @@ export function Header() {
           </div>
         )}
 
-        {/* القائمة الجانبية (Mega Menu & Mobile Drawer) */}
+        {/* القائمة الجانبية في الموبايل (Hamburger Menu) */}
         {(mega || mobile) && (
           <div className="border-t bg-background animate-in fade-in slide-in-from-top-2 shadow-2xl">
-            <div className="mx-auto grid max-w-7xl gap-8 px-6 py-8 md:grid-cols-4">
+            <div className="mx-auto grid max-w-7xl gap-6 px-6 py-8 md:grid-cols-4">
               <div>
                 <p className="eyebrow mb-4 text-gold font-bold">The Collections</p>
-                <ul className="space-y-3 font-serif text-lg sm:text-xl">
+                <ul className="space-y-3 font-serif text-lg">
                   {CATEGORIES.map((category) => (
                     <li key={category}>
                       <Link
@@ -235,38 +240,6 @@ export function Header() {
                   ))}
                 </ul>
               </div>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p className="eyebrow mb-4 text-foreground font-bold">By Fabric</p>
-                <p className="hover:text-foreground cursor-pointer transition">Egyptian Giza Cotton</p>
-                <p className="hover:text-foreground cursor-pointer transition">Sateen 1000 TC</p>
-                <p className="hover:text-foreground cursor-pointer transition">Percale 600 TC</p>
-                <p className="hover:text-foreground cursor-pointer transition">Hotel Microfiber</p>
-              </div>
-              {s.products
-                .filter((p) => p.isPublished)
-                .slice(0, 2)
-                .map((p) => (
-                  <Link
-                    key={p.id}
-                    to="/product/$id"
-                    params={{ id: p.id }}
-                    onClick={() => {
-                      if (pathname !== "/admin") {
-                        recordProductInteraction("product_click", p.id, p.name);
-                      }
-                      setMega(false);
-                      setMobile(false);
-                    }}
-                    className="hidden group md:block"
-                  >
-                    <img
-                      src={p.images[0]}
-                      alt={p.name}
-                      className="h-48 w-full object-cover transition duration-700 group-hover:scale-[1.02] rounded-sm"
-                    />
-                    <p className="mt-3 font-serif text-lg font-semibold text-foreground group-hover:text-gold transition-colors">{p.name}</p>
-                  </Link>
-                ))}
             </div>
           </div>
         )}
@@ -277,7 +250,7 @@ export function Header() {
 
 function Badge({ n }: { n: number }) {
   return (
-    <span className="absolute -top-1 -end-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[0.65rem] font-bold text-gold-foreground shadow-sm">
+    <span className="absolute -top-1 -end-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[0.65rem] font-bold text-gold-foreground shadow-xs">
       {n}
     </span>
   );
