@@ -53,10 +53,24 @@ export function Header() {
             {s.t.announce}
           </span>
 
-          {/* رقم الـ Concierge */}
-          <span className="whitespace-nowrap opacity-80 shrink-0 text-[0.6rem] sm:text-xs">
-            Concierge · +1 800 ROELIX
-          </span>
+          {/* رقم الـ Concierge ورابط الآدمين بشعار R المطابق */}
+          <div className="flex items-center gap-3 shrink-0">
+            <Link
+              to="/admin"
+              className="flex items-center gap-1.5 hover:text-gold transition-colors text-[0.6rem] sm:text-xs font-semibold"
+            >
+              <div className="flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-navy text-gold font-serif font-bold text-[0.65rem] sm:text-xs border border-gold/30 shadow-xs">
+                R
+              </div>
+              <span className="hidden sm:inline">
+                {s.lang === "ar" ? "الإدارة" : "Admin Dashboard"}
+              </span>
+            </Link>
+            <span className="opacity-40 hidden sm:inline">·</span>
+            <span className="whitespace-nowrap opacity-80 text-[0.6rem] sm:text-xs">
+              Concierge · +1 800 ROELIX
+            </span>
+          </div>
         </div>
       </div>
 
@@ -152,20 +166,20 @@ export function Header() {
             ROELIX
           </Link>
 
-          {/* روابط المجموعات (للديسكتوب فقط) */}
+          {/* روابط المجموعات (للديسكتوب فقط) مترجمة تلقائياً */}
           <nav className="hidden items-center justify-end gap-6 lg:gap-8 eyebrow lg:flex font-semibold text-xs sm:text-sm">
             <Link to="/shop" search={{ c: "Luxury Towels" }} className="hover:text-gold transition-colors text-foreground">
-              BATH
+              {s.lang === "ar" ? "الحمام" : "BATH"}
             </Link>
             <Link to="/shop" search={{ c: "Bedding Sets" }} className="hover:text-gold transition-colors text-foreground">
-              BEDDING
+              {s.lang === "ar" ? "المفارش" : "BEDDING"}
             </Link>
             <button
               onMouseEnter={() => setMega(true)}
               onClick={() => setMega(!mega)}
               className="hover:text-gold transition-colors text-foreground cursor-pointer"
             >
-              GROUPS
+              {s.lang === "ar" ? "المجموعات" : "GROUPS"}
             </button>
           </nav>
         </div>
@@ -216,12 +230,14 @@ export function Header() {
           </div>
         )}
 
-        {/* القائمة الجانبية في الموبايل (Hamburger Menu) */}
+        {/* القائمة الجانبية في الموبايل */}
         {(mega || mobile) && (
           <div className="border-t bg-background animate-in fade-in slide-in-from-top-2 shadow-2xl">
             <div className="mx-auto grid max-w-7xl gap-6 px-6 py-8 md:grid-cols-4">
               <div>
-                <p className="eyebrow mb-4 text-gold font-bold">The Collections</p>
+                <p className="eyebrow mb-4 text-gold font-bold">
+                  {s.lang === "ar" ? "التشكيلات والمجموعات" : "The Collections"}
+                </p>
                 <ul className="space-y-3 font-serif text-lg">
                   {CATEGORIES.map((category) => (
                     <li key={category}>
