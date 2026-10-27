@@ -20,6 +20,8 @@ function StoreProbe() {
       <output data-testid="cart-quantity">
         {store.lines.reduce((total, line) => total + line.qty, 0)}
       </output>
+      <output data-testid="cart-count">{store.count}</output>
+      <output data-testid="cart-lines">{store.lines.length}</output>
       <output data-testid="subtotal">{store.subtotal}</output>
       <output data-testid="cart-open">{String(store.cartOpen)}</output>
       <button
@@ -91,6 +93,22 @@ function StoreProbe() {
         }
       >
         Add malformed bundle
+      </button>
+      <button
+        onClick={() => {
+          const line = store.lines[0];
+          if (line) store.removeLine(line);
+        }}
+      >
+        Remove first
+      </button>
+      <button
+        onClick={() => {
+          const line = store.lines[0];
+          if (line) store.setQty(line, line.qty + 1);
+        }}
+      >
+        Increase first
       </button>
       <button onClick={() => store.setLang("ar")}>العربية</button>
       <output>{product?.stock ?? 0}</output>
@@ -186,7 +204,7 @@ describe("store currency and locale", () => {
     expect(getMaxOrderQuantity(-2)).toBe(0);
   });
 
-  it("enforces stock limits across cart variants and keeps cart quantities at least one", async () => {
+  it("enforces stock limits across cart variants and removes a line set to zero", async () => {
     await renderStore();
 
     const buttons = Array.from(container.querySelectorAll("button"));
@@ -200,10 +218,75 @@ describe("store currency and locale", () => {
     expect(container.querySelector('[data-testid="cart-quantity"]')?.textContent).toBe("12");
     expect(STATIC_PRODUCTS[0]?.stock).toBe(12);
 
+    // A quantity of zero is a delete, not a clamped one unit.
     await act(async () =>
       buttons.find((button) => button.textContent === "Set below minimum")?.click(),
     );
+    expect(container.querySelector('[data-testid="cart-quantity"]')?.textContent).toBe("0");
+    expect(container.querySelector('[data-testid="cart-lines"]')?.textContent).toBe("0");
+    expect(localStorage.getItem("roelix_cart")).toBe("[]");
+  });
+
+  it("deletes only the targeted line and keeps sibling variants in the bag", async () => {
+    await renderStore();
+    const buttons = Array.from(container.querySelectorAll("button"));
+
+    await act(async () =>
+      buttons.find((button) => button.textContent === "Add discounted bundle")?.click(),
+    );
+    expect(container.querySelector('[data-testid="cart-lines"]')?.textContent).toBe("2");
+    expect(container.querySelector('[data-testid="subtotal"]')?.textContent).toBe("1053");
+
+    await act(async () => buttons.find((button) => button.textContent === "Remove first")?.click());
+
+    expect(container.querySelector('[data-testid="cart-lines"]')?.textContent).toBe("1");
     expect(container.querySelector('[data-testid="cart-quantity"]')?.textContent).toBe("1");
+    expect(container.querySelector('[data-testid="cart-count"]')?.textContent).toBe("1");
+    expect(container.querySelector('[data-testid="subtotal"]')?.textContent).toBe("432");
+  });
+
+  it("persists deletions and quantity edits to local storage and the count badge", async () => {
+    await renderStore();
+    const buttons = Array.from(container.querySelectorAll("button"));
+
+    await act(async () =>
+      buttons.find((button) => button.textContent === "Add discounted bundle")?.click(),
+    );
+    await act(async () =>
+      buttons.find((button) => button.textContent === "Increase first")?.click(),
+    );
+
+    expect(container.querySelector('[data-testid="cart-count"]')?.textContent).toBe("3");
+    const grown = JSON.parse(localStorage.getItem("roelix_cart") ?? "[]") as Array<
+      Record<string, unknown>
+    >;
+    expect(grown.find((line) => line["id"] === "aurelia-sateen")?.["qty"]).toBe(2);
+
+    await act(async () =>
+      buttons.find((button) => button.textContent === "Set below minimum")?.click(),
+    );
+
+    expect(container.querySelector('[data-testid="cart-count"]')?.textContent).toBe("1");
+    const saved = JSON.parse(localStorage.getItem("roelix_cart") ?? "[]") as Array<
+      Record<string, unknown>
+    >;
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.["id"]).toBe("palais-duvet");
+  });
+
+  it("adopts a bag written by another tab", async () => {
+    await renderStore();
+
+    await act(async () => {
+      localStorage.setItem(
+        "roelix_cart",
+        JSON.stringify([{ id: "cloud-pillow", size: "Standard", color: "White", qty: 2 }]),
+      );
+      window.dispatchEvent(new StorageEvent("storage", { key: "roelix_cart" }));
+    });
+
+    expect(container.querySelector('[data-testid="cart-count"]')?.textContent).toBe("2");
+    expect(container.querySelector('[data-testid="cart-lines"]')?.textContent).toBe("1");
   });
 
   it("adds discounted bundles at their configured prices and rejects stock overflow atomically", async () => {

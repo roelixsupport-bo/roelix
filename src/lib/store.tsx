@@ -121,6 +121,20 @@ export type CartAddition = {
   qty: number;
   unitPrice?: number;
 };
+
+export type CartLineKey = Pick<SavedCartLine, "id" | "size" | "color" | "unitPrice">;
+
+/**
+ * Identity of a cart line: product + size + colour + unit price.
+ *
+ * The same product can sit in the bag twice at different prices (a bundle
+ * discount versus the list price), so every add / update / remove path has to
+ * compare all four fields. The bag UI uses this helper too, so identity can
+ * never drift between the store and the drawer.
+ */
+export function isSameCartLine(a: CartLineKey, b: CartLineKey): boolean {
+  return a.id === b.id && a.size === b.size && a.color === b.color && a.unitPrice === b.unitPrice;
+}
 type Language = "en" | "ar";
 
 export function getMaxOrderQuantity(stock: number): number {
@@ -301,7 +315,9 @@ type StoreContextValue = {
     qty?: number,
   ) => boolean;
   addBundleToCart: (additions: CartAddition[]) => boolean;
-  setQty: (line: CartLine, qty: number) => void;
+  setQty: (line: CartLine, qty: number) => boolean;
+  /** Deletes one line from the bag. Returns false when it was already gone. */
+  removeLine: (line: CartLine) => boolean;
   clearCart: () => void;
   setCartOpen: (open: boolean) => void;
   toggleWish: (id: string) => void;
@@ -479,6 +495,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [products]);
   useEffect(() => writeStorage(CART_KEY, cart), [cart]);
   useEffect(() => writeStorage(WISHLIST_KEY, wishlist), [wishlist]);
+
+  /**
+   * Keeps two open tabs in agreement: a deletion or quantity change made in one
+   * tab re-reads the saved cart here, so the drawer and the header badge follow.
+   * The `storage` event only fires in the *other* tabs, so this never fights the
+   * tab that made the change.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncCart = (event: StorageEvent) => {
+      if (event.key !== CART_KEY) return;
+      setCart(readStorage(CART_KEY, [] as SavedCartLine[], isSavedCart));
+    };
+    window.addEventListener("storage", syncCart);
+    return () => window.removeEventListener("storage", syncCart);
+  }, []);
   useEffect(() => {
     writeStorage(LANGUAGE_KEY, lang);
     document.documentElement.lang = lang;
@@ -541,13 +573,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           Math.max(0, getMaxOrderQuantity(product.stock) - currentProductQuantity),
         );
         if (addition === 0) return current;
-        const existing = current.find(
-          (line) =>
-            line.id === selection.id &&
-            line.size === selection.size &&
-            line.color === selection.color &&
-            line.unitPrice === unitPrice,
-        );
+        const existing = current.find((line) => isSameCartLine(line, selection));
         if (!existing)
           return [
             ...current,
@@ -619,13 +645,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       const next = [...cart];
       for (const addition of normalized) {
-        const existingIndex = next.findIndex(
-          (line) =>
-            line.id === addition.id &&
-            line.size === addition.size &&
-            line.color === addition.color &&
-            line.unitPrice === addition.unitPrice,
-        );
+        const existingIndex = next.findIndex((line) => isSameCartLine(line, addition));
         if (existingIndex === -1) {
           next.push({
             id: addition.id,
@@ -647,56 +667,68 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [cart, products],
   );
 
+  /**
+   * Deletes exactly one line from the bag.
+   *
+   * The filter runs inside the state updater so it always sees the freshest
+   * cart, and the boolean result lets the caller confirm that a row was really
+   * there (and show a confirmation toast only in that case).
+   */
+  const removeLine = useCallback(
+    (target: CartLine) => {
+      const exists = cart.some((line) => isSameCartLine(line, target));
+      // The filter is applied unconditionally: `exists` is only used for UI
+      // feedback, so a stale render can never swallow a genuine delete.
+      setCart((current) => {
+        const next = current.filter((line) => !isSameCartLine(line, target));
+        return next.length === current.length ? current : next;
+      });
+      return exists;
+    },
+    [cart],
+  );
+
+  /**
+   * Sets the quantity of one line. Anything below 1 removes the line.
+   *
+   * The old version forced `Math.max(1, qty)`, which turned the drawer's
+   * `setQty(line, 0)` delete into a no-op that silently reset the row to 1.
+   */
   const setQty = useCallback(
     (target: CartLine, qty: number) => {
-      const requestedQuantity = Number.isFinite(qty) ? Math.max(1, Math.floor(qty)) : 1;
-      const maxForLine = Math.max(
-        0,
-        getMaxOrderQuantity(target.product.stock) -
-          cart
-            .filter(
-              (line) =>
-                line.id === target.id &&
-                !(
-                  line.size === target.size &&
-                  line.color === target.color &&
-                  line.unitPrice === target.unitPrice
-                ),
-            )
-            .reduce((total, line) => total + line.qty, 0),
-      );
+      const requestedQuantity = Number.isFinite(qty) ? Math.floor(qty) : 1;
+      if (requestedQuantity < 1) {
+        removeLine(target);
+        return true;
+      }
+
+      const otherQuantity = cart
+        .filter((line) => line.id === target.id && !isSameCartLine(line, target))
+        .reduce((total, line) => total + line.qty, 0);
+      const maxForLine = Math.max(0, getMaxOrderQuantity(target.product.stock) - otherQuantity);
+
       setCart((current) => {
         const currentOtherQuantity = current
-          .filter(
-            (line) =>
-              line.id === target.id &&
-              !(
-                line.size === target.size &&
-                line.color === target.color &&
-                line.unitPrice === target.unitPrice
-              ),
-          )
+          .filter((line) => line.id === target.id && !isSameCartLine(line, target))
           .reduce((total, line) => total + line.qty, 0);
         const currentMaxForLine = Math.max(
           0,
           getMaxOrderQuantity(target.product.stock) - currentOtherQuantity,
         );
         return current.flatMap((line) => {
-          if (
-            line.id !== target.id ||
-            line.size !== target.size ||
-            line.color !== target.color ||
-            line.unitPrice !== target.unitPrice
-          )
-            return [line];
-          const currentQuantity = Math.min(requestedQuantity, currentMaxForLine);
-          return currentQuantity > 0 ? [{ ...line, qty: currentQuantity }] : [];
+          if (!isSameCartLine(line, target)) return [line];
+          // A line that can no longer hold any stock is dropped rather than
+          // pinned at 1, so the bag never advertises an unbuyable quantity.
+          const nextQuantity = Math.min(requestedQuantity, currentMaxForLine);
+          return nextQuantity > 0 ? [{ ...line, qty: nextQuantity }] : [];
         });
       });
       return requestedQuantity <= maxForLine;
     },
-    [cart],
+    [cart, removeLine],
   );
+
+  const clearCart = useCallback(() => setCart([]), []);
 
   const toggleWish = useCallback((id: string) => {
     setWishlist((current) =>
@@ -731,7 +763,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addToCart,
       addBundleToCart,
       setQty,
-      clearCart: () => setCart([]),
+      removeLine,
+      clearCart,
       setCartOpen,
       toggleWish,
       setLang,
@@ -752,6 +785,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addToCart,
       addBundleToCart,
       setQty,
+      removeLine,
+      clearCart,
       toggleWish,
       reloadProducts,
     ],

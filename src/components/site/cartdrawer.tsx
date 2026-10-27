@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Minus, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { getMaxOrderQuantity, useStore } from "@/lib/store";
+import { getMaxOrderQuantity, isSameCartLine, useStore, type CartLine } from "@/lib/store";
 
 export function CartDrawer() {
   const s = useStore();
@@ -37,9 +37,7 @@ export function CartDrawer() {
         <div className="flex-1 space-y-5 sm:space-y-6 overflow-y-auto px-5 sm:px-8 py-6">
           {s.lines.length === 0 && (
             <div className="mt-20 text-center space-y-4">
-              <p className="font-serif text-xl sm:text-2xl text-muted-foreground">
-                {s.t.empty}
-              </p>
+              <p className="font-serif text-xl sm:text-2xl text-muted-foreground">{s.t.empty}</p>
               <button
                 onClick={() => s.setCartOpen(false)}
                 className="text-xs uppercase tracking-widest text-gold underline font-semibold hover:text-foreground transition"
@@ -49,7 +47,13 @@ export function CartDrawer() {
             </div>
           )}
           {s.lines.map((l) => (
-            <CartItem key={l.id + l.size + l.color} line={l} />
+            <CartItem
+              // The separator matters: the same product, size and colour can
+              // appear twice at different prices, and a plain concatenation
+              // would hand React two identical keys.
+              key={`${l.id}|${l.size}|${l.color}|${l.unitPrice ?? "list"}`}
+              line={l}
+            />
           ))}
         </div>
 
@@ -81,21 +85,15 @@ export function CartDrawer() {
   );
 }
 
-function CartItem({ line }: { line: ReturnType<typeof useStore>["lines"][number] }) {
+function CartItem({ line }: { line: CartLine }) {
   const s = useStore();
   const otherQuantity = s.lines
-    .filter(
-      (item) =>
-        item.id === line.id &&
-        !(
-          item.size === line.size &&
-          item.color === line.color &&
-          item.unitPrice === line.unitPrice
-        ),
-    )
+    .filter((item) => item.id === line.id && !isSameCartLine(item, line))
     .reduce((total, item) => total + item.qty, 0);
 
   const maxQuantity = Math.max(0, getMaxOrderQuantity(line.product.stock) - otherQuantity);
+  const productName = s.lang === "ar" ? line.product.nameAr : line.product.name;
+  const removeLabel = s.lang === "ar" ? `إزالة ${productName} من الحقيبة` : `Remove ${productName}`;
 
   const warnLimit = () => {
     toast.warning(
@@ -116,19 +114,28 @@ function CartItem({ line }: { line: ReturnType<typeof useStore>["lines"][number]
         <div>
           <div className="flex justify-between items-start gap-2">
             <p className="font-serif text-base sm:text-lg font-semibold leading-tight text-foreground">
-              {s.lang === "ar" ? line.product.nameAr : line.product.name}
+              {productName}
             </p>
             <button
-              onClick={() => s.setQty(line, 0)}
+              type="button"
+              onClick={() => {
+                if (!s.removeLine(line)) return;
+                toast(
+                  s.lang === "ar"
+                    ? `تمت إزالة ${productName} من الحقيبة`
+                    : `${productName} removed from your bag`,
+                );
+              }}
               className="text-muted-foreground hover:text-destructive transition p-1"
-              title="Remove item"
-              aria-label="Remove item"
+              title={removeLabel}
+              aria-label={removeLabel}
             >
               <Trash2 size={16} />
             </button>
           </div>
           <p className="mt-1 text-xs text-muted-foreground font-medium">
-            {line.size && `Size: ${line.size}`} {line.size && line.color && "·"} {line.color && `Color: ${line.color}`}
+            {line.size && `Size: ${line.size}`} {line.size && line.color && "·"}{" "}
+            {line.color && `Color: ${line.color}`}
           </p>
         </div>
 
