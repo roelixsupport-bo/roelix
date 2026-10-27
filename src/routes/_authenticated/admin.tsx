@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { BOSTA_SHIPPING_RATES, type EgyptGovernorate } from "@/lib/shipping";
 import { productFromCloud, productToCloud } from "@/lib/cloud-catalog";
+import { OrderLineRestock } from "@/components/admin/order-line-restock";
 import { ProductActions } from "@/components/admin/product-actions";
 import { VariantManager } from "@/components/admin/variant-manager";
 import { uploadProductImage } from "@/lib/product-images";
@@ -111,6 +112,8 @@ const ADMIN_COPY = {
     visibleInShopSuccess: "Product visible in shop",
     productDeleted: "Product deleted",
     newOrder: "New order received",
+    stockRestored: "Stock restored",
+    restocked: "Returned to stock",
     noOrders: "No orders yet.",
     customer: "Customer",
     items: "Items",
@@ -217,6 +220,8 @@ const ADMIN_COPY = {
     visibleInShopSuccess: "تم إظهار المنتج في المتجر",
     productDeleted: "تم حذف المنتج",
     newOrder: "تم استلام طلب جديد",
+    stockRestored: "تم إرجاع المخزون",
+    restocked: "المرتجع إلى المخزون",
     noOrders: "لا توجد طلبات حتى الآن.",
     customer: "العميل",
     items: "المنتجات",
@@ -333,12 +338,18 @@ function mapCloudOrder(value: unknown): Order | null {
         color: String(item["color"] ?? "N/A"),
         name: String(item["name"] ?? "Unknown item"),
         price: Number(item["price"] ?? 0),
+        ...(typeof item["line_id"] === "string" ? { lineId: item["line_id"] } : {}),
+        restockedQuantity: Number(item["restocked_quantity"] ?? 0),
       };
     }),
     subtotal: Number(row["subtotal"] ?? 0),
     shipping: Number(row["shipping_cost"] ?? 0),
     total: Number(row["total_amount"] ?? 0),
     status: statuses[status] || "Pending",
+    ...(typeof row["restocked_at"] === "string" ? { restockedAt: row["restocked_at"] } : {}),
+    ...(typeof row["inventory_applied_at"] === "string"
+      ? { inventoryAppliedAt: row["inventory_applied_at"] }
+      : {}),
   };
 }
 
@@ -873,6 +884,11 @@ function Admin() {
                     {new Date(o.createdAt).toLocaleString(isArabic ? "ar-EG" : undefined)}
                     {o.payment && ` · ${o.payment === "cod" ? text.cashOnDelivery : text.card}`}
                   </p>
+                  {(o.restockedAt || o.items.some((item) => (item.restockedQuantity ?? 0) > 0)) && (
+                    <p className="mt-1 inline-block border border-emerald/40 px-2 py-0.5 text-[0.6rem] uppercase tracking-[0.12em] text-emerald">
+                      {text.stockRestored}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-serif text-xl">
@@ -917,13 +933,38 @@ function Admin() {
                     </p>
                   )}
                 </div>
-                <div>
+                <div className="space-y-3">
                   <p className="eyebrow mb-1 text-muted-foreground">{text.items}</p>
-                  {o.items.map((i, k) => (
-                    <p key={k}>
-                      {i.qty} × {i.name} ({i.size}, {i.color})
-                    </p>
-                  ))}
+                  {o.items.map((item, index) => {
+                    const restocked = item.restockedQuantity ?? 0;
+                    const remaining = Math.max(0, item.qty - restocked);
+                    const canRestock =
+                      role === "admin" && Boolean(o.inventoryAppliedAt) && Boolean(item.lineId);
+                    return (
+                      <div
+                        key={item.lineId ?? `${item.id}-${index}`}
+                        className="border-b border-border/40 pb-2 last:border-0 last:pb-0"
+                      >
+                        <p>
+                          {item.qty} × {item.name} ({item.size}, {item.color})
+                        </p>
+                        {(restocked > 0 || remaining === 0) && (
+                          <p className="text-[0.68rem] text-muted-foreground">
+                            {text.restocked}: {restocked} / {item.qty}
+                          </p>
+                        )}
+                        {canRestock && remaining > 0 && item.lineId && (
+                          <OrderLineRestock
+                            orderId={o.id}
+                            lineId={item.lineId}
+                            remaining={remaining}
+                            isArabic={isArabic}
+                            onRestocked={loadOrders}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

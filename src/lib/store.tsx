@@ -90,12 +90,20 @@ export type Order = {
     color: string;
     name?: string;
     price?: number;
+    /** Stable per-line id stamped by the database, used for partial returns. */
+    lineId?: string;
+    /** Units of this line already returned to stock. */
+    restockedQuantity?: number;
   }>;
   subtotal: number;
   shipping: number;
   total: number;
   payment?: "card" | "cod";
   status: "Pending" | "Processing" | "Shipped" | "Delivered" | "Cancelled";
+  /** Set by the database when a cancellation returned the items to stock. */
+  restockedAt?: string;
+  /** Set when the order's inventory was deducted — without it, stock cannot be returned. */
+  inventoryAppliedAt?: string;
 };
 
 type SavedCartLine = {
