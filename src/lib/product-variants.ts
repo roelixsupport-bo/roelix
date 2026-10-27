@@ -1,3 +1,5 @@
+import type { Product } from "@/lib/store";
+
 /**
  * Product variant model shared by the storefront and the admin dashboard.
  *
@@ -142,5 +144,29 @@ export function createEmptyVariant(sku = ""): ProductVariant {
     price: 0,
     compareAtPrice: null,
     stock: 0,
+  };
+}
+
+/**
+ * Keeps the product row consistent with its variants so shop cards, cart limits
+ * and the PDP never disagree:
+ *
+ * - price = cheapest variant price (what the shop grid advertises)
+ * - stock = sum of variant stock (what the cart limits against)
+ * - sizes = variant size names (so bundle and cross-sell flows stay valid)
+ */
+export function syncProductWithVariants(product: Product): Product {
+  const variants = normalizeVariants(product.variants ?? []);
+  if (variants.length === 0) return product;
+
+  const cheapest = lowestVariantPrice(variants) ?? product.price;
+  const sizes = [...new Set(variants.map((variant) => variant.sizeName.trim()).filter(Boolean))];
+
+  return {
+    ...product,
+    price: cheapest,
+    stock: totalVariantStock(variants),
+    sizes: sizes.length > 0 ? sizes : product.sizes,
+    variants,
   };
 }

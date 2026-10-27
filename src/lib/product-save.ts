@@ -1,9 +1,7 @@
 import { productToCloud } from "@/lib/cloud-catalog";
 import { supabase } from "@/lib/supabase";
 import {
-  lowestVariantPrice,
-  normalizeVariants,
-  totalVariantStock,
+  syncProductWithVariants,
   variantToCloud,
   type ProductVariant,
 } from "@/lib/product-variants";
@@ -25,30 +23,6 @@ function isMissingColumnError(error: { code?: string; message?: string }): boole
 
 function isMissingTableError(error: { code?: string; message?: string }): boolean {
   return error.code === "42P01" || /relation .* does not exist/i.test(error.message ?? "");
-}
-
-/**
- * Keeps the product row consistent with its variants so the shop cards, cart
- * limits and search never disagree with the PDP.
- *
- * - price  = cheapest variant price (what the shop grid advertises)
- * - stock  = sum of variant stock (what the cart limits against)
- * - sizes  = variant size names (so bundle/frequently-bought flows stay valid)
- */
-export function syncProductWithVariants(product: Product): Product {
-  const variants = normalizeVariants(product.variants ?? []);
-  if (variants.length === 0) return product;
-
-  const cheapest = lowestVariantPrice(variants) ?? product.price;
-  const sizes = [...new Set(variants.map((variant) => variant.sizeName.trim()).filter(Boolean))];
-
-  return {
-    ...product,
-    price: cheapest,
-    stock: totalVariantStock(variants),
-    sizes: sizes.length > 0 ? sizes : product.sizes,
-    variants,
-  };
 }
 
 async function saveVariants(

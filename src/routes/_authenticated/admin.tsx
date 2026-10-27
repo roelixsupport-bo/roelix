@@ -321,14 +321,18 @@ function mapCloudOrder(value: unknown): Order | null {
       governorate: governorate as EgyptGovernorate,
       country: "Egypt",
     },
-    items: items.map((item: any) => ({
-      id: item?.id ?? "unknown",
-      qty: item?.qty ?? 0,
-      size: item?.size ?? "N/A",
-      color: item?.color ?? "N/A",
-      name: item?.name ?? "Unknown item",
-      price: item?.price ?? 0,
-    })),
+    items: items.map((value) => {
+      const item =
+        typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+      return {
+        id: String(item["id"] ?? "unknown"),
+        qty: Number(item["qty"] ?? 0),
+        size: String(item["size"] ?? "N/A"),
+        color: String(item["color"] ?? "N/A"),
+        name: String(item["name"] ?? "Unknown item"),
+        price: Number(item["price"] ?? 0),
+      };
+    }),
     subtotal: Number(row["subtotal"] ?? 0),
     shipping: Number(row["shipping_cost"] ?? 0),
     total: Number(row["total_amount"] ?? 0),
