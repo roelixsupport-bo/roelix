@@ -107,6 +107,18 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en" dir="ltr">
       <head>
+        {/*
+          The shell above is rendered left-to-right on the server. A visitor who
+          already chose Arabic would otherwise see the whole page flip direction
+          once the store hydrates, so the saved language is applied before the
+          first paint. It only handles "ar": the shell default is already "en".
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{if(JSON.parse(localStorage.getItem("roelix_language"))==="ar"){document.documentElement.lang="ar";document.documentElement.dir="rtl"}}catch(e){}',
+          }}
+        />
         <HeadContent />
       </head>
       <body>

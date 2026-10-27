@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Heart, Search, ShoppingBag, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { recordProductInteraction, recordSearchQuery } from "@/lib/local-data";
 import { CATEGORIES, useStore } from "@/lib/store";
 
@@ -37,16 +38,18 @@ export function Header() {
       <div className="bg-navy text-navy-foreground w-full border-b border-white/10">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 py-2 text-[0.68rem] sm:text-[0.72rem] tracking-wider uppercase">
           <div className="flex items-center gap-2 shrink-0">
-            <span className="font-semibold">{s.lang === "ar" ? "ج.م" : "EGP"}</span>
-            <span className="opacity-40">·</span>
-            <button
-              onClick={() => s.setLang(s.lang === "en" ? "ar" : "en")}
-              className="hover:text-gold transition-colors font-medium"
-            >
-              {s.lang === "en" ? "العربية" : "English"}
-            </button>
+            <span className="font-semibold" title={s.lang === "ar" ? "العملة" : "Currency"}>
+              {s.lang === "ar" ? "ج.م" : "EGP"}
+            </span>
+            <span aria-hidden="true" className="opacity-40">
+              ·
+            </span>
+            <LanguageSwitcher />
           </div>
-          <span dir="auto" className="text-center font-medium text-gold truncate px-2 text-xs sm:text-sm">
+          <span
+            dir="auto"
+            className="min-w-0 flex-1 text-center font-medium text-gold truncate px-2 text-xs sm:text-sm"
+          >
             {s.t.announce}
           </span>
           <span className="hidden justify-self-end whitespace-nowrap opacity-75 sm:block shrink-0 text-xs">
@@ -63,14 +66,14 @@ export function Header() {
         >
           {/* اليسار: أزرار التحكم والقائمة في الموبايل */}
           <div className="flex items-center gap-2.5 sm:gap-4">
-            <button 
-              className="lg:hidden p-1.5 hover:text-gold transition-colors text-foreground" 
-              onClick={() => setMobile(!mobile)} 
+            <button
+              className="lg:hidden p-1.5 hover:text-gold transition-colors text-foreground"
+              onClick={() => setMobile(!mobile)}
               aria-label="Menu"
             >
               {mobile ? <X size={24} /> : <Menu size={24} />}
             </button>
-            
+
             <button
               onClick={() => s.setCartOpen(true)}
               aria-label={s.t.cart}
@@ -79,7 +82,7 @@ export function Header() {
               <ShoppingBag size={22} />
               {s.count > 0 && <Badge n={s.count} />}
             </button>
-            
+
             <Link
               to="/shop"
               search={{ wish: true }}
@@ -91,7 +94,7 @@ export function Header() {
             </Link>
 
             {/* زر البحث على الموبايل */}
-            <button 
+            <button
               className="md:hidden p-1.5 hover:text-gold transition-colors text-foreground"
               onClick={() => setSearchOpenMobile(!searchOpenMobile)}
               aria-label="Search"
@@ -149,10 +152,18 @@ export function Header() {
 
           {/* روابط القائمة اليمنى للكمبيوتر */}
           <nav className="hidden items-center justify-end gap-6 lg:gap-8 eyebrow lg:flex font-semibold text-xs sm:text-sm">
-            <Link to="/shop" search={{ c: "Luxury Towels" }} className="hover:text-gold transition-colors text-foreground">
+            <Link
+              to="/shop"
+              search={{ c: "Luxury Towels" }}
+              className="hover:text-gold transition-colors text-foreground"
+            >
               Bath
             </Link>
-            <Link to="/shop" search={{ c: "Bedding Sets" }} className="hover:text-gold transition-colors text-foreground">
+            <Link
+              to="/shop"
+              search={{ c: "Bedding Sets" }}
+              className="hover:text-gold transition-colors text-foreground"
+            >
               Bedding
             </Link>
             <button
@@ -237,7 +248,9 @@ export function Header() {
               </div>
               <div className="space-y-3 text-sm text-muted-foreground">
                 <p className="eyebrow mb-4 text-foreground font-bold">By Fabric</p>
-                <p className="hover:text-foreground cursor-pointer transition">Egyptian Giza Cotton</p>
+                <p className="hover:text-foreground cursor-pointer transition">
+                  Egyptian Giza Cotton
+                </p>
                 <p className="hover:text-foreground cursor-pointer transition">Sateen 1000 TC</p>
                 <p className="hover:text-foreground cursor-pointer transition">Percale 600 TC</p>
                 <p className="hover:text-foreground cursor-pointer transition">Hotel Microfiber</p>
@@ -264,7 +277,9 @@ export function Header() {
                       alt={p.name}
                       className="h-48 w-full object-cover transition duration-700 group-hover:scale-[1.02] rounded-sm"
                     />
-                    <p className="mt-3 font-serif text-lg font-semibold text-foreground group-hover:text-gold transition-colors">{p.name}</p>
+                    <p className="mt-3 font-serif text-lg font-semibold text-foreground group-hover:text-gold transition-colors">
+                      {p.name}
+                    </p>
                   </Link>
                 ))}
             </div>

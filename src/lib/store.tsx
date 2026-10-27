@@ -135,10 +135,28 @@ export type CartLineKey = Pick<SavedCartLine, "id" | "size" | "color" | "unitPri
 export function isSameCartLine(a: CartLineKey, b: CartLineKey): boolean {
   return a.id === b.id && a.size === b.size && a.color === b.color && a.unitPrice === b.unitPrice;
 }
-type Language = "en" | "ar";
+export type Language = "en" | "ar";
 
 export function getMaxOrderQuantity(stock: number): number {
   return Math.max(0, Math.floor(stock));
+}
+
+/**
+ * The single place that decides which direction a language reads in.
+ *
+ * Kept as a plain function (not inline in a component) so the store effect,
+ * the pre-paint script in the root shell and the tests all agree: "en" is
+ * always left-to-right, "ar" is always right-to-left.
+ */
+export function directionForLanguage(lang: Language): "ltr" | "rtl" {
+  return lang === "ar" ? "rtl" : "ltr";
+}
+
+/** Writes the language and its direction onto the document element. */
+export function applyLanguageToDocument(lang: Language): void {
+  if (typeof document === "undefined") return;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = directionForLanguage(lang);
 }
 
 const copy = {
@@ -513,8 +531,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     writeStorage(LANGUAGE_KEY, lang);
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+    applyLanguageToDocument(lang);
   }, [lang]);
 
   const find = useCallback(
