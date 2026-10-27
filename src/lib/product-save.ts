@@ -1,6 +1,12 @@
 import { productToCloud } from "@/lib/cloud-catalog";
 import { supabase } from "@/lib/supabase";
-import { lowestVariantPrice, normalizeVariants, totalVariantStock, variantToCloud, type ProductVariant } from "@/lib/product-variants";
+import {
+  lowestVariantPrice,
+  normalizeVariants,
+  totalVariantStock,
+  variantToCloud,
+  type ProductVariant,
+} from "@/lib/product-variants";
 import type { Product } from "@/lib/store";
 
 export type SaveProductResult = {
@@ -65,9 +71,10 @@ async function saveVariants(
   const inserts = next.filter((variant) => variant.id === null);
 
   if (updates.length > 0) {
-    const { error } = await supabase
-      .from("product_variants")
-      .upsert(updates.map((variant) => variantToCloud(variant, productId)), { onConflict: "id" });
+    const { error } = await supabase.from("product_variants").upsert(
+      updates.map((variant) => variantToCloud(variant, productId)),
+      { onConflict: "id" },
+    );
     if (error) throw error;
   }
   if (inserts.length > 0) {
@@ -99,8 +106,11 @@ export async function saveCloudProduct(
     if (!isMissingColumnError(error)) throw error;
     // The detail columns are missing (migration not applied). Save the rest so
     // the admin never loses an edit, then report the skipped copy.
-    const { product_details: _details, product_care: _care, ...legacyRow } =
-      productToCloud(product);
+    const {
+      product_details: _details,
+      product_care: _care,
+      ...legacyRow
+    } = productToCloud(product);
     const { error: retryError } = await supabase.from("products").upsert(legacyRow);
     if (retryError) throw retryError;
     detailsSkipped = true;

@@ -46,8 +46,7 @@ const COPY = {
   },
 } as const;
 
-const inputClass =
-  "w-full border bg-background px-3 py-2 text-sm outline-none focus:border-gold";
+const inputClass = "w-full border bg-background px-3 py-2 text-sm outline-none focus:border-gold";
 
 function toEgp(value: number): number {
   return Math.round(value * EGP_PER_USD);
@@ -89,9 +88,7 @@ export function VariantManager({
     const pending = sizeSuggestions.filter(
       (size) => size.trim() !== "" && !covered.has(size.trim().toLowerCase()),
     );
-    const generated = pending.map((size) =>
-      createEmptyVariant(slugSku(skuPrefix, size)),
-    );
+    const generated = pending.map((size) => createEmptyVariant(slugSku(skuPrefix, size)));
     const seeded = generated.map((variant, index) => ({
       ...variant,
       sizeName: pending[index] ?? "",
@@ -112,9 +109,7 @@ export function VariantManager({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-serif text-xl">{text.title}</h3>
-          <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-            {text.hint}
-          </p>
+          <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">{text.hint}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -169,9 +164,7 @@ export function VariantManager({
                     />
                   </label>
                   <label className="space-y-1">
-                    <span className="eyebrow text-[0.6rem] text-muted-foreground">
-                      {text.sku}
-                    </span>
+                    <span className="eyebrow text-[0.6rem] text-muted-foreground">{text.sku}</span>
                     <input
                       className={inputClass}
                       dir="ltr"

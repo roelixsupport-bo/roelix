@@ -293,7 +293,7 @@ function mapCloudOrder(value: unknown): Order | null {
   const governorate = (row["governorate"] as string) || "Other";
   const statusStr = (row["status"] as string) || "Pending";
   const status = statusStr.toLowerCase();
-  
+
   const statuses: Record<string, Order["status"]> = {
     pending: "Pending",
     processing: "Processing",
@@ -308,7 +308,7 @@ function mapCloudOrder(value: unknown): Order | null {
   const phone = String(row["phone"] ?? "");
   const address = String(row["address"] ?? "No address provided");
   const items = Array.isArray(row["items"]) ? row["items"] : [];
-  
+
   return {
     id,
     createdAt: typeof row["created_at"] === "string" ? row["created_at"] : new Date().toISOString(),
@@ -322,12 +322,12 @@ function mapCloudOrder(value: unknown): Order | null {
       country: "Egypt",
     },
     items: items.map((item: any) => ({
-        id: item?.id ?? "unknown",
-        qty: item?.qty ?? 0,
-        size: item?.size ?? "N/A",
-        color: item?.color ?? "N/A",
-        name: item?.name ?? "Unknown item",
-        price: item?.price ?? 0
+      id: item?.id ?? "unknown",
+      qty: item?.qty ?? 0,
+      size: item?.size ?? "N/A",
+      color: item?.color ?? "N/A",
+      name: item?.name ?? "Unknown item",
+      price: item?.price ?? 0,
     })),
     subtotal: Number(row["subtotal"] ?? 0),
     shipping: Number(row["shipping_cost"] ?? 0),
@@ -388,7 +388,9 @@ function Admin() {
       if (cloudOrders && cloudOrders.length > 0) {
         console.log("Raw cloud order item:", cloudOrders[0]);
       }
-      const mappedOrders = (cloudOrders ?? []).map(mapCloudOrder).filter((order): order is Order => !!order);
+      const mappedOrders = (cloudOrders ?? [])
+        .map(mapCloudOrder)
+        .filter((order): order is Order => !!order);
       console.log("Mapped orders:", mappedOrders);
       setOrders(mappedOrders);
 
@@ -557,9 +559,7 @@ function Admin() {
     }
     // With variants, the headline price is derived from the matrix on save.
     if (!hasVariants && (!Number.isFinite(p.price) || p.price <= 0)) {
-      toast.error(
-        isArabic ? "أدخل سعراً أكبر من صفر" : "A price above 0 is required",
-      );
+      toast.error(isArabic ? "أدخل سعراً أكبر من صفر" : "A price above 0 is required");
       return;
     }
     if (!Number.isInteger(p.stock) || p.stock < 0) {
@@ -1467,9 +1467,7 @@ function Editor({
               ) : (
                 <>
                   <Plus size={18} aria-hidden="true" />
-                  <span className="text-[0.55rem] uppercase tracking-[0.1em]">
-                    {text.addImage}
-                  </span>
+                  <span className="text-[0.55rem] uppercase tracking-[0.1em]">{text.addImage}</span>
                 </>
               )}
               <input
@@ -1510,4 +1508,3 @@ function Editor({
     </div>
   );
 }
-

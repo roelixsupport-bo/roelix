@@ -306,11 +306,7 @@ export function ProductDetail({ productId }: { productId: string }) {
       ? Math.round(((compareAt - unitPrice) / compareAt) * 100)
       : 0;
   const stockTone =
-    availableStock === 0
-      ? "text-destructive"
-      : availableStock < 4
-        ? "text-gold"
-        : "text-emerald";
+    availableStock === 0 ? "text-destructive" : availableStock < 4 ? "text-gold" : "text-emerald";
   const stockLabel =
     availableStock === 0
       ? copy.outOfStock
@@ -568,7 +564,9 @@ export function ProductDetail({ productId }: { productId: string }) {
                     style={{ backgroundColor: swatch.hex }}
                     className={cn(
                       "h-9 w-9 rounded-full border ring-offset-2 ring-offset-background transition",
-                      colour === swatch.name ? "border-foreground ring-1 ring-gold" : "border-border",
+                      colour === swatch.name
+                        ? "border-foreground ring-1 ring-gold"
+                        : "border-border",
                     )}
                   />
                 ))}
@@ -680,7 +678,10 @@ export function ProductDetail({ productId }: { productId: string }) {
                 </p>
                 <dl className="mt-4 space-y-2">
                   {detailSpecs.map((spec) => (
-                    <div key={spec.label} className="flex justify-between gap-4 border-b border-border/60 pb-2">
+                    <div
+                      key={spec.label}
+                      className="flex justify-between gap-4 border-b border-border/60 pb-2"
+                    >
                       <dt className="eyebrow text-[0.62rem] text-foreground">{spec.label}</dt>
                       <dd className="text-end text-xs">{spec.value}</dd>
                     </div>

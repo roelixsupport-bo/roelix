@@ -19,7 +19,9 @@ function slug(value: string): string {
 /** Downsizes a photo to a web-friendly JPEG so uploads stay quick on mobile networks. */
 export async function compressImage(file: File, maxDimension = MAX_DIMENSION): Promise<Blob> {
   if (file.size > MAX_UPLOAD_BYTES) {
-    throw new Error(`${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB. Use an image under 15MB.`);
+    throw new Error(
+      `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB. Use an image under 15MB.`,
+    );
   }
 
   const bitmap = await createImageBitmap(file);

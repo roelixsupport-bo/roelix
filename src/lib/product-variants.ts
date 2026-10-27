@@ -100,10 +100,7 @@ export function variantLabel(variant: ProductVariant): string {
   return variant.sizeName || variant.dimension || variant.sku;
 }
 
-export function findVariant(
-  variants: ProductVariant[],
-  id: string | null,
-): ProductVariant | null {
+export function findVariant(variants: ProductVariant[], id: string | null): ProductVariant | null {
   if (!id) return null;
   return variants.find((variant) => variant.id === id) ?? null;
 }
