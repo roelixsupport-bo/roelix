@@ -326,7 +326,7 @@ export function ProductDetail({ productId }: { productId: string }) {
   ].filter((spec) => spec.value);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 sm:pt-10 lg:pb-20">
+    <div className="mx-auto max-w-7xl px-4 pb-32 pt-6 sm:px-6 sm:pt-10 lg:pb-20">
       <ProductSchema
         product={{
           id: product.id,
@@ -392,10 +392,14 @@ export function ProductDetail({ productId }: { productId: string }) {
                     alt={displayName}
                     className="h-full w-full object-cover transition-transform duration-300"
                     style={
-                      zoomOrigin && zoomLevel > 1
+                      zoomLevel > 1
                         ? {
                             transform: `scale(${zoomLevel})`,
-                            transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+                            // Touch devices never report a cursor position, so
+                            // fall back to a centred zoom rather than doing nothing.
+                            transformOrigin: zoomOrigin
+                              ? `${zoomOrigin.x}% ${zoomOrigin.y}%`
+                              : "50% 50%",
                           }
                         : undefined
                     }
@@ -488,7 +492,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                       onClick={() => setSelectionId(variant.id)}
                       aria-pressed={isActive}
                       className={cn(
-                        "group flex flex-col items-start border px-3 py-2.5 text-left transition",
+                        "group flex min-w-0 flex-col items-start border px-2.5 py-2.5 text-left transition sm:px-3",
                         isActive
                           ? "border-navy bg-navy text-navy-foreground"
                           : isSoldOut
@@ -496,7 +500,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                             : "border-border hover:border-gold",
                       )}
                     >
-                      <span className="text-[0.82rem] font-medium leading-tight">
+                      <span className="text-[0.78rem] font-medium leading-tight sm:text-[0.82rem]">
                         {variant.sizeName || variant.dimension || variant.sku}
                       </span>
                       {variant.sizeName && variant.dimension && (
@@ -577,7 +581,7 @@ export function ProductDetail({ productId }: { productId: string }) {
           {/* -------------------------------------------------------------- Quantity */}
           <div className="mt-7 border-t pt-6">
             <p className="eyebrow text-xs">{copy.quantity}</p>
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+            <div className="mt-3 flex flex-wrap items-stretch gap-2 sm:flex-nowrap sm:gap-3">
               <div className="flex h-12 items-stretch border border-border">
                 <Button
                   type="button"
@@ -613,39 +617,38 @@ export function ProductDetail({ productId }: { productId: string }) {
                 </Button>
               </div>
 
-              <div className="flex flex-1 flex-col gap-2 sm:flex-row">
-                <Button
-                  type="button"
-                  onClick={() => handleAdd("bag")}
-                  disabled={!canBuy}
-                  className="h-12 flex-1 rounded-none bg-foreground text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-background hover:bg-foreground/90"
-                >
-                  {copy.addToBag}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => handleAdd("checkout")}
-                  disabled={!canBuy}
-                  variant="outline"
-                  className="h-12 flex-1 rounded-none border-foreground/25 text-[0.72rem] font-semibold uppercase tracking-[0.22em] hover:border-gold hover:bg-transparent hover:text-gold"
-                >
-                  {copy.buyNow}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => s.toggleWish(product.id)}
-                  aria-label="Wishlist"
-                  aria-pressed={s.wishlist.includes(product.id)}
-                  className="h-12 w-12 shrink-0 rounded-none border-border"
-                >
-                  <Heart
-                    size={16}
-                    className={s.wishlist.includes(product.id) ? "fill-gold text-gold" : ""}
-                  />
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => s.toggleWish(product.id)}
+                aria-label="Wishlist"
+                aria-pressed={s.wishlist.includes(product.id)}
+                className="ms-auto h-12 w-12 shrink-0 rounded-none border-border sm:order-last sm:ms-0"
+              >
+                <Heart
+                  size={16}
+                  className={s.wishlist.includes(product.id) ? "fill-gold text-gold" : ""}
+                />
+              </Button>
+
+              <Button
+                type="button"
+                onClick={() => handleAdd("bag")}
+                disabled={!canBuy}
+                className="h-12 basis-full rounded-none bg-foreground text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-background hover:bg-foreground/90 sm:order-2 sm:basis-0 sm:flex-1 sm:text-[0.72rem] sm:tracking-[0.22em]"
+              >
+                {copy.addToBag}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleAdd("checkout")}
+                disabled={!canBuy}
+                variant="outline"
+                className="h-12 basis-full rounded-none border-foreground/25 text-[0.7rem] font-semibold uppercase tracking-[0.18em] hover:border-gold hover:bg-transparent hover:text-gold sm:order-3 sm:basis-0 sm:flex-1 sm:text-[0.72rem] sm:tracking-[0.22em]"
+              >
+                {copy.buyNow}
+              </Button>
             </div>
 
             {maxAddable === 0 && availableStock > 0 && (
@@ -770,7 +773,7 @@ export function ProductDetail({ productId }: { productId: string }) {
       )}
 
       {/* ------------------------------------------------------------ Mobile buy bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t bg-background/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden">
         <div className="min-w-0">
           <p className="truncate font-serif text-sm">{displayName}</p>
           <p aria-live="polite" className="text-sm font-semibold">

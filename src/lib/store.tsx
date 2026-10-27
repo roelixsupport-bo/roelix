@@ -4,9 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import beddingImage from "@/assets/p_pedding.jpg";
 import pillowImage from "@/assets/p_pillow.jpg";
 import towelImage from "@/assets/p_towel.jpg";
@@ -301,6 +303,28 @@ type StoreContextValue = {
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
+function hasSupabaseConfig(): boolean {
+  // Unit tests render the provider without a network: never open sockets there.
+  if (import.meta.env["MODE"] === "test") return false;
+  return Boolean(import.meta.env["VITE_SUPABASE_URL"] && import.meta.env["VITE_SUPABASE_ANON_KEY"]);
+}
+
+/**
+ * Reads the live catalogue. Prefers the variant relation, and degrades to a
+ * plain select when `product_variants` is not provisioned yet.
+ */
+async function fetchCloudCatalog(supabase: SupabaseClient): Promise<unknown[]> {
+  const withVariants = await supabase
+    .from("products")
+    .select("*, product_variants(*)")
+    .order("name");
+  if (!withVariants.error) return withVariants.data ?? [];
+
+  const plain = await supabase.from("products").select("*").order("name");
+  if (plain.error) throw plain.error;
+  return plain.data ?? [];
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState(() => readProducts(STATIC_PRODUCTS));
   const [productsLoaded, setProductsLoaded] = useState(false);
@@ -313,37 +337,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
   const [cartOpen, setCartOpen] = useState(false);
 
-  /**
-   * Hydrates the storefront catalog from Supabase, keeping the local cache as an
-   * offline/first-paint fallback. Falls back again to a plain select when the
-   * `product_variants` relation is not available yet, so the shop never blanks
-   * out just because the variants migration has not been applied.
-   */
-  const reloadProducts = useCallback(async () => {
-    setProducts(readProducts(STATIC_PRODUCTS));
-    setProductsLoaded(true);
+  // Until the first successful cloud read, the cached catalogue is used so the
+  // shop can paint immediately. After that, Supabase owns the truth.
+  const catalogFromCloud = useRef(false);
 
-    if (typeof window === "undefined") return;
-    if (!import.meta.env["VITE_SUPABASE_URL"] || !import.meta.env["VITE_SUPABASE_ANON_KEY"]) return;
+  const reloadProducts = useCallback(async () => {
+    if (!catalogFromCloud.current) {
+      setProducts(readProducts(STATIC_PRODUCTS));
+      setProductsLoaded(true);
+    }
+
+    if (typeof window === "undefined" || !hasSupabaseConfig()) {
+      setProductsLoaded(true);
+      return;
+    }
 
     try {
       const { supabase } = await import("@/lib/supabase");
-      const withVariants = await supabase
-        .from("products")
-        .select("*, product_variants(*)")
-        .order("name");
+      const rows = await fetchCloudCatalog(supabase);
 
-      let rows: unknown[] | null = withVariants.data;
-      if (withVariants.error) {
-        const plain = await supabase.from("products").select("*").order("name");
-        if (plain.error) throw plain.error;
-        rows = plain.data;
-      }
-      if (!rows || rows.length === 0) return;
-
-      setProducts(rows.map((row) => productFromCloud(row)));
+      catalogFromCloud.current = true;
+      // Cloud is authoritative: an empty table means an empty shop, not a stale
+      // cache. One malformed row must not blank the whole catalogue.
+      setProducts(
+        rows.flatMap((row) => {
+          try {
+            return [productFromCloud(row)];
+          } catch (error) {
+            console.error("ROELIX catalog: skipping an unreadable product row", error);
+            return [];
+          }
+        }),
+      );
     } catch (error) {
-      console.warn("ROELIX catalog: showing the locally cached products", error);
+      // Network/RLS failure: keep whatever we already have on screen.
+      console.warn("ROELIX catalog: live fetch failed, keeping the current catalogue", error);
+    } finally {
+      setProductsLoaded(true);
     }
   }, []);
 
@@ -355,6 +385,69 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener(LOCAL_DATA_EVENT, syncProducts);
       window.removeEventListener("storage", syncProducts);
+    };
+  }, [reloadProducts]);
+
+  /**
+   * Keeps every device on the live catalogue.
+   *
+   * Phones freeze timers and sockets when the tab is backgrounded, so a
+   * Realtime socket alone is not enough: we also re-read when the page becomes
+   * visible again, regains focus or reconnects, and poll slowly as a fallback
+   * for projects where Realtime replication is not enabled.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasSupabaseConfig()) return;
+
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let removeChannel: (() => void) | undefined;
+    let disposed = false;
+
+    const refreshSoon = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => void reloadProducts(), 300);
+    };
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") refreshSoon();
+    };
+
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    window.addEventListener("focus", refreshIfVisible);
+    window.addEventListener("online", refreshIfVisible);
+
+    void (async () => {
+      try {
+        const { supabase } = await import("@/lib/supabase");
+        const channel = supabase
+          .channel(`roelix-catalog-${Math.random().toString(36).slice(2, 10)}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "products" }, refreshSoon)
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "product_variants" },
+            refreshSoon,
+          )
+          .subscribe();
+
+        if (disposed) {
+          void supabase.removeChannel(channel);
+          return;
+        }
+        removeChannel = () => void supabase.removeChannel(channel);
+      } catch (error) {
+        console.warn("ROELIX catalogue: realtime unavailable, using focus refresh", error);
+      }
+    })();
+
+    const pollTimer = window.setInterval(refreshIfVisible, 45_000);
+
+    return () => {
+      disposed = true;
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+      window.removeEventListener("focus", refreshIfVisible);
+      window.removeEventListener("online", refreshIfVisible);
+      window.clearInterval(pollTimer);
+      if (refreshTimer) clearTimeout(refreshTimer);
+      removeChannel?.();
     };
   }, [reloadProducts]);
   useEffect(() => {

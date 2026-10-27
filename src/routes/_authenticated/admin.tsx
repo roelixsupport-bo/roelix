@@ -1,10 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { BarChart3, Pencil, Plus, Search, Settings2, Trash2, Eye, EyeOff, X } from "lucide-react";
+import { BarChart3, Plus, Search, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
-  deleteLocalProduct,
   clearLocalAnalyticsEvents,
   readCustomBundleSettings,
   saveCustomBundleSettings,
@@ -31,6 +30,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { BOSTA_SHIPPING_RATES, type EgyptGovernorate } from "@/lib/shipping";
 import { productFromCloud, productToCloud } from "@/lib/cloud-catalog";
+import { ProductActions } from "@/components/admin/product-actions";
 import { VariantManager } from "@/components/admin/variant-manager";
 import { uploadProductImage } from "@/lib/product-images";
 import { saveCloudProduct } from "@/lib/product-save";
@@ -110,6 +110,7 @@ const ADMIN_COPY = {
     hiddenFromShop: "Product hidden from shop",
     visibleInShopSuccess: "Product visible in shop",
     productDeleted: "Product deleted",
+    newOrder: "New order received",
     noOrders: "No orders yet.",
     customer: "Customer",
     items: "Items",
@@ -215,6 +216,7 @@ const ADMIN_COPY = {
     hiddenFromShop: "تم إخفاء المنتج من المتجر",
     visibleInShopSuccess: "تم إظهار المنتج في المتجر",
     productDeleted: "تم حذف المنتج",
+    newOrder: "تم استلام طلب جديد",
     noOrders: "لا توجد طلبات حتى الآن.",
     customer: "العميل",
     items: "المنتجات",
@@ -359,6 +361,17 @@ function Admin() {
   const isArabic = s.lang === "ar";
   const text = ADMIN_COPY[isArabic ? "ar" : "en"];
 
+  /** Orders only — used by the realtime subscription so a new checkout does not
+   * trigger a full dashboard reload. */
+  const loadOrders = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    setOrders((data ?? []).map(mapCloudOrder).filter((order): order is Order => !!order));
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -380,23 +393,7 @@ function Admin() {
       }
       setRole(profile.role);
       setDashboardEmail(authData.user.email ?? "");
-      const { data: cloudOrders, error: ordersError } = await supabase
-        .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (ordersError) {
-        console.error("Orders fetch error:", ordersError);
-        throw ordersError;
-      }
-      console.log("Fetched cloudOrders:", cloudOrders);
-      if (cloudOrders && cloudOrders.length > 0) {
-        console.log("Raw cloud order item:", cloudOrders[0]);
-      }
-      const mappedOrders = (cloudOrders ?? [])
-        .map(mapCloudOrder)
-        .filter((order): order is Order => !!order);
-      console.log("Mapped orders:", mappedOrders);
-      setOrders(mappedOrders);
+      await loadOrders();
 
       if (profile.role === "admin") {
         await reloadProducts();
@@ -436,7 +433,7 @@ function Admin() {
     } finally {
       setLoading(false);
     }
-  }, [reloadProducts]);
+  }, [loadOrders, reloadProducts]);
 
   useEffect(() => {
     const onLocalChange = () => {
@@ -458,6 +455,62 @@ function Admin() {
       window.removeEventListener("storage", onLocalChange);
     };
   }, [load, role]);
+
+  /**
+   * The dashboard is often parked in a background tab on a phone, where timers
+   * and sockets are frozen. Re-read orders and inventory as soon as it is looked
+   * at again so the numbers are never a snapshot from hours ago.
+   */
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    window.addEventListener("focus", refreshIfVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+      window.removeEventListener("focus", refreshIfVisible);
+    };
+  }, [load]);
+
+  /**
+   * Live orders: a checkout on any device appears here within a second, and a
+   * status change made by another staff member lands immediately. Requires the
+   * orders table to be published to supabase_realtime (see
+   * 20261027160000_enable_orders_realtime.sql).
+   */
+  useEffect(() => {
+    if (role !== "admin" && role !== "staff") return;
+
+    const copy = ADMIN_COPY[isArabic ? "ar" : "en"];
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const refreshSoon = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        void loadOrders().catch((error) => {
+          console.error("Could not refresh orders after a realtime event", error);
+        });
+      }, 250);
+    };
+
+    const channel = supabase
+      .channel(`roelix-orders-${Math.random().toString(36).slice(2, 10)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
+        refreshSoon();
+        if (payload.eventType === "INSERT") {
+          const row = payload.new as Record<string, unknown>;
+          const orderNumber = typeof row["order_number"] === "string" ? row["order_number"] : null;
+          toast.success(copy.newOrder, orderNumber ? { description: orderNumber } : {});
+        }
+      })
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [isArabic, loadOrders, role]);
 
   async function run(action: () => void | Promise<void>, ok: string) {
     try {
@@ -624,11 +677,11 @@ function Admin() {
     <div
       dir={isArabic ? "rtl" : "ltr"}
       lang={isArabic ? "ar" : "en"}
-      className="mx-auto max-w-7xl px-6 py-12"
+      className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12"
     >
       <p className="eyebrow text-gold">{text.atelier}</p>
-      <div className="flex items-end justify-between">
-        <h1 className="font-serif text-5xl">{text.dashboard}</h1>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 sm:items-end">
+        <h1 className="font-serif text-3xl leading-tight sm:text-5xl">{text.dashboard}</h1>
         <button onClick={signOut} className="eyebrow text-muted-foreground hover:text-gold">
           {text.signOut}
         </button>
@@ -648,7 +701,9 @@ function Admin() {
         </p>
       )}
 
-      <div className={`mt-8 grid gap-4 ${role === "admin" ? "sm:grid-cols-4" : "sm:grid-cols-1"}`}>
+      <div
+        className={`mt-6 grid gap-3 sm:mt-8 sm:gap-4 ${role === "admin" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-1"}`}
+      >
         {(role === "admin"
           ? [
               [text.revenue, s.fmtEgp(revenue)],
@@ -658,15 +713,15 @@ function Admin() {
             ]
           : [[text.orders, orders.length]]
         ).map(([k, v]) => (
-          <div key={k} className="border p-5">
-            <p className="eyebrow text-muted-foreground">{k}</p>
-            <p className="mt-2 font-serif text-3xl">{v}</p>
+          <div key={k} className="border p-4 sm:p-5">
+            <p className="eyebrow text-[0.6rem] text-muted-foreground sm:text-[0.7rem]">{k}</p>
+            <p className="mt-1.5 font-serif text-2xl sm:mt-2 sm:text-3xl">{v}</p>
           </div>
         ))}
       </div>
 
       <div
-        className="mt-10 flex flex-wrap gap-6 border-b eyebrow"
+        className="-mx-4 mt-8 flex gap-5 overflow-x-auto border-b px-4 pb-0 eyebrow sm:mx-0 sm:mt-10 sm:gap-6 sm:px-0"
         role="tablist"
         aria-label={text.dashboard}
       >
@@ -677,7 +732,7 @@ function Admin() {
             role="tab"
             aria-selected={activeTab === t}
             onClick={() => setTab(t)}
-            className={`inline-flex items-center gap-2 pb-3 ${activeTab === t ? "border-b-2 border-gold text-gold" : "text-muted-foreground"}`}
+            className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap pb-3 ${activeTab === t ? "border-b-2 border-gold text-gold" : "text-muted-foreground"}`}
           >
             {t === "analytics" && <BarChart3 size={16} aria-hidden="true" />}
             {t === "settings" && <Settings2 size={16} aria-hidden="true" />}
@@ -691,7 +746,7 @@ function Admin() {
           <button
             type="button"
             onClick={() => setEditing(blank())}
-            className="mb-4 inline-flex items-center gap-2 bg-navy px-5 py-3 eyebrow text-navy-foreground hover:opacity-90"
+            className="mb-4 inline-flex w-full items-center justify-center gap-2 bg-navy px-5 py-3 eyebrow text-navy-foreground hover:opacity-90 sm:w-auto sm:justify-start"
           >
             <Plus size={14} /> {text.addProduct}
           </button>
@@ -700,7 +755,50 @@ function Admin() {
               {text.loading}
             </p>
           )}
-          <div className="overflow-x-auto border">
+          {/* Mobile: cards instead of a horizontally scrolling table */}
+          <ul className="space-y-3 sm:hidden">
+            {all.map((p) => (
+              <li key={p.id} className="border p-3">
+                <div className="flex gap-3">
+                  {p.images[0] ? (
+                    <img src={p.images[0]} alt="" className="h-20 w-16 shrink-0 object-cover" />
+                  ) : (
+                    <div className="h-20 w-16 shrink-0 bg-muted" aria-hidden="true" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-serif text-base leading-tight">{p.name}</p>
+                    {isArabic && p.nameAr && (
+                      <p dir="rtl" className="text-xs text-muted-foreground">
+                        {p.nameAr}
+                      </p>
+                    )}
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                      <span>{p.category}</span>
+                      <span className={p.stock < 5 ? "text-destructive" : ""}>
+                        {text.stock}: {p.stock}
+                      </span>
+                      <span className="font-medium text-foreground">{s.fmt(p.price)}</span>
+                    </div>
+                    {((p.variants?.length ?? 0) > 0 || !p.isPublished) && (
+                      <div className="mt-1 flex flex-wrap gap-x-2 text-[0.68rem] uppercase tracking-[0.1em] text-muted-foreground">
+                        {(p.variants?.length ?? 0) > 0 && (
+                          <span>
+                            {p.variants?.length} {text.variantLabel}
+                          </span>
+                        )}
+                        {!p.isPublished && <span>{text.hidden}</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 flex justify-end border-t pt-2">
+                  <ProductActions product={p} isArabic={isArabic} onEdit={setEditing} onRun={run} />
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden overflow-x-auto border sm:block">
             <table className="w-full text-sm">
               <thead className="bg-muted text-start eyebrow">
                 <tr>
@@ -743,85 +841,12 @@ function Admin() {
                     <td className="p-3">{s.fmt(p.price)}</td>
                     <td className={`p-3 ${p.stock < 5 ? "text-destructive" : ""}`}>{p.stock}</td>
                     <td className="p-3">
-                      <div className="flex justify-end gap-3">
-                        <button
-                          type="button"
-                          aria-label={isArabic ? "تغيير الظهور" : "Toggle visibility"}
-                          title={
-                            p.isPublished
-                              ? isArabic
-                                ? "إخفاء المنتج"
-                                : "Hide product"
-                              : isArabic
-                                ? "إظهار المنتج"
-                                : "Show product"
-                          }
-                          onClick={() =>
-                            run(
-                              async () => {
-                                const updated = { ...p, isPublished: !p.isPublished };
-                                const { error } = await supabase
-                                  .from("products")
-                                  .upsert(productToCloud(updated));
-                                if (error) throw error;
-                                saveLocalProduct(updated, STATIC_PRODUCTS);
-                              },
-                              p.isPublished ? text.hiddenFromShop : text.visibleInShopSuccess,
-                            )
-                          }
-                          className="hover:text-gold"
-                        >
-                          {p.isPublished ? <Eye size={16} /> : <EyeOff size={16} />}
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={isArabic ? "تعديل المنتج" : "Edit product"}
-                          title={isArabic ? "تعديل المنتج" : "Edit product"}
-                          onClick={() => setEditing(p)}
-                          className="hover:text-gold"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={isArabic ? "حذف المنتج" : "Delete product"}
-                          title={isArabic ? "حذف المنتج" : "Delete product"}
-                          onClick={() => {
-                            const isBuiltIn = STATIC_PRODUCTS.some(
-                              (product) => product.id === p.id,
-                            );
-                            const prompt = isBuiltIn
-                              ? isArabic
-                                ? `إخفاء ${p.name} من المتجر؟`
-                                : `Hide ${p.name} from the shop?`
-                              : isArabic
-                                ? `حذف ${p.name}؟`
-                                : `Delete ${p.name}?`;
-                            if (!confirm(prompt)) return;
-                            if (isBuiltIn) {
-                              run(async () => {
-                                const { error } = await supabase
-                                  .from("products")
-                                  .upsert(productToCloud({ ...p, isPublished: false }));
-                                if (error) throw error;
-                                saveLocalProduct({ ...p, isPublished: false }, STATIC_PRODUCTS);
-                              }, text.hiddenFromShop);
-                              return;
-                            }
-                            run(async () => {
-                              const { error } = await supabase
-                                .from("products")
-                                .delete()
-                                .eq("id", p.id);
-                              if (error) throw error;
-                              deleteLocalProduct(p.id, STATIC_PRODUCTS);
-                            }, text.productDeleted);
-                          }}
-                          className="hover:text-destructive"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                      <ProductActions
+                        product={p}
+                        isArabic={isArabic}
+                        onEdit={setEditing}
+                        onRun={run}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -1171,13 +1196,13 @@ function Editor({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-0 sm:p-4"
       onClick={onClose}
     >
       <div
         dir={isArabic ? "rtl" : "ltr"}
         lang={isArabic ? "ar" : "en"}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto bg-background p-8 shadow-lux"
+        className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto overscroll-contain bg-background p-4 shadow-lux sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
