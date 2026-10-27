@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/lib/supabase';
 import { useParams } from '@tanstack/react-router';
 import { toast } from 'sonner';
+import { Heart, Minus, Plus } from 'lucide-react';
 
 export const ProductDetail: React.FC = () => {
   const params = useParams({ strict: false }) as { id?: string };
@@ -13,14 +14,14 @@ export const ProductDetail: React.FC = () => {
   const [variants, setVariants] = useState<any[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [openSection, setOpenSection] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchProductData() {
+    async function fetchProductDetails() {
       try {
         setLoading(true);
-        // 1. جلب المنتج الأساسي من قاعدة البيانات
+        // 1. جلب بيانات المنتج الأساسية (تشمل السعر، الوصف، التفاصيل، وتعليمات العناية)
         const { data: prodData, error: prodError } = await supabase
           .from('products')
           .select('*')
@@ -30,7 +31,7 @@ export const ProductDetail: React.FC = () => {
         if (prodError) throw prodError;
         setProduct(prodData);
 
-        // 2. جلب المقاسات والمتغيرات (Variants) الخاصة بهذا المنتج
+        // 2. جلب المقاسات والمتغيرات (Variants) للمنتج إن وجدت
         const { data: varData, error: varError } = await supabase
           .from('product_variants')
           .select('*')
@@ -38,20 +39,20 @@ export const ProductDetail: React.FC = () => {
 
         if (!varError && varData && varData.length > 0) {
           setVariants(varData);
-          setSelectedVariant(varData[0]); // اختيار أول مقاس افتراضياً
+          setSelectedVariant(varData[0]);
         }
       } catch (err) {
-        console.error('Error fetching product details:', err);
+        console.error('Error loading product:', err);
       } finally {
         setLoading(false);
       }
     }
 
-    fetchProductData();
+    fetchProductDetails();
   }, [productId]);
 
-  const toggleSection = (section: string) => {
-    setOpenSection(openSection === section ? null : section);
+  const toggleAccordion = (section: string) => {
+    setActiveAccordion(activeAccordion === section ? null : section);
   };
 
   if (loading) {
@@ -59,178 +60,180 @@ export const ProductDetail: React.FC = () => {
   }
 
   if (!product) {
-    return <div className="py-40 text-center text-muted-foreground">المنتج غير موجود.</div>;
+    return <div className="py-40 text-center text-muted-foreground">عذراً، هذا المنتج غير موجود.</div>;
   }
 
+  // الاعتماد على السعر الأساسي للمنتج أو السعر المتغير إذا وجد
+  const displayPrice = selectedVariant?.price ? selectedVariant.price : (product.price || 0);
   const productImage = product.images?.[0] || "https://roelix.com/images/product-1.jpg";
-  const currentPrice = selectedVariant ? selectedVariant.price : (product.price || 1250);
-  const currentComparePrice = selectedVariant ? selectedVariant.compare_at_price : null;
-  const currentStock = selectedVariant ? selectedVariant.stock : (product.stock ?? 10);
-  const currentSku = selectedVariant ? selectedVariant.sku : `ROELIX-${product.id}`;
+  const productStock = selectedVariant?.stock ?? product.stock ?? 10;
 
   const schemaProduct = {
     id: product.id,
     name: product.name,
     description: product.description || "",
     image: productImage,
-    price: currentPrice,
+    price: displayPrice,
     currency: "EGP",
-    inStock: currentStock > 0
+    inStock: productStock > 0
   };
 
   return (
-    <div className="container mx-auto px-6 py-12 max-w-7xl" dir="rtl">
+    <div className="container mx-auto px-6 py-12 max-w-7xl" dir="ltr">
       <Helmet>
-        <title>{product.name} | ROELIX Atelier</title>
+        <title>{product.name} | ROELIX Luxury Atelier</title>
         <meta name="description" content={product.description} />
       </Helmet>
 
       <ProductSchema product={schemaProduct} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mt-6">
-        {/* صور المنتج */}
+        {/* معرض الصور */}
         <div>
           <img 
             src={productImage} 
             alt={product.name} 
-            className="w-full rounded-lg shadow-lg object-cover h-[500px]"
+            className="w-full rounded-lg shadow-md object-cover h-[550px]"
           />
         </div>
 
-        {/* معلومات المنتج والخيارات */}
-        <div className="flex flex-col justify-center">
-          <p className="eyebrow text-gold mb-2">ROELIX Luxury Collection</p>
-          <h1 className="font-serif text-4xl mb-3 text-[#0B132B]">{product.name}</h1>
+        {/* تفاصيل المنتج وخيارات الشراء تماماً كالمتاجر العالمية */}
+        <div className="flex flex-col justify-start">
           
-          {/* الـ SKU */}
-          <p className="text-xs text-muted-foreground mb-4">SKU: {currentSku}</p>
-
-          {/* الأسعار */}
-          <div className="flex items-center gap-4 mb-6">
-            <span className="text-3xl font-bold text-red-600">
-              LE {currentPrice}
-            </span>
-            {currentComparePrice && (
-              <span className="text-xl text-gray-400 line-through">
-                LE {currentComparePrice}
-              </span>
-            )}
-            {currentComparePrice && (
-              <span className="bg-red-600 text-white text-xs px-2 py-1 rounded font-semibold">
-                وفر {Math.round(((currentComparePrice - currentPrice) / currentComparePrice) * 100)}%
-              </span>
-            )}
-          </div>
-
-          {/* حالة المخزون */}
-          <div className="mb-6 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-emerald-600 inline-block animate-pulse"></span>
-            <span className="text-sm font-semibold text-emerald-700">
-              Available in stock ({currentStock})
+          {/* السعر البارز في الأعلى */}
+          <div className="mb-4">
+            <span className="text-3xl font-serif font-bold text-[#0B132B]">
+              EGP {displayPrice.toLocaleString()}
             </span>
           </div>
 
-          {/* أزرار اختيار المقاسات / المتغيرات (Variants Selection) */}
-          {variants.length > 0 && (
-            <div className="mb-6 space-y-4 border-t border-b py-4">
-              <div>
-                <label className="block text-sm font-semibold text-[#0B132B] mb-2">
-                  Size / Option: <span className="font-normal">{selectedVariant?.size_name}</span>
-                </label>
-                <div className="flex flex-wrap gap-3">
-                  {variants.map((v) => {
-                    const isSelected = selectedVariant?.id === v.id;
-                    return (
-                      <button
-                        key={v.id}
-                        onClick={() => setSelectedVariant(v)}
-                        className={`px-5 py-2.5 rounded-full border text-sm font-semibold transition ${
-                          isSelected 
-                            ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-md' 
-                            : 'bg-white text-[#0B132B] border-gray-300 hover:border-[#0B132B]'
-                        }`}
-                      >
-                        {v.size_name || v.dimension || 'Standard'}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+          {/* وصف المنتج */}
+          <p className="text-gray-700 text-sm leading-relaxed mb-6">
+            {product.description || "Enjoy hotel-quality comfort with our luxury collection, crafted with premium materials for soft, lasting support."}
+          </p>
 
-              {selectedVariant?.dimension && (
-                <div>
-                  <label className="block text-sm font-semibold text-[#0B132B] mb-1">
-                    Dimension: {selectedVariant.dimension}
-                  </label>
-                </div>
-              )}
+          {/* تفاصيل المنتج الإضافية (إن وجدت من لوحة التحكم) */}
+          {product.product_details && (
+            <div className="mb-6 text-xs text-gray-600 bg-gray-50 p-3 rounded border border-gray-100 leading-relaxed">
+              {product.product_details}
             </div>
           )}
 
-          {/* تحديد الكمية وأزرار الشراء */}
-          <div className="flex items-center gap-4 mb-8">
-            <div className="flex items-center border rounded-lg overflow-hidden bg-white">
+          {/* اختيار اللون (Colour) */}
+          <div className="mb-6">
+            <p className="text-xs font-semibold tracking-wider uppercase text-gray-900 mb-2">
+              Colour — <span className="font-normal text-gray-600">White</span>
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full border-2 border-[#D4AF37] p-0.5 flex items-center justify-center cursor-pointer">
+                <div className="w-full h-full rounded-full bg-white shadow-inner"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* المقاسات / المتغيرات (Size) */}
+          {variants.length > 0 && (
+            <div className="mb-6">
+              <p className="text-xs font-semibold tracking-wider uppercase text-gray-900 mb-2">
+                Size / Option
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {variants.map((v) => {
+                  const isSelected = selectedVariant?.id === v.id;
+                  return (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedVariant(v)}
+                      className={`px-6 py-3 rounded text-sm font-semibold transition border ${
+                        isSelected 
+                          ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-md' 
+                          : 'bg-white text-[#0B132B] border-gray-300 hover:border-[#0B132B]'
+                      }`}
+                    >
+                      {v.size_name || v.dimension || 'Standard'}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* حالة المخزون */}
+          <div className="mb-6 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block"></span>
+            <span className="text-sm font-medium text-emerald-700">
+              In stock — ships within 24 hours ({productStock} available)
+            </span>
+          </div>
+
+          {/* تحديد الكمية وزر إضافة للسلة */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center border border-gray-300 rounded overflow-hidden bg-white">
               <button 
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="px-4 py-3 hover:bg-gray-100 transition"
+                className="px-4 py-3.5 hover:bg-gray-100 text-gray-600 transition"
               >
-                −
+                <Minus size={16} />
               </button>
-              <span className="px-4 py-3 font-semibold">{quantity}</span>
+              <span className="px-5 py-3.5 font-semibold text-gray-900">{quantity}</span>
               <button 
                 onClick={() => setQuantity(quantity + 1)}
-                className="px-4 py-3 hover:bg-gray-100 transition"
+                className="px-4 py-3.5 hover:bg-gray-100 text-gray-600 transition"
               >
-                +
+                <Plus size={16} />
               </button>
             </div>
 
             <button 
-              onClick={() => toast.success(`تم إضافة ${quantity} من المنتج إلى السلة بنجاح`)}
-              className="flex-1 bg-white border-2 border-[#0B132B] text-[#0B132B] py-3.5 rounded-lg font-bold hover:bg-gray-50 transition shadow-sm"
+              onClick={() => toast.success(`Added ${quantity} item(s) to your bag`)}
+              className="flex-1 bg-[#0B132B] text-white py-4 rounded font-bold tracking-wider hover:opacity-95 transition shadow-md uppercase text-sm"
             >
-              Add To Cart
+              Add To Bag
+            </button>
+
+            <button 
+              onClick={() => toast.success("Added to wishlist")}
+              className="p-4 border border-gray-300 rounded hover:border-[#0B132B] transition text-gray-700"
+            >
+              <Heart size={20} />
             </button>
           </div>
 
-          <button 
-            onClick={() => toast.success("جاري الانتقال لإتمام الطلب...")}
-            className="w-full bg-[#0B132B] text-[#D4AF37] py-4 rounded-lg font-bold hover:opacity-90 transition shadow-lg mb-8"
-          >
-            Buy It Now
-          </button>
-
-          {/* القوائم المنسدلة للتفاصيل والعناية (Accordions) */}
-          <div className="border-t border-b border-gray-200 divide-y divide-gray-200">
+          {/* القوائم المنسدلة (Care Instructions & Product Details) تماماً مثل الصورة */}
+          <div className="border-t border-b border-gray-200 divide-y divide-gray-200 mt-4">
+            
+            {/* Care Instructions */}
             <div className="py-4">
               <button 
-                onClick={() => toggleSection('details')} 
-                className="flex justify-between items-center w-full font-serif text-lg text-[#0B132B] focus:outline-none"
+                onClick={() => toggleAccordion('care')} 
+                className="flex justify-between items-center w-full font-serif text-base text-[#0B132B] focus:outline-none"
               >
-                <span>Product Details</span>
-                <span className="text-xl font-sans">{openSection === 'details' ? '−' : '+'}</span>
+                <span className="font-semibold">Care Instructions</span>
+                <span className="text-xl font-sans">{activeAccordion === 'care' ? '−' : '+'}</span>
               </button>
-              {openSection === 'details' && (
+              {activeAccordion === 'care' && (
                 <p className="mt-3 text-gray-600 text-sm leading-relaxed whitespace-pre-line">
-                  {product.product_details || "خامة فاخرة مصممة خصيصاً لتلبي معايير الجودة العالمية لـ ROELIX."}
+                  {product.product_care || "Machine wash cold on gentle cycle. Do not bleach. Tumble dry low or line dry. Iron on low heat if needed."}
                 </p>
               )}
             </div>
 
+            {/* Shipping Policy */}
             <div className="py-4">
               <button 
-                onClick={() => toggleSection('care')} 
-                className="flex justify-between items-center w-full font-serif text-lg text-[#0B132B] focus:outline-none"
+                onClick={() => toggleAccordion('shipping')} 
+                className="flex justify-between items-center w-full font-serif text-base text-[#0B132B] focus:outline-none"
               >
-                <span>Product Care</span>
-                <span className="text-xl font-sans">{openSection === 'care' ? '−' : '+'}</span>
+                <span className="font-semibold">Shipping & Delivery</span>
+                <span className="text-xl font-sans">{activeAccordion === 'shipping' ? '−' : '+'}</span>
               </button>
-              {openSection === 'care' && (
-                <p className="mt-3 text-gray-600 text-sm leading-relaxed whitespace-pre-line">
-                  {product.product_care || "تُتبع تعليمات العناية القياسية للحفاظ على رونق وجودة المنتج."}
+              {activeAccordion === 'shipping' && (
+                <p className="mt-3 text-gray-600 text-sm leading-relaxed">
+                  Fast shipping across all governorates in Egypt via Bosta courier service within 2 to 4 business days.
                 </p>
               )}
             </div>
+
           </div>
 
         </div>
