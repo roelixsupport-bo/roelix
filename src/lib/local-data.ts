@@ -88,6 +88,9 @@ function cloneProducts(products: Product[]): Product[] {
       colors: product.colors.map((color) => ({ ...color })),
       sizes: [...product.sizes],
       frequently_bought_ids: [...(product.frequently_bought_ids ?? relatedProductIds ?? [])],
+      ...(product.variants && product.variants.length > 0
+        ? { variants: product.variants.map((variant) => ({ ...variant })) }
+        : {}),
     };
   });
 }
@@ -357,7 +360,13 @@ export function placeLocalOrder(
       );
     }
     const unitPrice = item.unitPrice ?? product.price;
-    if (!Number.isFinite(unitPrice) || unitPrice < 0 || unitPrice > product.price) {
+    // Variant pricing can be above the advertised product price, so validate
+    // against the most expensive variant instead of the product headline price.
+    const priceCeiling = Math.max(
+      product.price,
+      ...(product.variants ?? []).map((variant) => variant.price),
+    );
+    if (!Number.isFinite(unitPrice) || unitPrice < 0 || unitPrice > priceCeiling) {
       throw new Error(`Invalid unit price for ${product.name}`);
     }
     const priceInEgp = unitPrice * currencyMultiplier;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 interface ProductSchemaProps {
   product: {
@@ -9,15 +9,22 @@ interface ProductSchemaProps {
     price: number;
     currency?: string;
     inStock?: boolean;
+    sku?: string;
+    url?: string;
   };
 }
 
 export const ProductSchema: React.FC<ProductSchemaProps> = ({ product }) => {
+  // `window` is undefined during SSR, so resolve the offer URL defensively.
+  const url =
+    product.url ?? (typeof window !== "undefined" ? window.location.href : undefined);
+
   const schemaData = {
     "@context": "https://schema.org/",
     "@type": "Product",
     "name": product.name,
-    "image": [product.image],
+    ...(product.sku ? { "sku": product.sku } : {}),
+    ...(product.image ? { "image": [product.image] } : {}),
     "description": product.description,
     "brand": {
       "@type": "Brand",
@@ -27,10 +34,10 @@ export const ProductSchema: React.FC<ProductSchemaProps> = ({ product }) => {
       "@type": "Offer",
       "priceCurrency": product.currency || "EGP",
       "price": product.price,
-      "availability": product.inStock !== false 
-        ? "https://schema.org/InStock" 
+      "availability": product.inStock !== false
+        ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
-      "url": window.location.href
+      ...(url ? { "url": url } : {})
     }
   };
 

@@ -11,9 +11,13 @@ import beddingImage from "@/assets/p_pedding.jpg";
 import pillowImage from "@/assets/p_pillow.jpg";
 import towelImage from "@/assets/p_towel.jpg";
 import heroImage from "@/assets/hero.jpg";
+import { productFromCloud } from "@/lib/cloud-catalog";
 import { LOCAL_DATA_EVENT, readProducts } from "@/lib/local-data";
+import type { ProductVariant } from "@/lib/product-variants";
 import type { EgyptGovernorate } from "@/lib/shipping";
 import { shippingFor } from "@/lib/shipping";
+
+export type { ProductVariant } from "@/lib/product-variants";
 
 export { BOSTA_SHIPPING_RATES, shippingFor } from "@/lib/shipping";
 
@@ -57,6 +61,12 @@ export type Product = {
   frequently_bought_ids?: string[];
   relatedProductIds?: string[];
   isPublished: boolean;
+  /** Long-form copy shown in the PDP "Product Details" accordion. */
+  productDetails?: string;
+  /** Fabric care copy shown in the PDP "Care Instructions" accordion. */
+  productCare?: string;
+  /** Size/dimension matrix mirrored from the `product_variants` table. */
+  variants?: ProductVariant[];
 };
 
 export type Order = {
@@ -276,7 +286,10 @@ type StoreContextValue = {
   fmt: (price: number) => string;
   fmtEgp: (amount: number) => string;
   find: (id: string) => Product | undefined;
-  addToCart: (selection: { id: string; size: string; color: string }, qty?: number) => boolean;
+  addToCart: (
+    selection: { id: string; size: string; color: string; unitPrice?: number },
+    qty?: number,
+  ) => boolean;
   addBundleToCart: (additions: CartAddition[]) => boolean;
   setQty: (line: CartLine, qty: number) => void;
   clearCart: () => void;
@@ -300,9 +313,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
   const [cartOpen, setCartOpen] = useState(false);
 
+  /**
+   * Hydrates the storefront catalog from Supabase, keeping the local cache as an
+   * offline/first-paint fallback. Falls back again to a plain select when the
+   * `product_variants` relation is not available yet, so the shop never blanks
+   * out just because the variants migration has not been applied.
+   */
   const reloadProducts = useCallback(async () => {
     setProducts(readProducts(STATIC_PRODUCTS));
     setProductsLoaded(true);
+
+    if (typeof window === "undefined") return;
+    if (!import.meta.env["VITE_SUPABASE_URL"] || !import.meta.env["VITE_SUPABASE_ANON_KEY"]) return;
+
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const withVariants = await supabase
+        .from("products")
+        .select("*, product_variants(*)")
+        .order("name");
+
+      let rows: unknown[] | null = withVariants.data;
+      if (withVariants.error) {
+        const plain = await supabase.from("products").select("*").order("name");
+        if (plain.error) throw plain.error;
+        rows = plain.data;
+      }
+      if (!rows || rows.length === 0) return;
+
+      setProducts(rows.map((row) => productFromCloud(row)));
+    } catch (error) {
+      console.warn("ROELIX catalog: showing the locally cached products", error);
+    }
   }, []);
 
   useEffect(() => {
@@ -361,10 +403,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const count = useMemo(() => lines.reduce((sum, line) => sum + line.qty, 0), [lines]);
 
   const addToCart = useCallback(
-    (selection: { id: string; size: string; color: string }, qty = 1) => {
+    (selection: { id: string; size: string; color: string; unitPrice?: number }, qty = 1) => {
       const product = products.find((item) => item.id === selection.id);
       if (!product || product.stock < 1) {
         console.warn(`Cannot add unavailable product ${selection.id} to the bag`);
+        return false;
+      }
+      const { unitPrice } = selection;
+      // A variant may be priced above the advertised (cheapest) product price.
+      const priceCeiling = Math.max(
+        product.price,
+        ...(product.variants ?? []).map((variant) => variant.price),
+      );
+      if (
+        unitPrice !== undefined &&
+        (!Number.isFinite(unitPrice) || unitPrice < 0 || unitPrice > priceCeiling)
+      ) {
+        console.warn(`Cannot add ${selection.id} at an invalid price of ${unitPrice}`);
         return false;
       }
       const requestedQuantity = Number.isFinite(qty) ? Math.max(1, Math.floor(qty)) : 1;
@@ -390,9 +445,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             line.id === selection.id &&
             line.size === selection.size &&
             line.color === selection.color &&
-            line.unitPrice === undefined,
+            line.unitPrice === unitPrice,
         );
-        if (!existing) return [...current, { ...selection, qty: addition }];
+        if (!existing)
+          return [
+            ...current,
+            {
+              id: selection.id,
+              size: selection.size,
+              color: selection.color,
+              qty: addition,
+              ...(unitPrice === undefined ? {} : { unitPrice }),
+            },
+          ];
         return current.map((line) =>
           line === existing ? { ...line, qty: line.qty + addition } : line,
         );

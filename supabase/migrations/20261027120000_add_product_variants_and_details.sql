@@ -1,30 +1,39 @@
--- 1. إضافة أعمدة التفاصيل وتعليمات العناية لجدول المنتجات الأساسي
-alter table if exists products 
-add column if not exists product_details text,
-add column if not exists product_care text;
+-- 1. Detail + care copy for the storefront accordions
+alter table if exists public.products
+  add column if not exists product_details text,
+  add column if not exists product_care text;
 
--- 2. إنشاء جدول متغيرات المنتج (Variants) للمقاسات والألوان والأسعار والمخزون
-create table if not exists product_variants (
+-- 2. Product variants (sizes, dimensions, per-variant price and stock).
+--    public.products.id is text, so product_id must be text as well.
+create table if not exists public.product_variants (
   id uuid primary key default gen_random_uuid(),
-  product_id uuid references products(id) on delete cascade not null,
-  sku text unique not null,
-  size_name text,      -- مثال: Soft Pillow أو Medium Pillow
-  dimension text,      -- مثال: 50x70 cm
-  price decimal(10,2) not null,
-  compare_at_price decimal(10,2), -- السعر قبل الخصم
-  stock integer not null default 0,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  product_id text not null references public.products(id) on delete cascade,
+  sku text not null,
+  size_name text,
+  dimension text,
+  price numeric(10, 2) not null default 0 check (price >= 0),
+  compare_at_price numeric(10, 2) check (compare_at_price is null or compare_at_price >= 0),
+  stock integer not null default 0 check (stock >= 0),
+  created_at timestamptz not null default now()
 );
 
--- 3. تفعيل الأمان (Row Level Security) لجدول المتغيرات
-alter table product_variants enable row level security;
+create unique index if not exists product_variants_sku_key on public.product_variants (sku);
+create index if not exists product_variants_product_id_idx on public.product_variants (product_id);
 
--- السماح للجميع بقراءة المتغيرات (عرض المنتجات في المتجر)
-create policy "Allow public read access on product_variants"
-  on product_variants for select
+-- 3. Row level security: everyone reads, ROELIX admins write
+alter table public.product_variants enable row level security;
+grant select on public.product_variants to anon, authenticated;
+grant insert, update, delete on public.product_variants to authenticated;
+
+drop policy if exists "Anyone can read product variants" on public.product_variants;
+create policy "Anyone can read product variants"
+  on public.product_variants for select
+  to anon, authenticated
   using (true);
 
--- السماح للأدمن فقط بالإضافة والتعديل والحذف
-create policy "Allow admin full access on product_variants"
-  on product_variants for all
-  using (auth.role() = 'authenticated');
+drop policy if exists "Admins manage product variants" on public.product_variants;
+create policy "Admins manage product variants"
+  on public.product_variants for all
+  to authenticated
+  using (public.is_roelix_admin())
+  with check (public.is_roelix_admin());

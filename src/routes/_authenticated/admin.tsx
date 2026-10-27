@@ -31,6 +31,10 @@ import {
 import { supabase } from "@/lib/supabase";
 import { BOSTA_SHIPPING_RATES, type EgyptGovernorate } from "@/lib/shipping";
 import { productFromCloud, productToCloud } from "@/lib/cloud-catalog";
+import { VariantManager } from "@/components/admin/variant-manager";
+import { uploadProductImage } from "@/lib/product-images";
+import { saveCloudProduct } from "@/lib/product-save";
+import type { ProductVariant } from "@/lib/product-variants";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -133,6 +137,19 @@ const ADMIN_COPY = {
     visibleInShop: "Visible in shop",
     cancel: "Cancel",
     save: "Save",
+    variantLabel: "Variants",
+    detailsSection: "Product details",
+    careSection: "Care instructions",
+    accordionHint: "Displayed in the product page accordions.",
+    derivedHint: "Price and stock are recalculated from the variants when you save.",
+    variantValidation:
+      "Every variant needs a unique SKU, a size name or dimension, a price above 0 and a whole-number stock.",
+    detailsColumnsMissing:
+      "Saved. Product details and care instructions need the ROELIX migration before they can be stored.",
+    imagesUploading: "Uploading",
+    imageInlineWarning:
+      "Stored inline because the Supabase product-images bucket is unavailable. Run the ROELIX migration to enable Storage uploads.",
+    addImage: "Add image",
     statuses: {
       Pending: "Pending",
       Processing: "Processing",
@@ -225,6 +242,19 @@ const ADMIN_COPY = {
     visibleInShop: "ظاهر في المتجر",
     cancel: "إلغاء",
     save: "حفظ",
+    variantLabel: "المتغيرات",
+    detailsSection: "تفاصيل المنتج",
+    careSection: "تعليمات العناية",
+    accordionHint: "تظهر في أقسام صفحة المنتج.",
+    derivedHint: "يُعاد حساب السعر والمخزون من المتغيرات عند الحفظ.",
+    variantValidation:
+      "كل متغير يحتاج رمزاً فريداً، واسماً أو أبعاداً، وسعراً أكبر من صفر، ومخزوناً صحيحاً.",
+    detailsColumnsMissing:
+      "تم الحفظ. تحتاج تفاصيل المنتج وتعليمات العناية إلى تشغيل تحديث ROELIX قبل تخزينها.",
+    imagesUploading: "جارٍ الرفع",
+    imageInlineWarning:
+      "تم تخزين الصورة داخل السجل لأن حاوية product-images غير متاحة. شغّل تحديث ROELIX لتفعيل الرفع إلى Storage.",
+    addImage: "إضافة صورة",
     statuses: {
       Pending: "قيد الانتظار",
       Processing: "قيد المعالجة",
@@ -249,6 +279,7 @@ const blank = (): Product => ({
   sizes: ["Queen", "King"],
   frequently_bought_ids: [],
   isPublished: true,
+  variants: [],
 });
 
 type AdminTab = "products" | "orders" | "subscribers" | "analytics" | "settings";
@@ -363,12 +394,17 @@ function Admin() {
 
       if (profile.role === "admin") {
         await reloadProducts();
-        const { data: initialProducts, error: productsError } = await supabase
+        // Join the variant matrix so the product editor opens with its sizes.
+        const withVariants = await supabase
           .from("products")
-          .select("*")
+          .select("*, product_variants(*)")
           .order("name");
-        if (productsError) throw productsError;
-        let cloudProducts = initialProducts;
+        let cloudProducts = withVariants.data;
+        if (withVariants.error) {
+          const plain = await supabase.from("products").select("*").order("name");
+          if (plain.error) throw plain.error;
+          cloudProducts = plain.data;
+        }
         if (!cloudProducts?.length) {
           const { data: seededProducts, error: seedError } = await supabase
             .from("products")
@@ -511,12 +547,18 @@ function Admin() {
     .sort((a, b) => b.views + b.clicks - (a.views + a.clicks))
     .slice(0, 10);
 
-  async function save(p: Product) {
-    if (!p.name.trim() || !p.category.trim() || !Number.isFinite(p.price) || p.price <= 0) {
+  async function save(p: Product, previousVariants: ProductVariant[]) {
+    const variants = p.variants ?? [];
+    const hasVariants = variants.length > 0;
+
+    if (!p.name.trim() || !p.category.trim()) {
+      toast.error(isArabic ? "الاسم والفئة مطلوبان" : "Name and category are required");
+      return;
+    }
+    // With variants, the headline price is derived from the matrix on save.
+    if (!hasVariants && (!Number.isFinite(p.price) || p.price <= 0)) {
       toast.error(
-        isArabic
-          ? "الاسم والفئة وسعر أكبر من صفر مطلوبة"
-          : "Name, category and a price above 0 are required",
+        isArabic ? "أدخل سعراً أكبر من صفر" : "A price above 0 is required",
       );
       return;
     }
@@ -532,6 +574,24 @@ function Admin() {
       toast.error(isArabic ? "أضف صورة واحدة على الأقل" : "Add at least one image");
       return;
     }
+
+    if (hasVariants) {
+      const invalidVariant = variants.find(
+        (variant) =>
+          !variant.sku.trim() ||
+          (!variant.sizeName.trim() && !variant.dimension.trim()) ||
+          !Number.isFinite(variant.price) ||
+          variant.price <= 0 ||
+          !Number.isInteger(variant.stock) ||
+          variant.stock < 0,
+      );
+      const skus = variants.map((variant) => variant.sku.trim().toLowerCase());
+      if (invalidVariant || new Set(skus).size !== skus.length) {
+        toast.error(text.variantValidation);
+        return;
+      }
+    }
+
     const id =
       p.id ||
       (p.name
@@ -540,12 +600,16 @@ function Admin() {
         .replace(/(^-|-$)/g, "") || "product") +
         "-" +
         Date.now().toString(36).slice(-4);
-    const product = { ...p, id };
+    const product = { ...p, id, variants };
+
     const ok = await run(
       async () => {
-        const { error } = await supabase.from("products").upsert(productToCloud(product));
-        if (error) throw error;
-        saveLocalProduct(product, STATIC_PRODUCTS);
+        const result = await saveCloudProduct(product, previousVariants);
+        // Cache the synced row (derived price/stock/sizes) for offline first paint.
+        saveLocalProduct(result.product, STATIC_PRODUCTS);
+        if (result.detailsSkipped) {
+          toast.warning(text.detailsColumnsMissing, { duration: 9000 });
+        }
       },
       isArabic ? "تم حفظ المنتج" : "Product saved",
     );
@@ -648,12 +712,21 @@ function Admin() {
                   <tr key={p.id} className="border-t">
                     <td className="p-3">
                       <div className="flex items-center gap-3">
-                        <img src={p.images[0]} alt="" className="h-14 w-12 object-cover" />
+                        {p.images[0] ? (
+                          <img src={p.images[0]} alt="" className="h-14 w-12 object-cover" />
+                        ) : (
+                          <div className="h-14 w-12 bg-muted" aria-hidden="true" />
+                        )}
                         <div>
                           <p className="font-serif text-lg">{p.name}</p>
                           {isArabic && p.nameAr && (
                             <p dir="rtl" className="text-sm text-muted-foreground">
                               {p.nameAr}
+                            </p>
+                          )}
+                          {p.variants && p.variants.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              {p.variants.length} {text.variantLabel}
                             </p>
                           )}
                           {!p.isPublished && (
@@ -1044,12 +1117,17 @@ function Editor({
   products: Product[];
   isArabic: boolean;
   onClose: () => void;
-  onSave: (p: Product) => void;
+  onSave: (p: Product, previousVariants: ProductVariant[]) => void;
 }) {
   const text = ADMIN_COPY[isArabic ? "ar" : "en"];
   const [p, setP] = useState<Product>(initial);
   const [relatedCategory, setRelatedCategory] = useState("");
   const [relatedSearch, setRelatedSearch] = useState("");
+  const [uploading, setUploading] = useState(0);
+  // Storage folder is fixed for the editing session, even before the first save.
+  const [imageFolder] = useState(() => initial.id || `draft-${Date.now().toString(36)}`);
+  const variants = p.variants ?? [];
+  const previousVariants = initial.variants ?? [];
   const set = <K extends keyof Product>(k: K, v: Product[K]) => setP((x) => ({ ...x, [k]: v }));
   const inp = "w-full border bg-background px-3 py-2 text-sm outline-none focus:border-gold";
   const availableRelatedProducts = products.filter((product) => {
@@ -1062,21 +1140,29 @@ function Editor({
     );
   });
 
-  function onFiles(files: FileList | null) {
-    if (!files) return;
-    Array.from(files).forEach(async (f) => {
-      if (f.size > 15 * 1024 * 1024) {
-        toast.error(`${f.name} is over 15MB`);
-        return;
-      }
+  async function onFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const list = Array.from(files);
+    setUploading((count) => count + list.length);
+
+    for (const [index, file] of list.entries()) {
       try {
-        const url = await compress(f);
-        setP((x) => ({ ...x, images: [...x.images, url] }));
+        const uploaded = await uploadProductImage({
+          file,
+          productId: imageFolder,
+          index,
+        });
+        setP((current) => ({ ...current, images: [...current.images, uploaded.url] }));
+        if (uploaded.stored === "inline") {
+          toast.warning(text.imageInlineWarning, { duration: 8000 });
+        }
       } catch (error) {
-        console.error(`Could not process product image ${f.name}`, error);
-        toast.error(error instanceof Error ? error.message : `Couldn't read ${f.name}`);
+        console.error(`Could not process product image ${file.name}`, error);
+        toast.error(error instanceof Error ? error.message : `Couldn't read ${file.name}`);
+      } finally {
+        setUploading((count) => Math.max(0, count - 1));
       }
-    });
+    }
   }
 
   return (
@@ -1140,7 +1226,13 @@ function Editor({
               className={inp}
               value={Math.round(p.price * EGP_PER_USD)}
               onChange={(e) => set("price", Number(e.target.value) / EGP_PER_USD)}
+              disabled={variants.length > 0}
             />
+            {variants.length > 0 && (
+              <span className="block text-[0.65rem] leading-relaxed text-muted-foreground">
+                {text.derivedHint}
+              </span>
+            )}
           </label>
           <label className="space-y-1">
             <span className="eyebrow">{text.stock}</span>
@@ -1151,6 +1243,7 @@ function Editor({
               className={inp}
               value={p.stock}
               onChange={(e) => set("stock", Number(e.target.value))}
+              disabled={variants.length > 0}
             />
           </label>
           <label className="space-y-1 sm:col-span-2">
@@ -1169,6 +1262,16 @@ function Editor({
               }
             />
           </label>
+          <div className="sm:col-span-2">
+            <VariantManager
+              variants={variants}
+              defaultPrice={p.price}
+              sizeSuggestions={p.sizes}
+              skuPrefix={p.name || "ROELIX"}
+              isArabic={isArabic}
+              onChange={(next) => set("variants", next)}
+            />
+          </div>
           <fieldset className="space-y-3 sm:col-span-2">
             <legend className="eyebrow">{text.colors}</legend>
             {p.colors.map((color, index) => (
@@ -1312,6 +1415,28 @@ function Editor({
               onChange={(e) => set("description", e.target.value)}
             />
           </label>
+          <label className="space-y-1 sm:col-span-2">
+            <span className="eyebrow">{text.detailsSection}</span>
+            <textarea
+              dir="auto"
+              rows={4}
+              className={inp}
+              placeholder={text.accordionHint}
+              value={p.productDetails ?? ""}
+              onChange={(e) => set("productDetails", e.target.value)}
+            />
+          </label>
+          <label className="space-y-1 sm:col-span-2">
+            <span className="eyebrow">{text.careSection}</span>
+            <textarea
+              dir="auto"
+              rows={3}
+              className={inp}
+              placeholder={text.accordionHint}
+              value={p.productCare ?? ""}
+              onChange={(e) => set("productCare", e.target.value)}
+            />
+          </label>
         </div>
         <div className="mt-4">
           <span className="eyebrow">{text.images}</span>
@@ -1334,14 +1459,28 @@ function Editor({
                 </button>
               </div>
             ))}
-            <label className="flex h-24 w-20 cursor-pointer items-center justify-center border border-dashed text-muted-foreground hover:text-gold">
-              <Plus size={18} />
+            <label className="flex h-24 w-20 cursor-pointer flex-col items-center justify-center gap-1 border border-dashed text-muted-foreground hover:text-gold">
+              {uploading > 0 ? (
+                <span className="px-1 text-center text-[0.6rem] uppercase tracking-[0.1em]">
+                  {text.imagesUploading}
+                </span>
+              ) : (
+                <>
+                  <Plus size={18} aria-hidden="true" />
+                  <span className="text-[0.55rem] uppercase tracking-[0.1em]">
+                    {text.addImage}
+                  </span>
+                </>
+              )}
               <input
                 type="file"
                 accept="image/*"
                 multiple
                 hidden
-                onChange={(e) => onFiles(e.target.files)}
+                onChange={(e) => {
+                  void onFiles(e.target.files);
+                  e.target.value = "";
+                }}
               />
             </label>
           </div>
@@ -1360,8 +1499,9 @@ function Editor({
           </button>
           <button
             type="button"
-            onClick={() => onSave(p)}
-            className="bg-navy px-5 py-3 eyebrow text-navy-foreground"
+            onClick={() => onSave(p, previousVariants)}
+            disabled={uploading > 0}
+            className="bg-navy px-5 py-3 eyebrow text-navy-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             {text.save}
           </button>
@@ -1371,13 +1511,3 @@ function Editor({
   );
 }
 
-// Shrinks photos to max 1400px JPEG so they store quickly online.
-async function compress(file: File): Promise<string> {
-  const bmp = await createImageBitmap(file);
-  const scale = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
-  const c = document.createElement("canvas");
-  c.width = Math.round(bmp.width * scale);
-  c.height = Math.round(bmp.height * scale);
-  c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
-  return c.toDataURL("image/jpeg", 0.82);
-}

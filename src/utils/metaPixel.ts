@@ -28,7 +28,9 @@ export const initMetaPixel = () => {
   t.src = 'https://connect.facebook.net/en_US/fbevents.js';
 
   const s = document.getElementsByTagName('script')[0];
-  s.parentNode?.insertBefore(t, s);
+  // `s` is undefined when the document has no scripts yet.
+  if (s?.parentNode) s.parentNode.insertBefore(t, s);
+  else document.head.appendChild(t);
 
   window.fbq('init', META_PIXEL_ID);
   window.fbq('track', 'PageView');
