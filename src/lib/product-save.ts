@@ -17,8 +17,37 @@ export type SaveProductResult = {
   detailsSkipped: boolean;
 };
 
-function isMissingColumnError(error: { code?: string; message?: string }): boolean {
-  return error.code === "42703" || /column .* does not exist/i.test(error.message ?? "");
+/**
+ * The column Postgres blamed in a "column ... does not exist" error, if any.
+ *
+ * Letting the save drop one missing column at a time means the dashboard keeps
+ * working on a project that has only some of the ROELIX migrations applied,
+ * instead of guessing the migration level and sending a payload that fails.
+ */
+function missingColumnName(error: { message?: string }): string | null {
+  const match = /column "([^"]+)" of relation "[^"]+" does not exist/i.exec(error.message ?? "");
+  return match?.[1] ?? null;
+}
+
+/** Upserts the row, omitting columns the table does not have yet. Returns the dropped names. */
+async function upsertProductRow(product: Product): Promise<Set<string>> {
+  const row = productToCloud(product);
+  const dropped = new Set<string>();
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const { error } = await supabase.from("products").upsert(row);
+    if (!error) return dropped;
+
+    const column = missingColumnName(error);
+    if (!column || column === "id" || !(column in row)) throw error;
+
+    delete row[column];
+    dropped.add(column);
+  }
+
+  throw new Error(
+    "The products table is missing several expected columns. Apply the ROELIX migrations, then save again.",
+  );
 }
 
 function isMissingTableError(error: { code?: string; message?: string }): boolean {
@@ -73,22 +102,11 @@ export async function saveCloudProduct(
   previousVariants: ProductVariant[],
 ): Promise<SaveProductResult> {
   const product = syncProductWithVariants(input);
-  let detailsSkipped = false;
 
-  const { error } = await supabase.from("products").upsert(productToCloud(product));
-  if (error) {
-    if (!isMissingColumnError(error)) throw error;
-    // The detail columns are missing (migration not applied). Save the rest so
-    // the admin never loses an edit, then report the skipped copy.
-    const {
-      product_details: _details,
-      product_care: _care,
-      ...legacyRow
-    } = productToCloud(product);
-    const { error: retryError } = await supabase.from("products").upsert(legacyRow);
-    if (retryError) throw retryError;
-    detailsSkipped = true;
-  }
+  const droppedColumns = await upsertProductRow(product);
+  // Copy columns the table could not accept; the rest of the edit was saved.
+  const detailsSkipped =
+    droppedColumns.has("product_details") || droppedColumns.has("product_care");
 
   let inserted = 0;
   let updated = 0;

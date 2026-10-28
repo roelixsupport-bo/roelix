@@ -110,6 +110,15 @@ function StoreProbe() {
       >
         Increase first
       </button>
+      <button
+        onClick={() => {
+          const base = { id: "aurelia-sateen", size: "Queen", color: "Ivory", unitPrice: 690 };
+          store.addToCart({ ...base, dimension: "200 × 200 cm" }, 1);
+          store.addToCart({ ...base, dimension: "220 × 220 cm" }, 1);
+        }}
+      >
+        Add two dimensions
+      </button>
       <button onClick={() => store.setLang("ar")}>العربية</button>
       <output>{product?.stock ?? 0}</output>
     </div>
@@ -287,6 +296,59 @@ describe("store currency and locale", () => {
 
     expect(container.querySelector('[data-testid="cart-count"]')?.textContent).toBe("2");
     expect(container.querySelector('[data-testid="cart-lines"]')?.textContent).toBe("1");
+  });
+
+  it("keeps two dimensions of the same size as separate bag lines", async () => {
+    await renderStore();
+    const buttons = Array.from(container.querySelectorAll("button"));
+
+    await act(async () =>
+      buttons.find((button) => button.textContent === "Add two dimensions")?.click(),
+    );
+
+    expect(container.querySelector('[data-testid="cart-lines"]')?.textContent).toBe("2");
+    expect(container.querySelector('[data-testid="cart-count"]')?.textContent).toBe("2");
+
+    const saved = JSON.parse(localStorage.getItem("roelix_cart") ?? "[]") as Array<
+      Record<string, unknown>
+    >;
+    expect(saved.map((line) => line["dimension"])).toEqual(["200 × 200 cm", "220 × 220 cm"]);
+
+    // Removing one dimension must leave the other in place.
+    await act(async () => buttons.find((button) => button.textContent === "Remove first")?.click());
+
+    expect(container.querySelector('[data-testid="cart-lines"]')?.textContent).toBe("1");
+    const remaining = JSON.parse(localStorage.getItem("roelix_cart") ?? "[]") as Array<
+      Record<string, unknown>
+    >;
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]?.["dimension"]).toBe("220 × 220 cm");
+  });
+
+  it("restores a saved bag whose lines carry dimensions", async () => {
+    localStorage.setItem(
+      "roelix_cart",
+      JSON.stringify([
+        {
+          id: "aurelia-sateen",
+          size: "Queen",
+          color: "Ivory",
+          qty: 1,
+          dimension: "200 × 200 cm",
+        },
+        {
+          id: "aurelia-sateen",
+          size: "Queen",
+          color: "Ivory",
+          qty: 2,
+          dimension: "220 × 220 cm",
+        },
+      ]),
+    );
+    await renderStore();
+
+    expect(container.querySelector('[data-testid="cart-lines"]')?.textContent).toBe("2");
+    expect(container.querySelector('[data-testid="cart-count"]')?.textContent).toBe("3");
   });
 
   it("adds discounted bundles at their configured prices and rejects stock overflow atomically", async () => {

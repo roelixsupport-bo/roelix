@@ -8,10 +8,11 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { StoreProvider } from "@/lib/store";
+import { RouteSkeleton } from "@/components/site/route-skeleton";
 import { Header } from "@/components/site/header";
 import { Footer } from "@/components/site/footer";
 import { CartDrawer } from "@/components/site/cartdrawer";
@@ -131,19 +132,35 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // The prerendered shell carries no route match in SPA mode, so it paints with
+  // a skeleton and the real route mounts on the first client commit. Flipping in
+  // an effect (never during render) keeps server and client markup identical, so
+  // hydration cannot mismatch.
+  const [routerReady, setRouterReady] = useState(false);
 
   useEffect(() => {
-    // تفعيل Meta Pixel لتتبع زوار موقع Roelix تلقائياً عند تحميل الموقع
-    initMetaPixel();
+    setRouterReady(true);
+  }, []);
+
+  useEffect(() => {
+    // Meta Pixel is third-party and competes with the hero image for bandwidth
+    // and the main thread. It is a pageview tag, not page content, so it waits
+    // for idle time instead of delaying the first paint.
+    if (typeof window === "undefined") return;
+
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(() => initMetaPixel(), { timeout: 3000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = window.setTimeout(() => initMetaPixel(), 1200);
+    return () => window.clearTimeout(timer);
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <StoreProvider>
         <Header />
-        <main className="min-h-[60vh]">
-          <Outlet />
-        </main>
+        <main className="min-h-[60vh]">{routerReady ? <Outlet /> : <RouteSkeleton />}</main>
         <Footer />
         <CartDrawer />
         <Concierge />

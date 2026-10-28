@@ -64,7 +64,9 @@ function Checkout() {
       return;
     }
     if (!/\S+@\S+/.test(f.email.trim())) {
-      toast.error(s.lang === "ar" ? "يرجى إدخال بريد إلكتروني صحيح" : "Please enter a valid email address");
+      toast.error(
+        s.lang === "ar" ? "يرجى إدخال بريد إلكتروني صحيح" : "Please enter a valid email address",
+      );
       return;
     }
     if (!f.phone.trim()) {
@@ -72,7 +74,9 @@ function Checkout() {
       return;
     }
     if (!f.governorate) {
-      toast.error(s.lang === "ar" ? "يرجى اختيار المحافظة لحساب الشحن" : "Please select a governorate");
+      toast.error(
+        s.lang === "ar" ? "يرجى اختيار المحافظة لحساب الشحن" : "Please select a governorate",
+      );
       return;
     }
     if (!f.city.trim()) {
@@ -80,7 +84,9 @@ function Checkout() {
       return;
     }
     if (!f.address.trim()) {
-      toast.error(s.lang === "ar" ? "يرجى إدخال العنوان بالتفصيل" : "Please enter your street address");
+      toast.error(
+        s.lang === "ar" ? "يرجى إدخال العنوان بالتفصيل" : "Please enter your street address",
+      );
       return;
     }
 
@@ -92,7 +98,10 @@ function Checkout() {
     return (
       <div className="py-28 sm:py-40 text-center px-4">
         <p className="font-serif text-2xl sm:text-3xl">{s.t.empty}</p>
-        <Link to="/shop" className="bg-black hover:bg-zinc-800 text-white font-bold py-3.5 px-8 rounded text-sm uppercase inline-block mt-8 transition shadow-md">
+        <Link
+          to="/shop"
+          className="bg-black hover:bg-zinc-800 text-white font-bold py-3.5 px-8 rounded text-sm uppercase inline-block mt-8 transition shadow-md"
+        >
           Explore The Collection
         </Link>
       </div>
@@ -124,6 +133,7 @@ function Checkout() {
             qty: l.qty,
             size: l.size,
             color: l.color,
+            ...(l.dimension ? { dimension: l.dimension } : {}),
             ...(l.unitPrice === undefined ? {} : { unitPrice: l.unitPrice }),
           })),
           payment: pay,
@@ -197,7 +207,13 @@ function Checkout() {
           {["Details", "Payment", "Review"].map((x, i) => (
             <span
               key={x}
-              className={step === i + 1 ? "text-gold font-bold" : step > i + 1 ? "text-foreground" : "text-muted-foreground"}
+              className={
+                step === i + 1
+                  ? "text-gold font-bold"
+                  : step > i + 1
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+              }
             >
               {i + 1}. {x}
             </span>
@@ -233,7 +249,9 @@ function Checkout() {
             />
 
             <label className="sm:col-span-2">
-              <span className="mb-1.5 block text-xs sm:text-sm font-medium">Governorate / المحافظة *</span>
+              <span className="mb-1.5 block text-xs sm:text-sm font-medium">
+                Governorate / المحافظة *
+              </span>
               <select
                 className="input-lux w-full text-sm p-3 border rounded bg-background"
                 value={f.governorate}
@@ -344,10 +362,19 @@ function Checkout() {
               الدفع عند الاستلام متوفر لجميع المحافظات.
             </p>
             <div className="flex gap-3 pt-4">
-              <button onClick={() => setStep(1)} className="border border-gray-300 px-6 py-3 rounded text-sm hover:bg-gray-50">
+              <button
+                onClick={() => setStep(1)}
+                className="border border-gray-300 px-6 py-3 rounded text-sm hover:bg-gray-50"
+              >
                 Back
               </button>
-              <button onClick={() => { setStep(3); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="bg-black text-white font-bold py-3.5 px-6 rounded text-sm flex-1 uppercase tracking-wider hover:bg-zinc-800 transition">
+              <button
+                onClick={() => {
+                  setStep(3);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="bg-black text-white font-bold py-3.5 px-6 rounded text-sm flex-1 uppercase tracking-wider hover:bg-zinc-800 transition"
+              >
                 Review Order
               </button>
             </div>
@@ -360,22 +387,33 @@ function Checkout() {
             <div className="border p-4 sm:p-6 text-sm rounded space-y-1">
               <p className="eyebrow mb-2 text-gold font-bold">Deliver to</p>
               <p className="font-semibold">{f.name}</p>
-              <p>{f.address}, {f.city}, {f.governorate}, {f.country}</p>
-              <p className="text-xs text-muted-foreground mt-2">الشحن عبر شركة بوستا (Bosta): {s.fmtEgp(shipping ?? 0)}</p>
-              <p className="text-xs font-semibold text-emerald-600">الإجمالي النهائي: {s.fmtEgp(total)}</p>
-              <p className="text-xs text-muted-foreground">{f.email} · {f.phone}</p>
+              <p>
+                {f.address}, {f.city}, {f.governorate}, {f.country}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                الشحن عبر شركة بوستا (Bosta): {s.fmtEgp(shipping ?? 0)}
+              </p>
+              <p className="text-xs font-semibold text-emerald-600">
+                الإجمالي النهائي: {s.fmtEgp(total)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {f.email} · {f.phone}
+              </p>
             </div>
             <div className="border p-4 sm:p-6 text-sm rounded">
               <p className="eyebrow mb-2 text-gold font-bold">Payment Method</p>
               {pay === "card" ? "Credit Card" : "Cash on Delivery (الدفع عند الاستلام)"}
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setStep(2)} className="border border-gray-300 px-6 py-3 rounded text-sm hover:bg-gray-50">
+              <button
+                onClick={() => setStep(2)}
+                className="border border-gray-300 px-6 py-3 rounded text-sm hover:bg-gray-50"
+              >
                 Back
               </button>
-              <button 
-                disabled={placing} 
-                onClick={place} 
+              <button
+                disabled={placing}
+                onClick={place}
                 className="bg-black hover:bg-zinc-800 text-white font-bold py-4 px-6 rounded text-sm uppercase tracking-wider flex-1 transition shadow-md disabled:opacity-50 cursor-pointer text-center"
               >
                 {placing ? "Processing..." : `Place Order · ${s.fmtEgp(total)}`}
@@ -390,7 +428,10 @@ function Checkout() {
         <h2 className="text-xl sm:text-2xl font-serif border-b pb-3">Order Summary</h2>
         <div className="mt-4 space-y-3">
           {s.lines.map((l) => (
-            <div key={l.id + l.size + l.color} className="flex justify-between gap-3 text-xs sm:text-sm">
+            <div
+              key={l.id + l.size + l.color}
+              className="flex justify-between gap-3 text-xs sm:text-sm"
+            >
               <span>
                 {l.product.name}{" "}
                 <span className="text-muted-foreground">
@@ -408,7 +449,9 @@ function Checkout() {
           </div>
           <div className="flex justify-between">
             <span>الشحن عبر شركة بوستا (Bosta)</span>
-            <span className="font-semibold text-emerald-600">{shipping === undefined ? "اختاري المحافظة" : s.fmtEgp(shipping)}</span>
+            <span className="font-semibold text-emerald-600">
+              {shipping === undefined ? "اختاري المحافظة" : s.fmtEgp(shipping)}
+            </span>
           </div>
           <div className="flex justify-between pt-3 border-t font-serif text-lg sm:text-xl font-bold">
             <span>Total</span>

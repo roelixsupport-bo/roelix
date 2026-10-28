@@ -32,6 +32,7 @@ import { BOSTA_SHIPPING_RATES, type EgyptGovernorate } from "@/lib/shipping";
 import { productFromCloud, productToCloud } from "@/lib/cloud-catalog";
 import { OrderLineRestock } from "@/components/admin/order-line-restock";
 import { ProductActions } from "@/components/admin/product-actions";
+import { ReviewsPanel } from "@/components/admin/reviews-panel";
 import { VariantManager } from "@/components/admin/variant-manager";
 import { uploadProductImage } from "@/lib/product-images";
 import { saveCloudProduct } from "@/lib/product-save";
@@ -68,6 +69,7 @@ const ADMIN_COPY = {
     revenue: "Revenue",
     orders: "Orders",
     products: "Products",
+    reviews: "Customer reviews",
     subscribers: "Email opt-ins",
     analytics: "Analytics & AI Insights",
     settings: "Settings",
@@ -124,6 +126,8 @@ const ADMIN_COPY = {
     name: "Name",
     arabicName: "Arabic name",
     priceEgp: "Price (EGP)",
+    sku: "Product SKU",
+    compareAtEgp: "Compare-at price (EGP)",
     categoryPlaceholder: "Choose or enter a category",
     colors: "Available colors",
     colorName: "Color name",
@@ -177,6 +181,7 @@ const ADMIN_COPY = {
     revenue: "الإيرادات",
     orders: "الطلبات",
     products: "المنتجات",
+    reviews: "تقييمات العملاء",
     subscribers: "اشتراكات البريد",
     analytics: "تحليلات الذكاء الاصطناعي وسلوك العملاء",
     settings: "الإعدادات",
@@ -232,6 +237,8 @@ const ADMIN_COPY = {
     name: "الاسم",
     arabicName: "الاسم بالعربية",
     priceEgp: "السعر (جنيه مصري)",
+    sku: "رمز المنتج (SKU)",
+    compareAtEgp: "السعر قبل الخصم (جنيه مصري)",
     categoryPlaceholder: "اختر فئة أو أدخل فئة جديدة",
     colors: "الألوان المتاحة",
     colorName: "اسم اللون",
@@ -289,7 +296,7 @@ const blank = (): Product => ({
   variants: [],
 });
 
-type AdminTab = "products" | "orders" | "subscribers" | "analytics" | "settings";
+type AdminTab = "products" | "orders" | "reviews" | "subscribers" | "analytics" | "settings";
 type DashboardRole = "admin" | "staff";
 
 function mapCloudOrder(value: unknown): Order | null {
@@ -336,6 +343,7 @@ function mapCloudOrder(value: unknown): Order | null {
         qty: Number(item["qty"] ?? 0),
         size: String(item["size"] ?? "N/A"),
         color: String(item["color"] ?? "N/A"),
+        ...(typeof item["dimension"] === "string" ? { dimension: item["dimension"] } : {}),
         name: String(item["name"] ?? "Unknown item"),
         price: Number(item["price"] ?? 0),
         ...(typeof item["line_id"] === "string" ? { lineId: item["line_id"] } : {}),
@@ -574,7 +582,9 @@ function Admin() {
     );
 
   const visibleTabs: AdminTab[] =
-    role === "admin" ? ["products", "orders", "subscribers", "analytics", "settings"] : ["orders"];
+    role === "admin"
+      ? ["products", "orders", "reviews", "subscribers", "analytics", "settings"]
+      : ["orders"];
   const activeTab: AdminTab = role === "staff" ? "orders" : tab;
 
   const revenue = orders
@@ -946,7 +956,8 @@ function Admin() {
                         className="border-b border-border/40 pb-2 last:border-0 last:pb-0"
                       >
                         <p>
-                          {item.qty} × {item.name} ({item.size}, {item.color})
+                          {item.qty} × {item.name} ({item.size}
+                          {item.dimension ? `, ${item.dimension}` : ""}, {item.color})
                         </p>
                         {(restocked > 0 || remaining === 0) && (
                           <p className="text-[0.68rem] text-muted-foreground">
@@ -1016,6 +1027,11 @@ function Admin() {
             </div>
           ))}
         </div>
+      ) : activeTab === "reviews" ? (
+        <ReviewsPanel
+          isArabic={isArabic}
+          productName={(id) => all.find((product) => product.id === id)?.name ?? ""}
+        />
       ) : activeTab === "analytics" ? (
         <section className="mt-6 space-y-8" aria-label={text.analytics}>
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -1315,6 +1331,48 @@ function Editor({
               onChange={(e) => set("stock", Number(e.target.value))}
               disabled={variants.length > 0}
             />
+          </label>
+          <label className="space-y-1">
+            <span className="eyebrow">{text.sku}</span>
+            <input
+              dir="ltr"
+              className={inp}
+              value={p.sku ?? ""}
+              placeholder="ROELIX-SKU"
+              onChange={(e) => set("sku", e.target.value)}
+              disabled={variants.length > 0}
+            />
+            {variants.length > 0 && (
+              <span className="block text-[0.65rem] leading-relaxed text-muted-foreground">
+                {text.derivedHint}
+              </span>
+            )}
+          </label>
+          <label className="space-y-1">
+            <span className="eyebrow">{text.compareAtEgp}</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              className={inp}
+              value={
+                p.compareAtPrice === undefined ? "" : Math.round(p.compareAtPrice * EGP_PER_USD)
+              }
+              onChange={(e) => {
+                const raw = e.currentTarget.value.trim();
+                const egp = e.currentTarget.valueAsNumber;
+                set(
+                  "compareAtPrice",
+                  raw === "" || !Number.isFinite(egp) ? undefined : Math.max(0, egp) / EGP_PER_USD,
+                );
+              }}
+              disabled={variants.length > 0}
+            />
+            {variants.length > 0 && (
+              <span className="block text-[0.65rem] leading-relaxed text-muted-foreground">
+                {text.derivedHint}
+              </span>
+            )}
           </label>
           <label className="space-y-1 sm:col-span-2">
             <span className="eyebrow">{text.sizes}</span>

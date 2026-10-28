@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Heart, Minus, Plus, RotateCcw, Truck } from "lucide-react";
 import { toast } from "sonner";
@@ -9,13 +9,31 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { StarRating } from "@/components/product/star-rating";
+import { VariantPicker, variantOptionClassName } from "@/components/product/variant-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductSchema } from "@/components/ProductSchema";
+import { useProductReviews } from "@/hooks/use-product-reviews";
 import { recordProductInteraction } from "@/lib/local-data";
-import { firstPurchasableVariant, variantLabel } from "@/lib/product-variants";
+import {
+  firstPurchasableVariant,
+  resolveVariant,
+  variantLabel,
+  type VariantSelection,
+} from "@/lib/product-variants";
 import { EGP_PER_USD, getMaxOrderQuantity, useStore, type Product } from "@/lib/store";
 import { cn } from "@/lib/utils";
+
+/**
+ * Reviews sit below the fold and pull in their own form and storage helpers, so
+ * they are split out of the route chunk: the gallery, price and buy bar have to
+ * arrive first.
+ */
+const ReviewsSection = lazy(async () => {
+  const module = await import("@/components/product/reviews-section");
+  return { default: module.ReviewsSection };
+});
 
 type Language = "en" | "ar";
 
@@ -30,11 +48,10 @@ const COPY = {
     quantity: "Quantity",
     addToBag: "Add to bag",
     buyNow: "Buy it now",
-    inStock: "In stock, ships within 24 hours",
-    lowStock: (count: number) => `Only ${count} remaining`,
+    inStockCount: (count: number) => `Available in stock (${count})`,
     outOfStock: "Out of stock",
     soldOut: "Sold out",
-    savePercent: (percent: number) => `${percent}% off`,
+    savePercent: (percent: number) => `Save ${percent}%`,
     details: "Product details",
     care: "Care instructions",
     shipping: "Shipping policy",
@@ -57,6 +74,9 @@ const COPY = {
     limitReached: (max: number) => `Your bag already holds the full available quantity (${max}).`,
     noStock: "This option is currently unavailable.",
     sku: "SKU",
+    ratingSummary: (count: number, average: string) =>
+      `${count} ${count === 1 ? "review" : "reviews"}, ${average} out of 5`,
+    combinationUnavailable: "This size and dimension are not sold together.",
     zoomHint: "Hover to inspect",
   },
   ar: {
@@ -69,11 +89,10 @@ const COPY = {
     quantity: "الكمية",
     addToBag: "أضف إلى الحقيبة",
     buyNow: "اشترِ الآن",
-    inStock: "متوفر — يُشحن خلال 24 ساعة",
-    lowStock: (count: number) => `متبقي ${count} فقط`,
+    inStockCount: (count: number) => `متوفر في المخزون (${count})`,
     outOfStock: "نفذت الكمية",
     soldOut: "نفذت",
-    savePercent: (percent: number) => `خصم ${percent}%`,
+    savePercent: (percent: number) => `وفّر ${percent}%`,
     details: "تفاصيل المنتج",
     care: "تعليمات العناية",
     shipping: "سياسة الشحن",
@@ -96,6 +115,8 @@ const COPY = {
     limitReached: (max: number) => `حقيبتك تحتوي على الكمية القصوى المتاحة (${max}).`,
     noStock: "هذا الخيار غير متوفر حالياً.",
     sku: "رمز المنتج",
+    ratingSummary: (count: number, average: string) => `${count} تقييم بمتوسط ${average} من 5`,
+    combinationUnavailable: "هذا المقاس لا يُطرح بهذه الأبعاد.",
     zoomHint: "مرّر المؤشر للتكبير",
   },
 } as const;
@@ -139,7 +160,7 @@ export function ProductDetail({ productId }: { productId: string }) {
   const copy = COPY[s.lang];
 
   const product = s.find(productId);
-  const [selectionId, setSelectionId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<VariantSelection | null>(null);
   const [sizeChoice, setSizeChoice] = useState("");
   const [colourName, setColourName] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -150,17 +171,26 @@ export function ProductDetail({ productId }: { productId: string }) {
 
   useProductMeta(product, s.lang);
 
+  // One live subscription for the page: the rating row under the title and the
+  // reviews section below both read from it.
+  const {
+    reviews,
+    summary: reviewSummary,
+    loading: reviewsLoading,
+    submitting: reviewsSubmitting,
+    submit: submitReview,
+  } = useProductReviews(product?.id);
+
   const variants = useMemo(() => product?.variants ?? [], [product]);
 
   const activeVariant = useMemo(() => {
     if (variants.length === 0) return null;
-    return (
-      variants.find((variant) => variant.id === selectionId) ?? firstPurchasableVariant(variants)
-    );
-  }, [variants, selectionId]);
+    // An explicit size/dimension pick wins; otherwise open on the first buyable row.
+    return selection ? resolveVariant(variants, selection) : firstPurchasableVariant(variants);
+  }, [variants, selection]);
 
   useEffect(() => {
-    setSelectionId(null);
+    setSelection(null);
     setSizeChoice("");
     setColourName("");
     setImageIndex(0);
@@ -192,10 +222,33 @@ export function ProductDetail({ productId }: { productId: string }) {
       ? sizeChoice
       : (sizes[0] ?? "");
 
+  /**
+   * What the two variant groups show as selected.
+   *
+   * An explicit pick is echoed back verbatim — even when the pair has no variant
+   * row — so the buttons never appear to move on their own. Before the shopper
+   * touches anything, the groups open on the first buyable row.
+   */
+  const pickerSelection: VariantSelection = selection ?? {
+    sizeName: activeVariant?.sizeName ?? "",
+    dimension: activeVariant?.dimension ?? "",
+  };
+
   const unitPrice = activeVariant?.price ?? product?.price ?? 0;
-  const compareAt = activeVariant?.compareAtPrice ?? null;
-  const availableStock = activeVariant?.stock ?? product?.stock ?? 0;
-  const sku = activeVariant?.sku ?? null;
+  // Variant pricing wins; the product-level values cover products with no matrix.
+  const compareAt = activeVariant?.compareAtPrice ?? product?.compareAtPrice ?? null;
+  /**
+   * A size and a dimension can each be valid on their own and still not be sold
+   * together. In that case no price or stock belongs to the pair, so the panel
+   * says so instead of showing a neighbour's figures.
+   */
+  const combinationUnavailable =
+    variants.length > 0 &&
+    Boolean(selection?.sizeName) &&
+    Boolean(selection?.dimension) &&
+    !activeVariant;
+  const availableStock = combinationUnavailable ? 0 : (activeVariant?.stock ?? product?.stock ?? 0);
+  const sku = activeVariant?.sku ?? product?.sku ?? null;
 
   const inBagForSize = product
     ? s.lines
@@ -222,6 +275,8 @@ export function ProductDetail({ productId }: { productId: string }) {
         size: sizeValue,
         color: colour,
         ...(activeVariant ? { unitPrice: activeVariant.price } : {}),
+        // The dimension travels with the line so inventory can deduct this exact variant.
+        ...(activeVariant?.dimension ? { dimension: activeVariant.dimension } : {}),
       },
       quantity,
     );
@@ -257,6 +312,7 @@ export function ProductDetail({ productId }: { productId: string }) {
           size,
           color: item.colors[0]?.name ?? "",
           ...(variant ? { unitPrice: price } : {}),
+          ...(variant?.dimension ? { dimension: variant.dimension } : {}),
         },
         1,
       );
@@ -305,14 +361,34 @@ export function ProductDetail({ productId }: { productId: string }) {
     compareAt !== null && compareAt > unitPrice
       ? Math.round(((compareAt - unitPrice) / compareAt) * 100)
       : 0;
-  const stockTone =
-    availableStock === 0 ? "text-destructive" : availableStock < 4 ? "text-gold" : "text-emerald";
-  const stockLabel =
+  /**
+   * One palette for the availability line: the dot, its pulse halo and the text
+   * always agree, so the colour reads as a status rather than decoration.
+   */
+  const stockStatus =
     availableStock === 0
-      ? copy.outOfStock
+      ? {
+          text: "text-destructive",
+          dot: "bg-destructive",
+          halo: "bg-destructive/60",
+          glow: "ring-destructive/20",
+        }
       : availableStock < 4
-        ? copy.lowStock(availableStock)
-        : copy.inStock;
+        ? { text: "text-gold", dot: "bg-gold", halo: "bg-gold/60", glow: "ring-gold/25" }
+        : {
+            // The theme emerald (oklch 0.5) is too muted to read as "in stock" at
+            // this size, so availability uses the brighter Tailwind emerald.
+            text: "text-emerald-600",
+            dot: "bg-emerald-500",
+            halo: "bg-emerald-500/60",
+            glow: "ring-emerald-500/25",
+          };
+  // Always the exact figure for the selected variant, per the buying brief.
+  const stockLabel = combinationUnavailable
+    ? copy.combinationUnavailable
+    : availableStock === 0
+      ? copy.outOfStock
+      : copy.inStockCount(availableStock);
 
   const detailSpecs: Array<{ label: string; value: string }> = [
     { label: copy.origin, value: product.origin },
@@ -337,6 +413,14 @@ export function ProductDetail({ productId }: { productId: string }) {
           currency: "EGP",
           inStock: availableStock > 0,
           ...(sku ? { sku } : {}),
+          ...(reviewSummary.count > 0
+            ? {
+                aggregateRating: {
+                  average: Number(reviewSummary.average.toFixed(1)),
+                  count: reviewSummary.count,
+                },
+              }
+            : {}),
         }}
       />
 
@@ -360,7 +444,13 @@ export function ProductDetail({ productId }: { productId: string }) {
                           : "border-transparent hover:border-border",
                       )}
                     >
-                      <img src={image} alt="" className="h-full w-full object-cover" />
+                      <img
+                        src={image}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                      />
                     </button>
                   </li>
                 ))}
@@ -390,6 +480,10 @@ export function ProductDetail({ productId }: { productId: string }) {
                   <img
                     src={activeImage}
                     alt={displayName}
+                    // The gallery is the largest element on the page: fetch it in
+                    // the first batch instead of behind the fold images.
+                    fetchPriority="high"
+                    decoding="async"
                     className="h-full w-full object-cover transition-transform duration-300"
                     style={
                       zoomLevel > 1
@@ -430,6 +524,28 @@ export function ProductDetail({ productId }: { productId: string }) {
           <h1 className="mt-2 font-serif text-3xl leading-tight sm:mt-3 sm:text-4xl lg:text-[2.9rem]">
             {displayName}
           </h1>
+
+          <button
+            type="button"
+            onClick={() => {
+              document
+                .getElementById("reviews")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            aria-label={copy.ratingSummary(reviewSummary.count, reviewSummary.average.toFixed(1))}
+            className="group mt-3 inline-flex items-center gap-2 text-xs text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:ring-1 focus-visible:ring-gold focus-visible:ring-offset-4 focus-visible:ring-offset-background focus-visible:outline-hidden"
+          >
+            <StarRating
+              value={reviewSummary.average}
+              size={16}
+              label={copy.ratingSummary(reviewSummary.count, reviewSummary.average.toFixed(1))}
+              className="transition-transform duration-200 motion-safe:group-hover:scale-105"
+            />
+            <span className="text-[0.8rem] font-semibold tabular-nums text-foreground">
+              ({reviewSummary.count})
+            </span>
+          </button>
+
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
             {product.description}
           </p>
@@ -450,18 +566,38 @@ export function ProductDetail({ productId }: { productId: string }) {
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-            <p className={cn("flex items-center gap-2 font-medium", stockTone)}>
+            <p
+              role="status"
+              className={cn(
+                "flex items-center gap-2.5 text-[0.8rem] font-bold tracking-[0.01em]",
+                stockStatus.text,
+              )}
+            >
+              {/*
+                A live-looking dot: a solid core with a soft ring for the glow and a
+                ping halo that only runs while the piece can actually be bought.
+                Both animations opt out under prefers-reduced-motion.
+              */}
               <span
                 aria-hidden="true"
-                className={cn(
-                  "inline-block h-1.5 w-1.5 rounded-full",
-                  availableStock === 0
-                    ? "bg-destructive"
-                    : availableStock < 4
-                      ? "bg-gold"
-                      : "bg-emerald",
+                className="relative flex h-2.5 w-2.5 shrink-0 items-center justify-center"
+              >
+                {availableStock > 0 && (
+                  <span
+                    className={cn(
+                      "absolute inline-flex h-full w-full rounded-full opacity-60 motion-safe:animate-ping",
+                      stockStatus.halo,
+                    )}
+                  />
                 )}
-              />
+                <span
+                  className={cn(
+                    "relative inline-flex h-2.5 w-2.5 rounded-full ring-4",
+                    stockStatus.dot,
+                    stockStatus.glow,
+                  )}
+                />
+              </span>
               {stockLabel}
             </p>
             {sku && (
@@ -471,80 +607,33 @@ export function ProductDetail({ productId }: { productId: string }) {
             )}
           </div>
 
-          {/* ---------------------------------------------------------- Size / variant */}
+          {/* ------------------------------------------------ Size & dimension pickers */}
           <div className="mt-7 border-t pt-6">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="eyebrow text-xs">{copy.size}</p>
-              {variants.length > 1 && (
-                <p className="text-[0.68rem] text-muted-foreground">{copy.sizeHint}</p>
-              )}
-            </div>
-
             {variants.length > 0 ? (
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {variants.map((variant) => {
-                  const isActive = activeVariant?.id === variant.id;
-                  const isSoldOut = variant.stock === 0;
-                  return (
+              <VariantPicker
+                variants={variants}
+                selection={pickerSelection}
+                onSelect={setSelection}
+                isArabic={s.lang === "ar"}
+              />
+            ) : sizes.length > 0 ? (
+              <fieldset>
+                <legend className="eyebrow text-xs">{copy.size}</legend>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {sizes.map((size) => (
                     <button
-                      key={variant.id ?? variant.sku}
+                      key={size}
                       type="button"
-                      onClick={() => setSelectionId(variant.id)}
-                      aria-pressed={isActive}
-                      className={cn(
-                        "group flex min-w-0 flex-col items-start border px-2.5 py-2.5 text-left transition sm:px-3",
-                        isActive
-                          ? "border-navy bg-navy text-navy-foreground"
-                          : isSoldOut
-                            ? "border-border/60 text-muted-foreground"
-                            : "border-border hover:border-gold",
-                      )}
+                      onClick={() => setSizeChoice(size)}
+                      aria-pressed={sizeValue === size}
+                      className={variantOptionClassName(sizeValue === size, true)}
                     >
-                      <span className="text-[0.78rem] font-medium leading-tight sm:text-[0.82rem]">
-                        {variant.sizeName || variant.dimension || variant.sku}
-                      </span>
-                      {variant.sizeName && variant.dimension && (
-                        <span
-                          className={cn(
-                            "mt-0.5 text-[0.66rem] tracking-[0.08em]",
-                            isActive ? "text-navy-foreground/70" : "text-muted-foreground",
-                          )}
-                        >
-                          {variant.dimension}
-                        </span>
-                      )}
-                      <span
-                        className={cn(
-                          "mt-1 text-[0.68rem]",
-                          isActive ? "text-navy-foreground/80" : "text-muted-foreground",
-                        )}
-                      >
-                        {isSoldOut ? copy.soldOut : s.fmt(variant.price)}
-                      </span>
+                      {size}
                     </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {sizes.map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => setSizeChoice(size)}
-                    aria-pressed={sizeValue === size}
-                    className={cn(
-                      "border px-4 py-2.5 text-sm transition",
-                      sizeValue === size
-                        ? "border-navy bg-navy text-navy-foreground"
-                        : "border-border hover:border-gold",
-                    )}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
           </div>
 
           {/* ----------------------------------------------------------------- Colour */}
@@ -567,10 +656,13 @@ export function ProductDetail({ productId }: { productId: string }) {
                     title={swatch.name}
                     style={{ backgroundColor: swatch.hex }}
                     className={cn(
-                      "h-9 w-9 rounded-full border ring-offset-2 ring-offset-background transition",
+                      "h-9 w-9 rounded-full border ring-offset-2 ring-offset-background",
+                      "transition-[transform,box-shadow,border-color] duration-200 ease-out",
+                      "hover:shadow-md focus-visible:ring-1 focus-visible:ring-gold focus-visible:outline-hidden",
+                      "motion-safe:hover:scale-105 motion-reduce:transform-none",
                       colour === swatch.name
                         ? "border-foreground ring-1 ring-gold"
-                        : "border-border",
+                        : "border-border hover:border-gold",
                     )}
                   />
                 ))}
@@ -771,6 +863,25 @@ export function ProductDetail({ productId }: { productId: string }) {
           </ul>
         </section>
       )}
+
+      {/* --------------------------------------------------------- Customer reviews */}
+      <Suspense
+        fallback={
+          <div className="mt-16 border-t pt-10" aria-hidden>
+            <div className="h-4 w-40 animate-pulse bg-muted" />
+            <div className="mt-6 h-24 w-full animate-pulse bg-muted" />
+          </div>
+        }
+      >
+        <ReviewsSection
+          isArabic={s.lang === "ar"}
+          reviews={reviews}
+          summary={reviewSummary}
+          loading={reviewsLoading}
+          submitting={reviewsSubmitting}
+          onSubmit={submitReview}
+        />
+      </Suspense>
 
       {/* ------------------------------------------------------------ Mobile buy bar */}
       <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t bg-background/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:hidden">

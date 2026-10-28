@@ -11,6 +11,8 @@ interface ProductSchemaProps {
     inStock?: boolean;
     sku?: string;
     url?: string;
+    /** Shown to Google as the rich-result star rating. */
+    aggregateRating?: { average: number; count: number };
   };
 }
 
@@ -29,6 +31,17 @@ export const ProductSchema: React.FC<ProductSchemaProps> = ({ product }) => {
       "@type": "Brand",
       name: "Roelix",
     },
+    ...(product.aggregateRating && product.aggregateRating.count > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: product.aggregateRating.average,
+            reviewCount: product.aggregateRating.count,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
     offers: {
       "@type": "Offer",
       priceCurrency: product.currency || "EGP",

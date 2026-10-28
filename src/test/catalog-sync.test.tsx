@@ -63,35 +63,27 @@ describe("live catalogue synchronisation", () => {
 
   const renderedCount = () => Number(container.querySelector("output")?.textContent ?? -1);
 
-  it(
-    "treats an empty cloud table as authoritative instead of keeping the cache",
-    async () => {
-      localStorage.setItem("roelix_products", JSON.stringify(STATIC_PRODUCTS));
-      catalogResponse = { data: [], error: null };
+  it("treats an empty cloud table as authoritative instead of keeping the cache", async () => {
+    localStorage.setItem("roelix_products", JSON.stringify(STATIC_PRODUCTS));
+    catalogResponse = { data: [], error: null };
 
-      await renderStore();
+    await renderStore();
 
-      expect(STATIC_PRODUCTS.length).toBeGreaterThan(0);
-      await vi.waitFor(() => expect(renderedCount()).toBe(0), { timeout: 10_000 });
-    },
-    20_000,
-  );
+    expect(STATIC_PRODUCTS.length).toBeGreaterThan(0);
+    await vi.waitFor(() => expect(renderedCount()).toBe(0), { timeout: 10_000 });
+  }, 20_000);
 
-  it(
-    "keeps the last known catalogue when the live read fails",
-    async () => {
-      localStorage.setItem("roelix_products", JSON.stringify(STATIC_PRODUCTS));
-      catalogResponse = { data: null, error: { message: "network unreachable" } };
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("keeps the last known catalogue when the live read fails", async () => {
+    localStorage.setItem("roelix_products", JSON.stringify(STATIC_PRODUCTS));
+    catalogResponse = { data: null, error: { message: "network unreachable" } };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-      await renderStore();
-      // Wait until the failed read has actually been handled...
-      await vi.waitFor(() => expect(warn).toHaveBeenCalled(), { timeout: 10_000 });
-      // ...then the cached catalogue must still be on screen.
-      expect(renderedCount()).toBe(STATIC_PRODUCTS.length);
+    await renderStore();
+    // Wait until the failed read has actually been handled...
+    await vi.waitFor(() => expect(warn).toHaveBeenCalled(), { timeout: 10_000 });
+    // ...then the cached catalogue must still be on screen.
+    expect(renderedCount()).toBe(STATIC_PRODUCTS.length);
 
-      warn.mockRestore();
-    },
-    20_000,
-  );
+    warn.mockRestore();
+  }, 20_000);
 });

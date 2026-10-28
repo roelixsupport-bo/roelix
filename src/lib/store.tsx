@@ -67,6 +67,10 @@ export type Product = {
   productDetails?: string;
   /** Fabric care copy shown in the PDP "Care Instructions" accordion. */
   productCare?: string;
+  /** Product-level SKU, used when the product has no variant matrix. */
+  sku?: string;
+  /** Product-level "was" price in the base currency, used when no variant sets one. */
+  compareAtPrice?: number;
   /** Size/dimension matrix mirrored from the `product_variants` table. */
   variants?: ProductVariant[];
 };
@@ -88,6 +92,8 @@ export type Order = {
     qty: number;
     size: string;
     color: string;
+    /** Variant dimension, matched by the inventory triggers when present. */
+    dimension?: string;
     name?: string;
     price?: number;
     /** Stable per-line id stamped by the database, used for partial returns. */
@@ -112,6 +118,8 @@ type SavedCartLine = {
   color: string;
   qty: number;
   unitPrice?: number;
+  /** Variant dimension, when one size is sold in several dimensions. */
+  dimension?: string;
 };
 export type CartLine = SavedCartLine & { product: Product };
 export type CartAddition = {
@@ -120,20 +128,29 @@ export type CartAddition = {
   color: string;
   qty: number;
   unitPrice?: number;
+  dimension?: string;
 };
 
-export type CartLineKey = Pick<SavedCartLine, "id" | "size" | "color" | "unitPrice">;
+export type CartLineKey = Pick<SavedCartLine, "id" | "size" | "color" | "unitPrice" | "dimension">;
 
 /**
- * Identity of a cart line: product + size + colour + unit price.
+ * Identity of a cart line: product + size + colour + price + dimension.
  *
  * The same product can sit in the bag twice at different prices (a bundle
- * discount versus the list price), so every add / update / remove path has to
- * compare all four fields. The bag UI uses this helper too, so identity can
- * never drift between the store and the drawer.
+ * discount versus the list price) or at the same size in two dimensions, so
+ * every add / update / remove path has to compare all five fields. The bag UI
+ * uses this helper too, so identity can never drift between the store and the
+ * drawer — and the order line that reaches the database keeps the dimension it
+ * was bought in.
  */
 export function isSameCartLine(a: CartLineKey, b: CartLineKey): boolean {
-  return a.id === b.id && a.size === b.size && a.color === b.color && a.unitPrice === b.unitPrice;
+  return (
+    a.id === b.id &&
+    a.size === b.size &&
+    a.color === b.color &&
+    a.unitPrice === b.unitPrice &&
+    (a.dimension ?? "") === (b.dimension ?? "")
+  );
 }
 export type Language = "en" | "ar";
 
@@ -309,7 +326,8 @@ const isSavedCart = (value: unknown): value is SavedCartLine[] =>
       (line["unitPrice"] === undefined ||
         (typeof line["unitPrice"] === "number" &&
           Number.isFinite(line["unitPrice"]) &&
-          line["unitPrice"] >= 0)),
+          line["unitPrice"] >= 0)) &&
+      (line["dimension"] === undefined || typeof line["dimension"] === "string"),
   );
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -329,7 +347,13 @@ type StoreContextValue = {
   fmtEgp: (amount: number) => string;
   find: (id: string) => Product | undefined;
   addToCart: (
-    selection: { id: string; size: string; color: string; unitPrice?: number },
+    selection: {
+      id: string;
+      size: string;
+      color: string;
+      unitPrice?: number;
+      dimension?: string;
+    },
     qty?: number,
   ) => boolean;
   addBundleToCart: (additions: CartAddition[]) => boolean;
@@ -553,7 +577,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const count = useMemo(() => lines.reduce((sum, line) => sum + line.qty, 0), [lines]);
 
   const addToCart = useCallback(
-    (selection: { id: string; size: string; color: string; unitPrice?: number }, qty = 1) => {
+    (
+      selection: {
+        id: string;
+        size: string;
+        color: string;
+        unitPrice?: number;
+        dimension?: string;
+      },
+      qty = 1,
+    ) => {
       const product = products.find((item) => item.id === selection.id);
       if (!product || product.stock < 1) {
         console.warn(`Cannot add unavailable product ${selection.id} to the bag`);
@@ -600,6 +633,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               color: selection.color,
               qty: addition,
               ...(unitPrice === undefined ? {} : { unitPrice }),
+              ...(selection.dimension ? { dimension: selection.dimension } : {}),
             },
           ];
         return current.map((line) =>
@@ -623,12 +657,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           typeof addition.id !== "string" ||
           !addition.id.trim() ||
           typeof addition.size !== "string" ||
-          typeof addition.color !== "string"
+          typeof addition.color !== "string" ||
+          (addition.dimension !== undefined && typeof addition.dimension !== "string")
         ) {
           return false;
         }
         const product = products.find(
           (candidate) => candidate.id === addition.id && candidate.isPublished,
+        );
+        // A variant may be priced above the advertised (cheapest) product price,
+        // so bundles are validated against the same ceiling as single adds.
+        const priceCeiling = Math.max(
+          product?.price ?? 0,
+          ...(product?.variants ?? []).map((variant) => variant.price),
         );
         if (
           !product ||
@@ -643,7 +684,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           typeof addition.unitPrice !== "number" ||
           !Number.isFinite(addition.unitPrice) ||
           addition.unitPrice < 0 ||
-          addition.unitPrice > product.price
+          addition.unitPrice > priceCeiling
         ) {
           return false;
         }
@@ -670,6 +711,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             color: addition.color,
             qty: addition.qty,
             unitPrice: addition.unitPrice,
+            ...(addition.dimension ? { dimension: addition.dimension } : {}),
           });
         } else {
           const existing = next[existingIndex];

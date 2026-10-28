@@ -50,6 +50,9 @@ export function productFromCloud(value: unknown): Product {
 
   const productDetails = optionalCopy(value["product_details"]);
   const productCare = optionalCopy(value["product_care"]);
+  const sku = optionalCopy(value["sku"]);
+  const compareAtPrice =
+    typeof value["compare_at_price"] === "number" ? value["compare_at_price"] : undefined;
   // Nested relation (`select("*, product_variants(*)"`) preferred, flat key tolerated.
   const variants = variantsFromCloud(value["product_variants"] ?? value["variants"]);
 
@@ -71,6 +74,8 @@ export function productFromCloud(value: unknown): Product {
     isPublished: value["is_published"],
     ...(productDetails ? { productDetails } : {}),
     ...(productCare ? { productCare } : {}),
+    ...(sku ? { sku } : {}),
+    ...(compareAtPrice !== undefined ? { compareAtPrice } : {}),
     ...(variants.length > 0 ? { variants } : {}),
   };
 }
@@ -94,6 +99,8 @@ export function productToCloud(product: Product): Record<string, unknown> {
     is_published: product.isPublished,
     product_details: product.productDetails ?? null,
     product_care: product.productCare ?? null,
+    sku: product.sku?.trim() || null,
+    compare_at_price: product.compareAtPrice ?? null,
     updated_at: new Date().toISOString(),
   };
 }

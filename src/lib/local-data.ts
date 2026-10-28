@@ -337,6 +337,7 @@ export function placeLocalOrder(
       size: string;
       color: string;
       unitPrice?: number;
+      dimension?: string;
     }>;
   },
   defaults: Product[],
@@ -378,6 +379,8 @@ export function placeLocalOrder(
       color: item.color,
       name: product.name,
       price: priceInEgp,
+      // Carried through so the database can deduct the exact variant.
+      ...(item.dimension ? { dimension: item.dimension } : {}),
     });
     product.stock -= item.qty;
   }

@@ -121,6 +121,97 @@ export function lowestVariantPrice(variants: ProductVariant[]): number | null {
   return Math.min(...variants.map((variant) => variant.price));
 }
 
+/**
+ * What the storefront currently has picked out of the matrix.
+ *
+ * Size and dimension are chosen independently (two button groups), and the pair
+ * resolves to exactly one variant — which is what makes the price, SKU and stock
+ * readout update on a single click.
+ */
+export type VariantSelection = { sizeName: string; dimension: string };
+
+/** Distinct non-empty values for one axis, in first-seen order (so buttons do not jump). */
+export function distinctVariantValues(
+  variants: ProductVariant[],
+  key: "sizeName" | "dimension",
+): string[] {
+  const seen = new Set<string>();
+  const values: string[] = [];
+  for (const variant of variants) {
+    const value = variant[key].trim();
+    if (!value) continue;
+    const token = value.toLowerCase();
+    if (seen.has(token)) continue;
+    seen.add(token);
+    values.push(value);
+  }
+  return values;
+}
+
+/** True when a variant satisfies every axis that has been chosen so far. */
+export function variantMatchesSelection(
+  variant: ProductVariant,
+  selection: Partial<VariantSelection>,
+): boolean {
+  const size = selection.sizeName?.trim().toLowerCase();
+  const dimension = selection.dimension?.trim().toLowerCase();
+  if (size && variant.sizeName.trim().toLowerCase() !== size) return false;
+  if (dimension && variant.dimension.trim().toLowerCase() !== dimension) return false;
+  return true;
+}
+
+/** Can this (partial) selection be bought at all? Drives the disabled state of a button. */
+export function hasStockFor(
+  variants: ProductVariant[],
+  selection: Partial<VariantSelection>,
+): boolean {
+  return variants.some(
+    (variant) => variant.stock > 0 && variantMatchesSelection(variant, selection),
+  );
+}
+
+/**
+ * Units in stock for one axis value, summed across the other axis.
+ *
+ * A single size button stands for every dimension that size is sold in, so its
+ * own stock is the total the shopper could still buy in that size. Zero means the
+ * option is genuinely unavailable and its button is disabled; a small number is
+ * shown as "N left" so the shopper can see the same figure the PDP reports.
+ */
+export function axisStock(
+  variants: ProductVariant[],
+  key: "sizeName" | "dimension",
+  value: string,
+): number {
+  const token = value.trim().toLowerCase();
+  return variants.reduce(
+    (total, variant) =>
+      variant[key].trim().toLowerCase() === token ? total + Math.max(0, variant.stock) : total,
+    0,
+  );
+}
+
+/** Below this, a variant option advertises its remaining count. */
+export const LOW_STOCK_THRESHOLD = 5;
+
+/** The variant a (partial) selection resolves to, preferring one that can be bought. */
+export function bestVariantFor(
+  variants: ProductVariant[],
+  selection: Partial<VariantSelection>,
+): ProductVariant | null {
+  const matches = variants.filter((variant) => variantMatchesSelection(variant, selection));
+  if (matches.length === 0) return null;
+  return firstPurchasableVariant(matches) ?? matches[0] ?? null;
+}
+
+/** Resolves a fully chosen size/dimension pair. Null means "that combination is not sold". */
+export function resolveVariant(
+  variants: ProductVariant[],
+  selection: VariantSelection,
+): ProductVariant | null {
+  return bestVariantFor(variants, selection);
+}
+
 export function slugSku(base: string, suffix: string): string {
   const prefix = base
     .toUpperCase()

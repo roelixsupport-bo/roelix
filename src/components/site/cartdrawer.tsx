@@ -94,6 +94,8 @@ function CartItem({ line }: { line: CartLine }) {
   const maxQuantity = Math.max(0, getMaxOrderQuantity(line.product.stock) - otherQuantity);
   const productName = s.lang === "ar" ? line.product.nameAr : line.product.name;
   const removeLabel = s.lang === "ar" ? `إزالة ${productName} من الحقيبة` : `Remove ${productName}`;
+  const sizeLabel = s.lang === "ar" ? "المقاس" : "Size";
+  const colourLabel = s.lang === "ar" ? "اللون" : "Colour";
 
   const warnLimit = () => {
     toast.warning(
@@ -133,9 +135,14 @@ function CartItem({ line }: { line: CartLine }) {
               <Trash2 size={16} />
             </button>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground font-medium">
-            {line.size && `Size: ${line.size}`} {line.size && line.color && "·"}{" "}
-            {line.color && `Color: ${line.color}`}
+          <p className="mt-1 text-xs font-medium text-muted-foreground">
+            {[
+              line.size ? `${sizeLabel}: ${line.size}` : "",
+              line.dimension ?? "",
+              line.color ? `${colourLabel}: ${line.color}` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
 
