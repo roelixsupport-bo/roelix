@@ -1,13 +1,13 @@
 import { Plus, Trash2, Wand2 } from "lucide-react";
 
-import {
-  createEmptyVariant,
-  lowestVariantPrice,
-  slugSku,
-  totalVariantStock,
+import {  
+  createEmptyVariant,  
+  generateSku,  
+  lowestVariantPrice,  
+  totalVariantStock,  
+  isPlaceholderSku,
   type ProductVariant,
 } from "@/lib/product-variants";
-import { EGP_PER_USD } from "@/lib/store";
 
 const COPY = {
   en: {
@@ -25,7 +25,7 @@ const COPY = {
     empty: "No variants yet. Add a row, or generate rows from the sizes above.",
     totalStock: "Total stock",
     priceRange: "Price range",
-    skuRequired: "SKU required",
+    skuRequired: "Leave empty or “0” to auto-generate a unique SKU",
   },
   ar: {
     title: "المتغيرات والأسعار والمخزون",
@@ -42,7 +42,7 @@ const COPY = {
     empty: "لا توجد متغيرات بعد. أضف صفاً أو ولّد صفوفاً من المقاسات أعلاه.",
     totalStock: "إجمالي المخزون",
     priceRange: "نطاق السعر",
-    skuRequired: "رمز المنتج مطلوب",
+    skuRequired: "اتركه فارغاً أو 0 لتوليد رمز فريد تلقائياً",
   },
 } as const;
 
@@ -78,27 +78,29 @@ export function VariantManager({
     onChange(variants.map((variant, i) => (i === index ? { ...variant, ...patch } : variant)));
   };
 
-  const addVariant = () => {
-    const position = variants.length + 1;
-    onChange([...variants, createEmptyVariant(slugSku(skuPrefix, String(position)))]);
+  const takenSkus = () => new Set(variants.map((variant) => variant.sku.trim().toLowerCase()));
+
+  const addVariant = () => {  
+    const sku = generateSku(skuPrefix, String(variants.length + 1), takenSkus());  
+    onChange([...variants, createEmptyVariant(sku)]);  
   };
 
-  const generateFromSizes = () => {
-    const covered = new Set(variants.map((variant) => variant.sizeName.trim().toLowerCase()));
-    const pending = sizeSuggestions.filter(
-      (size) => size.trim() !== "" && !covered.has(size.trim().toLowerCase()),
-    );
-    const generated = pending.map((size) => createEmptyVariant(slugSku(skuPrefix, size)));
-    const seeded = generated.map((variant, index) => ({
-      ...variant,
-      sizeName: pending[index] ?? "",
-      price: defaultPrice > 0 ? defaultPrice : 0,
-    }));
-    if (seeded.length === 0 && variants.length === 0) {
-      onChange([createEmptyVariant(slugSku(skuPrefix, "1"))]);
-      return;
-    }
-    onChange([...variants, ...seeded]);
+  const generateFromSizes = () => {  
+    const covered = new Set(variants.map((variant) => variant.sizeName.trim().toLowerCase()));  
+    const pending = sizeSuggestions.filter(    
+      (size) => size.trim() !== "" && !covered.has(size.trim().toLowerCase()),  
+    );  
+    const taken = takenSkus();  
+    const seeded = pending.map((size) => ({    
+      ...createEmptyVariant(generateSku(skuPrefix, size, taken)),    
+      sizeName: size,    
+      price: defaultPrice > 0 ? defaultPrice : 0,  
+    }));  
+    if (seeded.length === 0 && variants.length === 0) {    
+      onChange([createEmptyVariant(generateSku(skuPrefix, "1", taken))]);    
+      return;  
+    }  
+    onChange([...variants, ...seeded]);  
   };
 
   const totalStock = totalVariantStock(variants);
@@ -169,11 +171,12 @@ export function VariantManager({
                       className={inputClass}
                       dir="ltr"
                       value={variant.sku}
-                      aria-invalid={variant.sku.trim() === ""}
+                      placeholder="AUTO"
+                      aria-invalid={false}
                       onChange={(event) => update(index, { sku: event.target.value })}
                     />
-                    {variant.sku.trim() === "" && (
-                      <span className="block text-[0.65rem] text-destructive">
+                    {isPlaceholderSku(variant.sku) && (
+                      <span className="block text-[0.65rem] text-muted-foreground">
                         {text.skuRequired}
                       </span>
                     )}

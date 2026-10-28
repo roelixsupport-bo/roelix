@@ -1,6 +1,9 @@
 import { productToCloud } from "@/lib/cloud-catalog";
+import { describeError } from "@/lib/errors";
 import { supabase } from "@/lib/supabase";
 import {
+  ensureUniqueSkus,
+  sanitizeVariants,
   syncProductWithVariants,
   variantToCloud,
   type ProductVariant,
@@ -19,10 +22,6 @@ export type SaveProductResult = {
 
 /**
  * The column Postgres blamed in a "column ... does not exist" error, if any.
- *
- * Letting the save drop one missing column at a time means the dashboard keeps
- * working on a project that has only some of the ROELIX migrations applied,
- * instead of guessing the migration level and sending a payload that fails.
  */
 function missingColumnName(error: { message?: string }): string | null {
   const match = /column "([^"]+)" of relation "[^"]+" does not exist/i.exec(error.message ?? "");
@@ -92,18 +91,25 @@ async function saveVariants(
 
 /**
  * Writes a product and its variant matrix to Supabase.
- *
- * `previous` is the variant list as loaded into the editor, used to work out
- * which rows the admin deleted. Variant rows are never deleted implicitly: only
- * variants the admin removed explicitly are deleted.
  */
 export async function saveCloudProduct(
   input: Product,
   previousVariants: ProductVariant[],
 ): Promise<SaveProductResult> {
-  const product = syncProductWithVariants(input);
+  // Defensive pass: numbers are numbers and SKUs are unique before anything is sent.
+  const variants = ensureUniqueSkus(
+    sanitizeVariants(input.variants ?? []),
+    input.name || "ROELIX",
+  );
+  const product = syncProductWithVariants({ ...input, variants });
 
-  const droppedColumns = await upsertProductRow(product);
+  let droppedColumns: Set<string>;
+  try {
+    droppedColumns = await upsertProductRow(product);
+  } catch (error) {
+    throw new Error(`Supabase rejected the product row.\n${describeError(error)}`);
+  }
+
   // Copy columns the table could not accept; the rest of the edit was saved.
   const detailsSkipped =
     droppedColumns.has("product_details") || droppedColumns.has("product_care");
@@ -125,10 +131,10 @@ export async function saveCloudProduct(
     }
     if (shape.code === "23505" || /duplicate key/i.test(shape.message ?? "")) {
       throw new Error(
-        "Two variants share the same SKU. Give every variant a unique SKU and save again.",
+        `Supabase rejected the variants: a SKU already exists (SKUs are unique across the whole catalogue).\n${describeError(error)}`,
       );
     }
-    throw error;
+    throw new Error(`Product saved, but Supabase rejected the variants.\n${describeError(error)}`);
   }
 
   return {
