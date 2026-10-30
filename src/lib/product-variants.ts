@@ -20,13 +20,36 @@ export type ProductVariant = {
 
 type CloudRow = Record<string, unknown>;
 
-function toNumber(value: unknown): number | null {
+function isCloudRow(value: unknown): value is CloudRow {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Reads a number out of anything the admin form or PostgREST can hand over.
+ *
+ * Number inputs give `NaN` when empty, older rows come back as `"830.50"`, and an
+ * admin can paste `"1,200"`. All of those are normalised here; anything that is
+ * not a number stays `null` so the caller decides the fallback.
+ */
+function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
+  if (typeof value !== "string") return null;
+  const cleaned = value
+    .replace(/[\s,_]/g, "")
+    .replace(/[^0-9.+-]/g, "")
+    .trim();
+  if (cleaned === "" || cleaned === "-" || cleaned === "+" || cleaned === ".") return null;
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** `price` is `numeric(10, 2)`; anything finer is rounded away by Postgres anyway. */
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function toNumber(value: unknown): number | null {
+  return toFiniteNumber(value);
 }
 
 function toText(value: unknown): string {
@@ -61,27 +84,33 @@ export function variantsFromCloud(value: unknown): ProductVariant[] {
   );
 }
 
+/** Sends `price`/`stock` as real numbers, never as the strings form inputs hold. */
 export function variantToCloud(
   variant: ProductVariant,
   productId: string,
 ): Record<string, unknown> {
+  const price = toFiniteNumber(variant.price) ?? 0;
+  const stock = toFiniteNumber(variant.stock) ?? 0;
+  const compareAtPrice = toFiniteNumber(variant.compareAtPrice);
   const row: Record<string, unknown> = {
     product_id: productId,
     sku: variant.sku.trim(),
     size_name: variant.sizeName.trim() || null,
     dimension: variant.dimension.trim() || null,
-    price: variant.price,
-    compare_at_price: variant.compareAtPrice,
-    stock: Math.max(0, Math.floor(variant.stock)),
+    // numeric(10, 2) + integer columns: PostgREST rejects "" and "1 200".
+    price: Math.max(0, roundMoney(price)),
+    compare_at_price:
+      compareAtPrice !== null && compareAtPrice > 0 ? roundMoney(compareAtPrice) : null,
+    stock: Math.max(0, Math.floor(stock)),
   };
   if (variant.id) row["id"] = variant.id;
   return row;
 }
 
 /**
- * Drops duplicate SKUs (case-insensitive) so the admin can never send a row set
- * that the unique index would reject. Order is preserved so the admin table does
- * not jump around while typing.
+ * Drops duplicate SKUs (case-insensitive). Reads use this so a legacy row set can
+ * never render two buttons for one SKU; writes go through `ensureUniqueSkus`
+ * instead, which renames the clash rather than throwing a row away.
  */
 export function normalizeVariants(variants: ProductVariant[]): ProductVariant[] {
   const seen = new Set<string>();
@@ -95,6 +124,124 @@ export function normalizeVariants(variants: ProductVariant[]): ProductVariant[] 
     unique.push(variant);
   }
   return unique;
+}
+
+/**
+ * SKUs an admin types when they mean "let the app decide".
+ *
+ * `sku` is `not null` and unique across the whole catalogue, so a second row with
+ * `0` (or an empty string) is rejected by Postgres with 23505. Those values are
+ * treated as "generate one for me" everywhere instead of being sent as-is.
+ */
+const PLACEHOLDER_SKUS = new Set(["", "-", "0", "00", "000", "auto", "n/a", "na", "sku"]);
+
+export function isPlaceholderSku(sku: string | null | undefined): boolean {
+  if (typeof sku !== "string") return true;
+  return PLACEHOLDER_SKUS.has(sku.trim().toLowerCase());
+}
+
+/**
+ * Builds a readable, catalogue-unique SKU such as `AURELIA-SATEEN-KING-2`.
+ *
+ * `taken` is the set of SKUs already used in this save; collisions get a numeric
+ * tail so a repeated size name or two rows for one dimension still save.
+ */
+export function generateSku(prefix: string, suffix: string, taken: Iterable<string> = []): string {
+  const base = slugSku(prefix, suffix);
+  const used = new Set<string>();
+  for (const value of taken) {
+    if (typeof value === "string" && value.trim() !== "") used.add(value.trim().toLowerCase());
+  }
+  if (!used.has(base.toLowerCase())) return base;
+  for (let counter = 2; counter <= 500; counter += 1) {
+    const candidate = `${base}-${counter}`;
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+  return `${base}-${Date.now().toString(36).slice(-5)}`;
+}
+
+/**
+ * Normalises the rows the editor holds into what the `product_variants` table
+ * accepts, before anything is sent to Supabase:
+ *
+ * - `price` / `stock` / `compareAtPrice` become real numbers, empty fields become
+ *   0 (or null for `compare_at_price`) instead of `""`, which PostgREST rejects
+ *   with `invalid input syntax for type numeric` (22P02)
+ * - stock is floored at 0, price rounded to 2 decimals (`numeric(10, 2)`)
+ * - rows the admin added but never touched are dropped rather than saved blank
+ */
+export function sanitizeVariants(input: readonly ProductVariant[]): ProductVariant[] {
+  const rows = Array.isArray(input) ? input : [];
+  const clean: ProductVariant[] = [];
+
+  for (const raw of rows) {
+    if (!isCloudRow(raw)) continue;
+    const row = raw as unknown as CloudRow;
+
+    const sizeName = toText(row["sizeName"]);
+    const dimension = toText(row["dimension"]);
+    const sku = toText(row["sku"]);
+    const price = toFiniteNumber(row["price"]);
+    const stock = toFiniteNumber(row["stock"]);
+    const compareAtPrice = toFiniteNumber(row["compareAtPrice"]);
+    const id = typeof row["id"] === "string" && row["id"] !== "" ? row["id"] : null;
+
+    // "Add variant" that was never filled in: nothing to sell, so nothing to save.
+    const touched =
+      sizeName !== "" ||
+      dimension !== "" ||
+      id !== null ||
+      (price ?? 0) !== 0 ||
+      (stock ?? 0) !== 0;
+    if (!touched) continue;
+
+    clean.push({
+      id,
+      sku,
+      sizeName,
+      dimension,
+      price: Math.max(0, roundMoney(price ?? 0)),
+      compareAtPrice:
+        compareAtPrice !== null && compareAtPrice > 0 ? roundMoney(compareAtPrice) : null,
+      stock: Math.max(0, Math.floor(stock ?? 0)),
+    });
+  }
+
+  return clean;
+}
+
+/**
+ * Makes every SKU in a save unique and non-placeholder.
+ *
+ * This is the guard that keeps `product_variants_sku_key` from rejecting a save:
+ * blank / `0` SKUs are generated from the product name plus the row's size or
+ * dimension, and a repeated SKU gets a numeric tail.
+ */
+export function ensureUniqueSkus(
+  variants: ProductVariant[],
+  productName = "ROELIX",
+): ProductVariant[] {
+  const taken = new Set<string>();
+
+  return variants.map((variant, index) => {
+    const typed = typeof variant.sku === "string" ? variant.sku.trim() : "";
+    const seed = variant.sizeName.trim() || variant.dimension.trim() || String(index + 1);
+    const clashes = typed !== "" && taken.has(typed.toLowerCase());
+    const sku = isPlaceholderSku(typed) || clashes ? generateSku(productName, seed, taken) : typed;
+    taken.add(sku.toLowerCase());
+    return { ...variant, sku };
+  });
+}
+
+/** SKUs that appear more than once in a list, lowercased. Drives the editor warning. */
+export function duplicateSkus(variants: ProductVariant[]): Set<string> {
+  const counts = new Map<string, number>();
+  for (const variant of variants) {
+    const key = variant.sku.trim().toLowerCase();
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return new Set([...counts.entries()].filter(([, count]) => count > 1).map(([key]) => key));
 }
 
 /** What the storefront shows on a size button, e.g. "King" or "50 × 70 cm". */

@@ -80,19 +80,26 @@ export function productFromCloud(value: unknown): Product {
   };
 }
 
+/** `price` is numeric and `stock` integer: never send NaN or an empty input through. */
+function safeNumber(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function productToCloud(product: Product): Record<string, unknown> {
+  const compareAtPrice = safeNumber(product.compareAtPrice);
   return {
     id: product.id,
     name: product.name,
     name_ar: product.nameAr,
     category: product.category,
-    price: product.price,
+    price: Math.max(0, Math.round((safeNumber(product.price) ?? 0) * 100) / 100),
     images: product.images,
     description: product.description,
     thread_count: product.threadCount ?? null,
     gsm: product.gsm ?? null,
     origin: product.origin,
-    stock: product.stock,
+    stock: Math.max(0, Math.floor(safeNumber(product.stock) ?? 0)),
     colors: product.colors,
     sizes: product.sizes,
     frequently_bought_ids: product.frequently_bought_ids ?? product.relatedProductIds ?? [],
@@ -100,7 +107,7 @@ export function productToCloud(product: Product): Record<string, unknown> {
     product_details: product.productDetails ?? null,
     product_care: product.productCare ?? null,
     sku: product.sku?.trim() || null,
-    compare_at_price: product.compareAtPrice ?? null,
+    compare_at_price: compareAtPrice !== null && compareAtPrice > 0 ? compareAtPrice : null,
     updated_at: new Date().toISOString(),
   };
 }

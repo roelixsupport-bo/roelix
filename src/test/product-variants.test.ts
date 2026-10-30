@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { productFromCloud } from "@/lib/cloud-catalog";
 import {
+  duplicateSkus,
+  ensureUniqueSkus,
   firstPurchasableVariant,
+  generateSku,
+  isPlaceholderSku,
   normalizeVariants,
+  sanitizeVariants,
   syncProductWithVariants,
   variantFromCloud,
   variantToCloud,
@@ -157,5 +162,105 @@ describe("productFromCloud", () => {
     expect(product.productCare).toBeUndefined();
     expect(product.variants).toHaveLength(1);
     expect(product.variants?.[0]?.sku).toBe("AUR-QUEEN");
+  });
+});
+
+describe("variant sanitising before a Supabase write", () => {
+  it("coerces string and empty price/stock into numbers", () => {
+    const [row] = sanitizeVariants([
+      {
+        ...variant(),
+        // The editor can hand over strings and blanks: these used to reach the
+        // numeric/integer columns as "" and fail with 22P02.
+        price: "830.5" as unknown as number,
+        stock: "" as unknown as number,
+        compareAtPrice: "" as unknown as number | null,
+      },
+    ]);
+
+    expect(row?.price).toBe(830.5);
+    expect(row?.stock).toBe(0);
+    expect(row?.compareAtPrice).toBeNull();
+  });
+
+  it("floors stock, clamps negatives and rounds money to cents", () => {
+    const [row] = sanitizeVariants([
+      variant({ price: 830.4567, stock: 3.9, compareAtPrice: 950.129 }),
+    ]);
+
+    expect(row?.price).toBe(830.46);
+    expect(row?.stock).toBe(3);
+    expect(row?.compareAtPrice).toBe(950.13);
+  });
+
+  it("drops a row the admin added but never filled in", () => {
+    expect(
+      sanitizeVariants([variant({ sku: "", sizeName: "", dimension: "", price: 0, stock: 0 })]),
+    ).toEqual([]);
+  });
+
+  it("sends no empty string or NaN through variantToCloud", () => {
+    const row = variantToCloud(
+      variant({ price: Number.NaN, stock: Number.NaN, compareAtPrice: Number.NaN }),
+      "aurelia-sateen",
+    );
+
+    expect(row["price"]).toBe(0);
+    expect(row["stock"]).toBe(0);
+    expect(row["compare_at_price"]).toBeNull();
+  });
+});
+
+describe("SKU generation", () => {
+  it("treats blank, 0 and AUTO as placeholders", () => {
+    for (const sku of ["", "  ", "0", "00", "auto", "AUTO"]) {
+      expect(isPlaceholderSku(sku)).toBe(true);
+    }
+    expect(isPlaceholderSku("AUR-QUEEN")).toBe(false);
+    expect(isPlaceholderSku(null)).toBe(true);
+  });
+
+  it("builds a readable SKU and numbers collisions", () => {
+    expect(generateSku("Aurelia Sateen", "Queen")).toBe("AURELIA-SATEEN-QUEEN");
+    expect(generateSku("Aurelia Sateen", "Queen", ["aurelia-sateen-queen"])).toBe(
+      "AURELIA-SATEEN-QUEEN-2",
+    );
+  });
+
+  it("replaces repeated 0 SKUs with unique generated values", () => {
+    const rows = ensureUniqueSkus(
+      [
+        variant({ sku: "0", sizeName: "Queen" }),
+        variant({ sku: "0", sizeName: "King" }),
+        variant({ sku: "", sizeName: "", dimension: "200 × 220 cm" }),
+      ],
+      "Aurelia Sateen",
+    );
+
+    expect(rows.map((row) => row.sku)).toEqual([
+      "AURELIA-SATEEN-QUEEN",
+      "AURELIA-SATEEN-KING",
+      "AURELIA-SATEEN-200-220-CM",
+    ]);
+  });
+
+  it("renames a duplicated typed SKU instead of letting the unique index reject it", () => {
+    const rows = ensureUniqueSkus(
+      [
+        variant({ sku: "AUR-KING", sizeName: "King" }),
+        variant({ sku: "aur-king", sizeName: "King" }),
+      ],
+      "Aurelia",
+    );
+
+    expect(rows[0]?.sku).toBe("AUR-KING");
+    expect(rows[1]?.sku).toBe("AURELIA-KING");
+    expect(duplicateSkus(rows).size).toBe(0);
+  });
+
+  it("reports duplicates so the editor can warn before saving", () => {
+    expect([
+      ...duplicateSkus([variant({ sku: "DUP" }), variant({ sku: "dup" }), variant({ sku: "OK" })]),
+    ]).toEqual(["dup"]);
   });
 });

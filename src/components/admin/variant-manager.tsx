@@ -1,13 +1,15 @@
 import { Plus, Trash2, Wand2 } from "lucide-react";
 
-import {  
-  createEmptyVariant,  
-  generateSku,  
-  lowestVariantPrice,  
-  totalVariantStock,  
+import {
+  createEmptyVariant,
+  duplicateSkus,
+  generateSku,
   isPlaceholderSku,
+  lowestVariantPrice,
+  totalVariantStock,
   type ProductVariant,
 } from "@/lib/product-variants";
+import { EGP_PER_USD } from "@/lib/store";
 
 const COPY = {
   en: {
@@ -26,6 +28,7 @@ const COPY = {
     totalStock: "Total stock",
     priceRange: "Price range",
     skuRequired: "Leave empty or “0” to auto-generate a unique SKU",
+    skuDuplicate: "Used twice in this list — it is renamed automatically on save.",
   },
   ar: {
     title: "المتغيرات والأسعار والمخزون",
@@ -43,6 +46,7 @@ const COPY = {
     totalStock: "إجمالي المخزون",
     priceRange: "نطاق السعر",
     skuRequired: "اتركه فارغاً أو 0 لتوليد رمز فريد تلقائياً",
+    skuDuplicate: "مستخدم مرتين في هذه القائمة — يُعاد تسميته تلقائياً عند الحفظ.",
   },
 } as const;
 
@@ -80,31 +84,32 @@ export function VariantManager({
 
   const takenSkus = () => new Set(variants.map((variant) => variant.sku.trim().toLowerCase()));
 
-  const addVariant = () => {  
-    const sku = generateSku(skuPrefix, String(variants.length + 1), takenSkus());  
-    onChange([...variants, createEmptyVariant(sku)]);  
+  const addVariant = () => {
+    const sku = generateSku(skuPrefix, String(variants.length + 1), takenSkus());
+    onChange([...variants, createEmptyVariant(sku)]);
   };
 
-  const generateFromSizes = () => {  
-    const covered = new Set(variants.map((variant) => variant.sizeName.trim().toLowerCase()));  
-    const pending = sizeSuggestions.filter(    
-      (size) => size.trim() !== "" && !covered.has(size.trim().toLowerCase()),  
-    );  
-    const taken = takenSkus();  
-    const seeded = pending.map((size) => ({    
-      ...createEmptyVariant(generateSku(skuPrefix, size, taken)),    
-      sizeName: size,    
-      price: defaultPrice > 0 ? defaultPrice : 0,  
-    }));  
-    if (seeded.length === 0 && variants.length === 0) {    
-      onChange([createEmptyVariant(generateSku(skuPrefix, "1", taken))]);    
-      return;  
-    }  
-    onChange([...variants, ...seeded]);  
+  const generateFromSizes = () => {
+    const covered = new Set(variants.map((variant) => variant.sizeName.trim().toLowerCase()));
+    const pending = sizeSuggestions.filter(
+      (size) => size.trim() !== "" && !covered.has(size.trim().toLowerCase()),
+    );
+    const taken = takenSkus();
+    const seeded = pending.map((size) => ({
+      ...createEmptyVariant(generateSku(skuPrefix, size, taken)),
+      sizeName: size,
+      price: defaultPrice > 0 ? defaultPrice : 0,
+    }));
+    if (seeded.length === 0 && variants.length === 0) {
+      onChange([createEmptyVariant(generateSku(skuPrefix, "1", taken))]);
+      return;
+    }
+    onChange([...variants, ...seeded]);
   };
 
   const totalStock = totalVariantStock(variants);
   const low = lowestVariantPrice(variants);
+  const duplicated = duplicateSkus(variants);
 
   return (
     <section className="space-y-3 border p-4">
@@ -172,14 +177,24 @@ export function VariantManager({
                       dir="ltr"
                       value={variant.sku}
                       placeholder="AUTO"
-                      aria-invalid={false}
+                      aria-invalid={duplicated.has(variant.sku.trim().toLowerCase())}
+                      aria-describedby={
+                        isPlaceholderSku(variant.sku) ? `variant-sku-hint-${index}` : undefined
+                      }
                       onChange={(event) => update(index, { sku: event.target.value })}
                     />
-                    {isPlaceholderSku(variant.sku) && (
-                      <span className="block text-[0.65rem] text-muted-foreground">
+                    {isPlaceholderSku(variant.sku) ? (
+                      <span
+                        id={`variant-sku-hint-${index}`}
+                        className="block text-[0.65rem] text-muted-foreground"
+                      >
                         {text.skuRequired}
                       </span>
-                    )}
+                    ) : duplicated.has(variant.sku.trim().toLowerCase()) ? (
+                      <span className="block text-[0.65rem] text-destructive">
+                        {text.skuDuplicate}
+                      </span>
+                    ) : null}
                   </label>
                   <label className="space-y-1">
                     <span className="eyebrow text-[0.6rem] text-muted-foreground">

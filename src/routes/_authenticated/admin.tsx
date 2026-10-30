@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { BarChart3, Plus, Search, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -36,7 +36,8 @@ import { ReviewsPanel } from "@/components/admin/reviews-panel";
 import { VariantManager } from "@/components/admin/variant-manager";
 import { uploadProductImage } from "@/lib/product-images";
 import { saveCloudProduct } from "@/lib/product-save";
-import type { ProductVariant } from "@/lib/product-variants";
+import { describeError } from "@/lib/errors";
+import { ensureUniqueSkus, sanitizeVariants, type ProductVariant } from "@/lib/product-variants";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -366,6 +367,8 @@ function Admin() {
   const reloadProducts = s.reloadProducts;
   const [tab, setTab] = useState<AdminTab>("products");
   const [editing, setEditing] = useState<Product | null>(null);
+  /** Last Supabase rejection, shown inside the editor instead of only as a toast. */
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [role, setRole] = useState<DashboardRole | null | undefined>(undefined);
   const [dashboardEmail, setDashboardEmail] = useState("");
   const [all, setAll] = useState<Product[]>([]);
@@ -628,20 +631,30 @@ function Admin() {
     .slice(0, 10);
 
   async function save(p: Product, previousVariants: ProductVariant[]) {
-    const variants = p.variants ?? [];
-    const hasVariants = variants.length > 0;
+    setSaveError(null);
+    const fail = (message: string) => {
+      setSaveError(message);
+      toast.error(message, { duration: 12000 });
+    };
+
+    // Normalise before validating: numbers become numbers, SKUs become unique.
+    const variants = sanitizeVariants(p.variants ?? []);
+    const normalized = ensureUniqueSkus(variants, p.name || "PRODUCT");
+    const withSkus =
+      normalized.length > 0 ? { ...p, variants: normalized } : { ...p, variants: [] };
+    const hasVariants = normalized.length > 0;
 
     if (!p.name.trim() || !p.category.trim()) {
-      toast.error(isArabic ? "الاسم والفئة مطلوبان" : "Name and category are required");
+      fail(isArabic ? "الاسم والفئة مطلوبان" : "Name and category are required");
       return;
     }
     // With variants, the headline price is derived from the matrix on save.
     if (!hasVariants && (!Number.isFinite(p.price) || p.price <= 0)) {
-      toast.error(isArabic ? "أدخل سعراً أكبر من صفر" : "A price above 0 is required");
+      fail(isArabic ? "أدخل سعراً أكبر من صفر" : "A price above 0 is required");
       return;
     }
     if (!Number.isInteger(p.stock) || p.stock < 0) {
-      toast.error(
+      fail(
         isArabic
           ? "يجب أن يكون المخزون عددًا صحيحًا لا يقل عن صفر"
           : "Stock must be a whole number of 0 or more",
@@ -649,23 +662,19 @@ function Admin() {
       return;
     }
     if (!p.images.length) {
-      toast.error(isArabic ? "أضف صورة واحدة على الأقل" : "Add at least one image");
+      fail(isArabic ? "أضف صورة واحدة على الأقل" : "Add at least one image");
       return;
     }
 
     if (hasVariants) {
-      const invalidVariant = variants.find(
-        (variant) =>
-          !variant.sku.trim() ||
-          (!variant.sizeName.trim() && !variant.dimension.trim()) ||
-          !Number.isFinite(variant.price) ||
-          variant.price <= 0 ||
-          !Number.isInteger(variant.stock) ||
-          variant.stock < 0,
+      const badIndex = normalized.findIndex(
+        (variant) => (!variant.sizeName.trim() && !variant.dimension.trim()) || variant.price <= 0,
       );
-      const skus = variants.map((variant) => variant.sku.trim().toLowerCase());
-      if (invalidVariant || new Set(skus).size !== skus.length) {
-        toast.error(text.variantValidation);
+      if (badIndex !== -1) {
+        const bad = normalized[badIndex]!;
+        fail(
+          `${text.variantValidation}\n#${badIndex + 1} (${bad.sku}): ${bad.price <= 0 ? (isArabic ? "السعر مطلوب" : "price must be above 0") : isArabic ? "أدخل اسم المقاس أو الأبعاد" : "enter a size name or dimension"}`,
+        );
         return;
       }
     }
@@ -678,20 +687,24 @@ function Admin() {
         .replace(/(^-|-$)/g, "") || "product") +
         "-" +
         Date.now().toString(36).slice(-4);
-    const product = { ...p, id, variants };
+    const product = { ...withSkus, id };
 
-    const ok = await run(
-      async () => {
-        const result = await saveCloudProduct(product, previousVariants);
-        // Cache the synced row (derived price/stock/sizes) for offline first paint.
-        saveLocalProduct(result.product, STATIC_PRODUCTS);
-        if (result.detailsSkipped) {
-          toast.warning(text.detailsColumnsMissing, { duration: 9000 });
-        }
-      },
-      isArabic ? "تم حفظ المنتج" : "Product saved",
-    );
-    if (ok) setEditing(null);
+    try {
+      const result = await saveCloudProduct(product, previousVariants);
+      // Cache the synced row (derived price/stock/sizes) for offline first paint.
+      saveLocalProduct(result.product, STATIC_PRODUCTS);
+      if (result.detailsSkipped) {
+        toast.warning(text.detailsColumnsMissing, { duration: 9000 });
+      }
+      toast.success(isArabic ? "تم حفظ المنتج" : "Product saved");
+      setEditing(null);
+      setSaveError(null);
+      await load();
+    } catch (error) {
+      console.error("ROELIX product save failed", error);
+      // The exact Postgres message (plus code/details/hint) stays on screen.
+      fail(describeError(error));
+    }
   }
 
   return (
@@ -1154,7 +1167,11 @@ function Admin() {
           categories={[...new Set([...CATEGORIES, ...all.map((product) => product.category)])]}
           products={all}
           isArabic={isArabic}
-          onClose={() => setEditing(null)}
+          error={saveError}
+          onClose={() => {
+            setSaveError(null);
+            setEditing(null);
+          }}
           onSave={save}
         />
       )}
@@ -1195,6 +1212,7 @@ function Editor({
   categories,
   products,
   isArabic,
+  error,
   onClose,
   onSave,
 }: {
@@ -1202,9 +1220,17 @@ function Editor({
   categories: string[];
   products: Product[];
   isArabic: boolean;
+  /** Exact Supabase rejection shown at the top of the form, not just a toast. */
+  error: string | null;
   onClose: () => void;
   onSave: (p: Product, previousVariants: ProductVariant[]) => void;
 }) {
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
+
   const text = ADMIN_COPY[isArabic ? "ar" : "en"];
   const [p, setP] = useState<Product>(initial);
   const [relatedCategory, setRelatedCategory] = useState("");
@@ -1268,6 +1294,29 @@ function Editor({
             <X size={18} />
           </button>
         </div>
+
+        {error && (
+          <div
+            ref={errorRef}
+            role="alert"
+            dir="ltr"
+            className="mt-4 space-y-1 border border-destructive/60 bg-destructive/5 p-3 text-start text-sm text-destructive"
+          >
+            <p className="font-semibold">
+              {isArabic ? "رفض Supabase الحفظ:" : "Save failed — Supabase said:"}
+            </p>
+            <p className="whitespace-pre-line break-words font-mono text-xs leading-relaxed">
+              {error}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(error)}
+              className="eyebrow text-[0.6rem] underline underline-offset-4"
+            >
+              {isArabic ? "نسخ الخطأ" : "Copy error"}
+            </button>
+          </div>
+        )}
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="space-y-1">
             <span className="eyebrow">{text.name}</span>

@@ -4,6 +4,12 @@
  * Reviews live in `product_reviews` when Supabase is configured. On a local-only
  * install (no env vars) they are kept in local storage instead, so the review
  * form still works in the offline demo build the rest of this app supports.
+ *
+ * The cloud is treated as optional at runtime, not just at build time: if the
+ * table is missing, its schema cache is stale, or the connection drops, the store
+ * trips a session-long breaker and serves the local queue instead. A shopper can
+ * always write a review — it is saved on the device, the admin sees it in the
+ * dashboard, and nothing throws its way into the UI.
  */
 export type ReviewRating = 1 | 2 | 3 | 4 | 5;
 
@@ -67,6 +73,82 @@ export function reviewsCloudEnabled(): boolean {
   if (typeof window === "undefined") return false;
   if (import.meta.env["MODE"] === "test") return false;
   return Boolean(import.meta.env["VITE_SUPABASE_URL"] && import.meta.env["VITE_SUPABASE_ANON_KEY"]);
+}
+
+// --- Cloud availability -----------------------------------------------------
+
+/**
+ * Postgres/PostgREST failures that mean "this table cannot be used right now".
+ *
+ * 42P01       relation does not exist
+ * PGRST205    "Could not find the table in the schema cache" (the reported bug)
+ * PGRST202/204 stale schema cache after a column/function change
+ * 3F000       invalid schema
+ * 08xxx       connection exceptions
+ */
+const UNUSABLE_TABLE_CODES = new Set([
+  "42P01",
+  "PGRST205",
+  "PGRST204",
+  "PGRST202",
+  "PGRST001",
+  "PGRST002",
+  "PGRST003",
+  "3F000",
+  "08000",
+  "08003",
+  "08006",
+]);
+
+const UNUSABLE_TABLE_MESSAGE =
+  /schema cache|could not find the table|no such table|undefined table|relation .* does not exist|does not exist|failed to fetch|networkerror|network error|fetch failed|load failed|connection (?:closed|refused|reset|terminated)|timed out|timeout/i;
+
+function readErrorShape(value: unknown): { code: string; message: string } {
+  if (typeof value === "string") return { code: "", message: value };
+  if (!isRecord(value)) return { code: "", message: "" };
+  const code = typeof value["code"] === "string" ? value["code"] : "";
+  const message = [value["message"], value["details"], value["hint"]]
+    .filter((part): part is string => typeof part === "string")
+    .join(" ");
+  return { code, message };
+}
+
+/**
+ * True when the failure is about the reviews table/connection rather than about
+ * this particular review. RLS denials (42501) and constraint violations (23514)
+ * stay visible: they are fixable configuration problems, not reasons to quietly
+ * store a review somewhere the storefront will never read.
+ */
+export function isReviewInfrastructureError(value: unknown): boolean {
+  const { code, message } = readErrorShape(value);
+  if (code && UNUSABLE_TABLE_CODES.has(code)) return true;
+  return UNUSABLE_TABLE_MESSAGE.test(message);
+}
+
+let cloudReviewFailure: { code: string; message: string } | null = null;
+
+/** True once a schema/connection failure has been seen in this page session. */
+export function reviewCloudDisabled(): boolean {
+  return cloudReviewFailure !== null;
+}
+
+/**
+ * Latches the breaker. Every later call in this session skips Supabase entirely,
+ * so a broken table costs the customer one failed request instead of one per
+ * keystroke, render and poll.
+ */
+function tripCloudBreaker(error: unknown): void {
+  if (cloudReviewFailure) return;
+  cloudReviewFailure = readErrorShape(error);
+  console.warn(
+    "ROELIX reviews: Supabase reviews are unavailable, falling back to local storage for this session",
+    error,
+  );
+}
+
+/** Test hook: forget a tripped breaker so each test starts clean. */
+export function resetReviewCloudState(): void {
+  cloudReviewFailure = null;
 }
 
 function readString(record: Record<string, unknown>, ...keys: string[]): string {
@@ -163,6 +245,15 @@ function writeLocalReviews(reviews: ProductReview[]): void {
   }
 }
 
+/** Adds a review to the device queue, replacing any row with the same id. */
+function saveLocalReview(review: ProductReview): ProductReview {
+  writeLocalReviews([
+    review,
+    ...readLocalReviews().filter((existing) => existing.id !== review.id),
+  ]);
+  return review;
+}
+
 function newReviewId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -174,13 +265,19 @@ function newestFirst(a: ProductReview, b: ProductReview): number {
   return b.createdAt.localeCompare(a.createdAt);
 }
 
+function localPublishedFor(productId?: string): ProductReview[] {
+  return readLocalReviews()
+    .filter((review) => review.status === "published")
+    .filter((review) => (productId ? review.productId === productId : true))
+    .sort(newestFirst);
+}
+
+function localQueue(): ProductReview[] {
+  return readLocalReviews().sort(newestFirst);
+}
+
 /** Turns a Supabase error into something the storefront can show a customer. */
 function reviewError(error: { code?: string; message?: string }): Error {
-  if (error.code === "42P01" || /relation .* does not exist/i.test(error.message ?? "")) {
-    return new Error(
-      "Reviews are not enabled on this project yet. Apply the ROELIX reviews migration first.",
-    );
-  }
   if (error.code === "42501") {
     return new Error("Only a ROELIX administrator can change the status of a review.");
   }
@@ -193,20 +290,34 @@ function reviewError(error: { code?: string; message?: string }): Error {
   if (error.code === "23514") {
     return new Error("The review did not pass validation. Check the name, rating and comment.");
   }
-  return new Error(error.message ?? "The review could not be saved.");
+  return new Error(error.message || "The review could not be saved.");
 }
 
 const REVIEW_COLUMNS = "id,product_id,author_name,rating,body,status,created_at";
 
-// --- Reads ------------------------------------------------------------------
-
-export async function fetchProductReviews(productId: string): Promise<ProductReview[]> {
-  const local = readLocalReviews().filter((review) => review.productId === productId);
-  if (!reviewsCloudEnabled())
-    return local.filter((r) => r.status === "published").sort(newestFirst);
-
+/** Opens a client, or null when the module/env is missing. Never throws. */
+async function reviewClient(): Promise<
+  Awaited<typeof import("@/lib/supabase")>["supabase"] | null
+> {
   try {
     const { supabase } = await import("@/lib/supabase");
+    return supabase;
+  } catch (error) {
+    tripCloudBreaker(error);
+    return null;
+  }
+}
+
+// --- Reads ------------------------------------------------------------------
+
+/** Published reviews for one product. Falls back to the local cache on any failure. */
+export async function fetchProductReviews(productId: string): Promise<ProductReview[]> {
+  if (!reviewsCloudEnabled() || reviewCloudDisabled()) return localPublishedFor(productId);
+
+  try {
+    const supabase = await reviewClient();
+    if (!supabase) return localPublishedFor(productId);
+
     const { data, error } = await supabase
       .from("product_reviews")
       .select(REVIEW_COLUMNS)
@@ -220,35 +331,59 @@ export async function fetchProductReviews(productId: string): Promise<ProductRev
       .map(reviewFromRecord)
       .filter((review): review is ProductReview => review !== null);
   } catch (error) {
-    // A missing table or a network drop must not empty a page that has reviews
-    // cached locally.
-    console.warn("ROELIX reviews: live fetch failed, using the local cache", error);
-    return local.filter((r) => r.status === "published").sort(newestFirst);
+    if (isReviewInfrastructureError(error)) tripCloudBreaker(error);
+    else console.warn("ROELIX reviews: live fetch failed, using the local cache", error);
+    return localPublishedFor(productId);
   }
 }
 
-/** Moderation list: published and hidden, newest first. */
+/**
+ * Moderation list: pending, published and hidden, newest first.
+ *
+ * A broken table falls back to the device queue rather than throwing at the
+ * dashboard, so the admin can still approve what was written on this browser.
+ */
 export async function fetchAllReviews(): Promise<ProductReview[]> {
-  if (!reviewsCloudEnabled()) return readLocalReviews().sort(newestFirst);
+  if (!reviewsCloudEnabled() || reviewCloudDisabled()) return localQueue();
+
   try {
-    const { supabase } = await import("@/lib/supabase");
+    const supabase = await reviewClient();
+    if (!supabase) return localQueue();
+
     const { data, error } = await supabase
       .from("product_reviews")
       .select(REVIEW_COLUMNS)
       .order("created_at", { ascending: false })
       .limit(500);
     if (error) throw error;
+
     return (data ?? [])
       .map(reviewFromRecord)
       .filter((review): review is ProductReview => review !== null);
   } catch (error) {
-    console.warn("ROELIX reviews: could not load the moderation list", error);
+    if (isReviewInfrastructureError(error)) {
+      tripCloudBreaker(error);
+      return localQueue();
+    }
     throw error instanceof Error ? error : new Error("Could not load reviews");
   }
 }
 
 // --- Writes -----------------------------------------------------------------
 
+/**
+ * Saves a customer review and always resolves.
+ *
+ * The row is written to Supabase when the table is usable. If the table is
+ * missing, its schema cache is stale, the network drops, or the breaker is
+ * already open, it is written to the device instead and the caller still gets a
+ * review back, so the form can clear and confirm. Only real configuration
+ * problems (RLS denial, a constraint that rejects `pending`) surface as errors.
+ *
+ * The insert deliberately does not read the row back: with approval enabled a
+ * customer cannot select their own pending row, so asking for the representation
+ * would fail on a healthy project.
+ */
 export async function submitProductReview(input: ReviewInput): Promise<ProductReview> {
   const invalid = validateReviewInput(input);
   if (invalid) throw new Error("The review did not pass validation");
@@ -264,15 +399,13 @@ export async function submitProductReview(input: ReviewInput): Promise<ProductRe
     createdAt: new Date().toISOString(),
   };
 
-  if (!reviewsCloudEnabled()) {
-    writeLocalReviews([draft, ...readLocalReviews()]);
-    return draft;
-  }
+  if (!reviewsCloudEnabled() || reviewCloudDisabled()) return saveLocalReview(draft);
 
-  const { supabase } = await import("@/lib/supabase");
-  const { data, error } = await supabase
-    .from("product_reviews")
-    .insert({
+  try {
+    const supabase = await reviewClient();
+    if (!supabase) return saveLocalReview(draft);
+
+    const { error } = await supabase.from("product_reviews").insert({
       product_id: draft.productId,
       author_name: draft.authorName,
       rating: draft.rating,
@@ -281,13 +414,21 @@ export async function submitProductReview(input: ReviewInput): Promise<ProductRe
       // so a project without the approval migration fails loudly instead of
       // publishing straight to the storefront.
       status: "pending",
-    })
-    .select(REVIEW_COLUMNS)
-    .single();
+    });
+    if (error) throw error;
 
-  if (error) throw reviewError(error);
-  const saved = reviewFromRecord(data);
-  return saved ?? draft;
+    return draft;
+  } catch (error) {
+    if (isReviewInfrastructureError(error)) {
+      tripCloudBreaker(error);
+      console.warn(
+        "ROELIX reviews: Supabase is unavailable, keeping the review on this device",
+        error,
+      );
+      return saveLocalReview(draft);
+    }
+    throw reviewError(readErrorShape(error));
+  }
 }
 
 /** Approves a pending review: the only state the storefront will show. */
@@ -296,25 +437,59 @@ export async function approveReview(id: string): Promise<void> {
 }
 
 export async function setReviewStatus(id: string, status: ReviewStatus): Promise<void> {
-  if (!reviewsCloudEnabled()) {
+  const applyLocally = () =>
     writeLocalReviews(
       readLocalReviews().map((review) => (review.id === id ? { ...review, status } : review)),
     );
+
+  if (!reviewsCloudEnabled() || reviewCloudDisabled()) {
+    applyLocally();
     return;
   }
 
-  const { supabase } = await import("@/lib/supabase");
-  const { error } = await supabase.from("product_reviews").update({ status }).eq("id", id);
-  if (error) throw reviewError(error);
+  try {
+    const supabase = await reviewClient();
+    if (!supabase) {
+      applyLocally();
+      return;
+    }
+    const { error } = await supabase.from("product_reviews").update({ status }).eq("id", id);
+    if (error) throw error;
+  } catch (error) {
+    if (isReviewInfrastructureError(error)) {
+      // The cloud row cannot be reached; keep the local copy in step so the
+      // dashboard still reflects the decision the admin just made.
+      tripCloudBreaker(error);
+      applyLocally();
+      return;
+    }
+    throw reviewError(readErrorShape(error));
+  }
 }
 
 export async function deleteReview(id: string): Promise<void> {
-  if (!reviewsCloudEnabled()) {
+  const applyLocally = () =>
     writeLocalReviews(readLocalReviews().filter((review) => review.id !== id));
+
+  if (!reviewsCloudEnabled() || reviewCloudDisabled()) {
+    applyLocally();
     return;
   }
 
-  const { supabase } = await import("@/lib/supabase");
-  const { error } = await supabase.from("product_reviews").delete().eq("id", id);
-  if (error) throw reviewError(error);
+  try {
+    const supabase = await reviewClient();
+    if (!supabase) {
+      applyLocally();
+      return;
+    }
+    const { error } = await supabase.from("product_reviews").delete().eq("id", id);
+    if (error) throw error;
+  } catch (error) {
+    if (isReviewInfrastructureError(error)) {
+      tripCloudBreaker(error);
+      applyLocally();
+      return;
+    }
+    throw reviewError(readErrorShape(error));
+  }
 }
