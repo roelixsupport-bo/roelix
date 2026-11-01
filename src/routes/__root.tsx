@@ -11,6 +11,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { AccountProvider } from "@/lib/account-provider";
 import { StoreProvider } from "@/lib/store";
 import { RouteSkeleton } from "@/components/site/route-skeleton";
 import { Header } from "@/components/site/header";
@@ -158,14 +159,16 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <StoreProvider>
-        <Header />
-        <main className="min-h-[60vh]">{routerReady ? <Outlet /> : <RouteSkeleton />}</main>
-        <Footer />
-        <CartDrawer />
-        <Concierge />
-        <Toaster />
-      </StoreProvider>
+      <AccountProvider>
+        <StoreProvider>
+          <Header />
+          <main className="min-h-[60vh]">{routerReady ? <Outlet /> : <RouteSkeleton />}</main>
+          <Footer />
+          <CartDrawer />
+          <Concierge />
+          <Toaster />
+        </StoreProvider>
+      </AccountProvider>
     </QueryClientProvider>
   );
 }

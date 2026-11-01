@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { BarChart3, Plus, Search, Settings2, X } from "lucide-react";
+import { BarChart3, Plus, Search, Settings2, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   clearLocalAnalyticsEvents,
@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { BOSTA_SHIPPING_RATES, type EgyptGovernorate } from "@/lib/shipping";
 import { productFromCloud, productToCloud } from "@/lib/cloud-catalog";
+import { CustomersPanel } from "@/components/admin/customers-panel";
 import { OrderLineRestock } from "@/components/admin/order-line-restock";
 import { ProductActions } from "@/components/admin/product-actions";
 import { ReviewsPanel } from "@/components/admin/reviews-panel";
@@ -69,6 +70,7 @@ const ADMIN_COPY = {
     signOut: "Sign out",
     revenue: "Revenue",
     orders: "Orders",
+    customers: "Customers",
     products: "Products",
     reviews: "Customer reviews",
     subscribers: "Email opt-ins",
@@ -181,6 +183,7 @@ const ADMIN_COPY = {
     signOut: "تسجيل الخروج",
     revenue: "الإيرادات",
     orders: "الطلبات",
+    customers: "العملاء",
     products: "المنتجات",
     reviews: "تقييمات العملاء",
     subscribers: "اشتراكات البريد",
@@ -297,7 +300,14 @@ const blank = (): Product => ({
   variants: [],
 });
 
-type AdminTab = "products" | "orders" | "reviews" | "subscribers" | "analytics" | "settings";
+type AdminTab =
+  | "products"
+  | "orders"
+  | "customers"
+  | "reviews"
+  | "subscribers"
+  | "analytics"
+  | "settings";
 type DashboardRole = "admin" | "staff";
 
 function mapCloudOrder(value: unknown): Order | null {
@@ -586,7 +596,7 @@ function Admin() {
 
   const visibleTabs: AdminTab[] =
     role === "admin"
-      ? ["products", "orders", "reviews", "subscribers", "analytics", "settings"]
+      ? ["products", "orders", "customers", "reviews", "subscribers", "analytics", "settings"]
       : ["orders"];
   const activeTab: AdminTab = role === "staff" ? "orders" : tab;
 
@@ -768,6 +778,7 @@ function Admin() {
             onClick={() => setTab(t)}
             className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap pb-3 ${activeTab === t ? "border-b-2 border-gold text-gold" : "text-muted-foreground"}`}
           >
+            {t === "customers" && <UsersRound size={16} aria-hidden="true" />}
             {t === "analytics" && <BarChart3 size={16} aria-hidden="true" />}
             {t === "settings" && <Settings2 size={16} aria-hidden="true" />}
             {text[t]}
@@ -1040,6 +1051,8 @@ function Admin() {
             </div>
           ))}
         </div>
+      ) : activeTab === "customers" ? (
+        <CustomersPanel isArabic={isArabic} />
       ) : activeTab === "reviews" ? (
         <ReviewsPanel
           isArabic={isArabic}

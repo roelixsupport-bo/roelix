@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Heart, Search, ShoppingBag, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AccountMenu } from "@/components/site/account-menu";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { recordProductInteraction, recordSearchQuery } from "@/lib/local-data";
 import { CATEGORIES, useStore } from "@/lib/store";
@@ -82,6 +83,8 @@ export function Header() {
               <ShoppingBag size={22} />
               {s.count > 0 && <Badge n={s.count} />}
             </button>
+
+            <AccountMenu />
 
             <Link
               to="/shop"
