@@ -375,7 +375,7 @@ export function CustomersPanel({ isArabic }: { isArabic: boolean }) {
             {visibleEmails.map((row) => (
               <li
                 key={row.id}
-                className="grid grid-cols-1 gap-1.5 border-b py-3 sm:grid-cols-[minmax(0,1fr)_9.5rem_8rem_2.25rem] sm:items-center sm:gap-4"
+                className="grid grid-cols-1 gap-1.5 border-b py-3 sm:grid-cols-[minmax(0,1fr)_8.5rem_10.5rem_auto] sm:items-center sm:gap-4"
               >
                 <div className="min-w-0">
                   <p className="break-all font-serif text-sm leading-tight">{row.email}</p>
@@ -388,7 +388,7 @@ export function CustomersPanel({ isArabic }: { isArabic: boolean }) {
                 </p>
                 <p
                   className={cn(
-                    "eyebrow text-[0.55rem]",
+                    "eyebrow whitespace-nowrap text-[0.55rem]",
                     row.marketingOptIn ? "text-emerald" : "text-muted-foreground",
                   )}
                 >
@@ -397,7 +397,7 @@ export function CustomersPanel({ isArabic }: { isArabic: boolean }) {
                 <div className="flex items-center justify-between gap-3 sm:justify-end">
                   <span
                     className={cn(
-                      "eyebrow text-[0.55rem]",
+                      "eyebrow whitespace-nowrap text-[0.55rem]",
                       row.userId ? "text-foreground" : "text-muted-foreground",
                     )}
                   >
