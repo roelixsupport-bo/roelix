@@ -1,5 +1,5 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
-import { Eye, EyeOff, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { ArrowRight, ShoppingBag, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -9,186 +9,256 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input_otp";
 import {
   authErrorMessage,
   validateAuthForm,
-  type AuthField,
   type AuthFieldIssues,
   type AuthMode,
 } from "@/lib/account";
 import { useAccount } from "@/lib/account-provider";
+import { isValidEmail, normalizeEmail } from "@/lib/customer-emails";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 const COPY = {
   en: {
-    signInTab: "Sign in",
-    registerTab: "Create account",
-    signInTitle: "Sign in to your account",
-    registerTitle: "Create your account",
-    signInBody: "Use the email and password you registered with.",
-    registerBody: "Your wishlist and delivery details stay on this account.",
-    fullName: "Full name",
-    email: "Email",
-    password: "Password",
-    confirmPassword: "Confirm password",
-    forgot: "Forgot your password?",
-    signIn: "Sign in",
-    register: "Create account",
-    signingIn: "Signing in…",
-    creating: "Creating account…",
-    sendingReset: "Sending reset link…",
+    title: "Sign in",
+    subtitle: "Sign in or create an account",
+    continueWithShop: "Continue with shop",
+    or: "or",
+    emailLabel: "Email address",
+    emailPlaceholder: "Email",
+    continueWithEmail: "Continue with email",
+    marketing: "Email me with news and offers",
+    termsPrefix: "By continuing, you agree to our",
+    termsLink: "Terms of service",
+    usePassword: "Sign in with a password instead",
     close: "Close",
-    showPassword: "Show password",
-    hidePassword: "Hide password",
-    terms: "By creating an account you accept the",
-    termsLink: "terms",
-    and: "and",
-    privacyLink: "privacy policy",
     signedIn: "Signed in.",
-    created: "Account created and signed in.",
-    createdConfirm: "Account created. Confirm your email address, then sign in.",
+    emailRequired: "Enter your email address.",
+    emailInvalid: "Enter a valid email address.",
+    codeTitle: "Check your email",
+    codeBody: "We sent a six-digit code and a sign-in link to",
+    codeLabel: "Sign-in code",
+    verify: "Verify code",
+    verifying: "Verifying…",
+    resend: "Send a new code",
+    resending: "Sending…",
+    changeEmail: "Use a different email",
+    sent: "Your sign-in code is on its way.",
+    resent: "A new code is on its way.",
+    invalidCode: "Enter the six-digit code from the email.",
+    passwordTitle: "Sign in with a password",
+    passwordBody: "Use the email and password on your ROELIX account.",
+    passwordLabel: "Password",
+    passwordRequired: "Enter your password.",
+    signIn: "Sign in",
+    signingIn: "Signing in…",
+    backToEmail: "Back to email sign-in",
+    forgot: "Forgot your password?",
+    sendingReset: "Sending reset link…",
     resetSent: "Reset link sent. Check your email.",
-    issues: {
-      nameRequired: "Enter your name.",
-      emailRequired: "Enter your email address.",
-      emailInvalid: "Enter a valid email address.",
-      passwordShort: "Use at least 8 characters.",
-      passwordMismatch: "Passwords do not match.",
-    },
-    notConfigured: "Accounts are not configured on this deployment.",
     resetNeedsEmail: "Enter your email address first, then request a reset link.",
+    notConfigured: "Accounts are not configured on this deployment.",
+    newHere: "New to ROELIX? The code creates your account.",
   },
   ar: {
-    signInTab: "تسجيل الدخول",
-    registerTab: "إنشاء حساب",
-    signInTitle: "تسجيل الدخول إلى حسابك",
-    registerTitle: "إنشاء حسابك",
-    signInBody: "استخدم البريد وكلمة المرور المسجّلين.",
-    registerBody: "تبقى قائمة أمنياتك وبيانات التوصيل على هذا الحساب.",
-    fullName: "الاسم الكامل",
-    email: "البريد الإلكتروني",
-    password: "كلمة المرور",
-    confirmPassword: "تأكيد كلمة المرور",
-    forgot: "نسيت كلمة المرور؟",
-    signIn: "تسجيل الدخول",
-    register: "إنشاء حساب",
-    signingIn: "جارٍ تسجيل الدخول…",
-    creating: "جارٍ إنشاء الحساب…",
-    sendingReset: "جارٍ إرسال رابط الاستعادة…",
+    title: "تسجيل الدخول",
+    subtitle: "سجّل الدخول أو أنشئ حسابًا",
+    continueWithShop: "المتابعة عبر المتجر",
+    or: "أو",
+    emailLabel: "البريد الإلكتروني",
+    emailPlaceholder: "البريد الإلكتروني",
+    continueWithEmail: "المتابعة بالبريد",
+    marketing: "أرسل لي الأخبار والعروض",
+    termsPrefix: "بالمتابعة فإنك توافق على",
+    termsLink: "شروط الخدمة",
+    usePassword: "تسجيل الدخول بكلمة المرور",
     close: "إغلاق",
-    showPassword: "إظهار كلمة المرور",
-    hidePassword: "إخفاء كلمة المرور",
-    terms: "بإنشاء حساب فإنك توافق على",
-    termsLink: "الشروط",
-    and: "و",
-    privacyLink: "سياسة الخصوصية",
     signedIn: "تم تسجيل الدخول.",
-    created: "تم إنشاء الحساب وتسجيل الدخول.",
-    createdConfirm: "تم إنشاء الحساب. أكّد بريدك الإلكتروني ثم سجّل الدخول.",
+    emailRequired: "أدخل بريدك الإلكتروني.",
+    emailInvalid: "أدخل بريداً إلكترونياً صحيحاً.",
+    codeTitle: "تحقق من بريدك",
+    codeBody: "أرسلنا رمزًا من ستة أرقام ورابط دخول إلى",
+    codeLabel: "رمز التحقق",
+    verify: "تحقق من الرمز",
+    verifying: "جارٍ التحقق…",
+    resend: "أرسل رمزًا جديدًا",
+    resending: "جارٍ الإرسال…",
+    changeEmail: "استخدام بريد آخر",
+    sent: "تم إرسال رمز الدخول إلى بريدك.",
+    resent: "تم إرسال رمز جديد.",
+    invalidCode: "أدخل الرمز المكوّن من ستة أرقام.",
+    passwordTitle: "تسجيل الدخول بكلمة المرور",
+    passwordBody: "استخدم البريد وكلمة المرور المسجّلين في حساب ROELIX.",
+    passwordLabel: "كلمة المرور",
+    passwordRequired: "أدخل كلمة المرور.",
+    signIn: "تسجيل الدخول",
+    signingIn: "جارٍ تسجيل الدخول…",
+    backToEmail: "العودة إلى تسجيل الدخول بالبريد",
+    forgot: "نسيت كلمة المرور؟",
+    sendingReset: "جارٍ إرسال رابط الاستعادة…",
     resetSent: "تم إرسال رابط الاستعادة. تحقق من بريدك.",
-    issues: {
-      nameRequired: "أدخل اسمك.",
-      emailRequired: "أدخل بريدك الإلكتروني.",
-      emailInvalid: "أدخل بريداً إلكترونياً صحيحاً.",
-      passwordShort: "استخدم 8 أحرف على الأقل.",
-      passwordMismatch: "كلمتا المرور غير متطابقتين.",
-    },
-    notConfigured: "الحسابات غير مُهيّأة على هذا النشر.",
     resetNeedsEmail: "أدخل بريدك الإلكتروني أولاً ثم اطلب رابط الاستعادة.",
+    notConfigured: "الحسابات غير مُهيّأة على هذا النشر.",
+    newHere: "جديد في ROELIX؟ الرمز يُنشئ حسابك.",
   },
 } as const;
 
 export type AuthDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Kept for callers that opened the card on a specific leaf. */
   initialMode?: AuthMode;
 };
 
+type Step = "email" | "code" | "password";
+
 /**
- * Sign in / create account, written as a ruled card rather than a boxed form.
+ * The storefront sign-in card.
  *
- * One state machine: the leaf at the top decides which rules are shown, the
- * submit button is the only place that talks to Supabase, and every failure is
- * reported twice — on the field it belongs to, and as a toast with the exact
- * reason the request failed.
+ * One address is all a customer gives: it is written to `public.customers` the
+ * moment they submit, then Supabase emails a magic link and a six-digit code.
+ * The code arrives in this card so signing in never requires leaving the page;
+ * the link covers the case where they read their inbox elsewhere.
+ *
+ * The password leaf stays reachable from the footer for accounts that already
+ * have one (and for customers whose inbox delivery is broken), but it is never
+ * the default path.
  */
-export function AuthDialog({ open, onOpenChange, initialMode = "signin" }: AuthDialogProps) {
+export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
   const { lang } = useStore();
   const lang2 = lang === "ar" ? "ar" : "en";
   const text = COPY[lang2];
-  const { configured, signIn, register, requestPasswordReset } = useAccount();
+  const { configured, signIn, requestPasswordReset, requestEmailSignIn, verifyEmailCode } =
+    useAccount();
 
-  const [mode, setMode] = useState<AuthMode>(initialMode);
-  const [fullName, setFullName] = useState("");
+  const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [marketingOptIn, setMarketingOptIn] = useState(true);
+  const [code, setCode] = useState("");
   const [issues, setIssues] = useState<AuthFieldIssues>({});
+  const [emailIssue, setEmailIssue] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const fieldId = useId();
-  const id = (field: AuthField) => `${fieldId}-${field}`;
+  const emailRef = useRef<HTMLInputElement>(null);
+  const verifyRef = useRef<HTMLButtonElement>(null);
 
-  // Reopening starts clean, and switching leaves clears the previous verdicts
-  // without making the customer retype their email.
   useEffect(() => {
     if (!open) return;
-    setMode(initialMode);
+    setStep("email");
     setIssues({});
+    setEmailIssue(null);
     setFormError(null);
-    setShowPassword(false);
-  }, [open, initialMode]);
+    setCode("");
+    setPassword("");
+  }, [open]);
 
-  function changeMode(next: AuthMode) {
-    if (next === mode) return;
-    setMode(next);
-    setIssues({});
+  /** The brand CTA and the "use a different email" link both land here. */
+  function focusEmail() {
+    setStep("email");
     setFormError(null);
+    window.requestAnimationFrame(() => emailRef.current?.focus());
   }
 
-  function clearIssue(field: AuthField) {
-    if (!issues[field]) return;
-    setIssues((current) => {
-      const next = { ...current };
-      delete next[field];
-      return next;
-    });
-  }
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmitEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
 
-    const values = { fullName, email, password, confirmPassword };
-    const found = validateAuthForm(mode, values);
+    const clean = normalizeEmail(email);
+    if (clean === "") {
+      setEmailIssue(text.emailRequired);
+      return;
+    }
+    if (!isValidEmail(clean)) {
+      setEmailIssue(text.emailInvalid);
+      return;
+    }
+
+    setEmailIssue(null);
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      await requestEmailSignIn({ email: clean, marketingOptIn, redirectPath: "/" });
+      setEmail(clean);
+      setCode("");
+      setStep("code");
+      toast.success(text.sent);
+      window.requestAnimationFrame(() => verifyRef.current?.focus());
+    } catch (error) {
+      console.error("ROELIX email sign-in request failed", error);
+      const message = authErrorMessage(error, lang2);
+      setFormError(message);
+      toast.error(message, { duration: 9000 });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitCode(value: string) {
+    if (submitting) return;
+    const token = value.replace(/\D/g, "");
+    if (token.length !== 6) {
+      setFormError(text.invalidCode);
+      return;
+    }
+
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      await verifyEmailCode(email, token);
+      toast.success(text.signedIn);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("ROELIX email code verification failed", error);
+      const message = authErrorMessage(error, lang2);
+      setFormError(message);
+      toast.error(message, { duration: 9000 });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onResend() {
+    if (submitting) return;
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await requestEmailSignIn({ email, marketingOptIn, redirectPath: "/" });
+      setCode("");
+      toast.success(text.resent);
+    } catch (error) {
+      console.error("ROELIX email sign-in resend failed", error);
+      const message = authErrorMessage(error, lang2);
+      setFormError(message);
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onSubmitPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting) return;
+
+    const found = validateAuthForm("signin", { email, password });
     setIssues(found);
     setFormError(null);
     if (Object.keys(found).length > 0) return;
 
     setSubmitting(true);
     try {
-      if (mode === "signin") {
-        await signIn(email, password);
-        toast.success(text.signedIn);
-        onOpenChange(false);
-      } else {
-        const outcome = await register({ fullName, email, password });
-        if (outcome.needsEmailConfirmation) {
-          toast.success(text.createdConfirm, { duration: 9000 });
-          setPassword("");
-          setConfirmPassword("");
-          changeMode("signin");
-        } else {
-          toast.success(text.created);
-          onOpenChange(false);
-        }
-      }
+      await signIn(email, password);
+      toast.success(text.signedIn);
+      onOpenChange(false);
     } catch (error) {
-      console.error("ROELIX account request failed", error);
+      console.error("ROELIX password sign in failed", error);
       const message = authErrorMessage(error, lang2);
       setFormError(message);
       toast.error(message, { duration: 9000 });
@@ -199,8 +269,8 @@ export function AuthDialog({ open, onOpenChange, initialMode = "signin" }: AuthD
 
   async function onForgotPassword() {
     if (sendingReset) return;
-    if (email.trim() === "") {
-      setIssues((current) => ({ ...current, email: "emailRequired" }));
+    if (normalizeEmail(email) === "") {
+      setEmailIssue(text.emailRequired);
       setFormError(text.resetNeedsEmail);
       return;
     }
@@ -220,22 +290,40 @@ export function AuthDialog({ open, onOpenChange, initialMode = "signin" }: AuthD
     }
   }
 
-  const issueMessage = (field: AuthField): string | undefined => {
-    const issue = issues[field];
-    return issue ? text.issues[issue] : undefined;
-  };
+  const passwordIssue = issues.password ? text.passwordRequired : undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[26rem] gap-0 rounded-[2px] border bg-card p-0 shadow-lux sm:rounded-[2px]"
+        // The storefront dims with the navy scrim (navy at 60%) that the cart
+        // drawer already uses, not a neutral black wash.
+        overlayClassName="bg-navy/60 backdrop-blur-xs"
+        className="w-[calc(100%-2rem)] max-w-[26rem] gap-0 rounded-[2px] border bg-card p-0 shadow-lux sm:rounded-[2px]"
       >
-        <div dir={lang2 === "ar" ? "rtl" : "ltr"}>
-          <div className="flex items-start justify-between gap-4 p-6 pb-5">
-            <DialogTitle className="font-serif text-2xl leading-tight">
-              {mode === "signin" ? text.signInTitle : text.registerTitle}
-            </DialogTitle>
+        <div dir={lang2 === "ar" ? "rtl" : "ltr"} className="px-6 pb-6 pt-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <DialogTitle className="font-serif text-2xl leading-tight">
+                {step === "email"
+                  ? text.title
+                  : step === "code"
+                    ? text.codeTitle
+                    : text.passwordTitle}
+              </DialogTitle>
+              <DialogDescription className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                {step === "email"
+                  ? text.subtitle
+                  : step === "code"
+                    ? text.codeBody
+                    : text.passwordBody}
+                {step === "code" && (
+                  <span dir="ltr" className="mt-1 block font-medium text-foreground">
+                    {email}
+                  </span>
+                )}
+              </DialogDescription>
+            </div>
             <DialogClose asChild>
               <button
                 type="button"
@@ -247,219 +335,258 @@ export function AuthDialog({ open, onOpenChange, initialMode = "signin" }: AuthD
             </DialogClose>
           </div>
 
-          <div className="grid grid-cols-2 border-y" role="tablist" aria-label={text.signInTab}>
-            {(
-              [
-                ["signin", text.signInTab],
-                ["register", text.registerTab],
-              ] as Array<[AuthMode, string]>
-            ).map(([value, label]) => (
+          {formError && (
+            <p
+              role="alert"
+              className="mt-4 border border-destructive/40 bg-destructive/5 p-3 text-xs leading-relaxed text-destructive"
+            >
+              {formError}
+            </p>
+          )}
+
+          {!configured && (
+            <p className="mt-4 border border-border p-3 text-xs leading-relaxed text-muted-foreground">
+              {text.notConfigured}
+            </p>
+          )}
+
+          {step === "email" && (
+            <>
               <button
-                key={value}
                 type="button"
-                role="tab"
-                aria-selected={mode === value}
-                onClick={() => changeMode(value)}
-                className={cn(
-                  "eyebrow py-3 text-[0.6rem] transition-colors",
-                  mode === value
-                    ? "bg-navy text-navy-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
+                onClick={focusEmail}
+                disabled={!configured}
+                className="btn-lux mt-5 w-full"
               >
-                {label}
+                <ShoppingBag size={14} aria-hidden="true" />
+                {text.continueWithShop}
               </button>
-            ))}
-          </div>
 
-          <div className="p-6">
-            <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-              {mode === "signin" ? text.signInBody : text.registerBody}
-            </DialogDescription>
+              <div className="my-5 flex items-center gap-3" aria-hidden="true">
+                <span className="h-px flex-1 bg-border" />
+                <span className="eyebrow text-[0.58rem] text-muted-foreground">{text.or}</span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
 
-            <form className="mt-6 space-y-5" onSubmit={onSubmit} noValidate>
-              {mode === "register" && (
-                <RuledField
-                  id={id("fullName")}
-                  label={text.fullName}
-                  value={fullName}
-                  autoComplete="name"
-                  autoFocus
-                  error={issueMessage("fullName")}
-                  onChange={(value) => {
-                    setFullName(value);
-                    clearIssue("fullName");
-                  }}
-                />
-              )}
-
-              <RuledField
-                id={id("email")}
-                label={text.email}
-                type="email"
-                inputMode="email"
-                dir="ltr"
-                value={email}
-                autoComplete="email"
-                autoFocus={mode === "signin"}
-                error={issueMessage("email")}
-                onChange={(value) => {
-                  setEmail(value);
-                  clearIssue("email");
-                }}
-              />
-
-              <RuledField
-                id={id("password")}
-                label={text.password}
-                type={showPassword ? "text" : "password"}
-                dir="ltr"
-                value={password}
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                error={issueMessage("password")}
-                onChange={(value) => {
-                  setPassword(value);
-                  clearIssue("password");
-                }}
-                trailing={
+              <form onSubmit={onSubmitEmail} noValidate>
+                <label htmlFor={`${fieldId}-email`} className="sr-only">
+                  {text.emailLabel}
+                </label>
+                <div
+                  className={cn(
+                    "flex h-12 items-stretch border bg-background transition-colors focus-within:border-gold",
+                    emailIssue ? "border-destructive" : "border-border",
+                  )}
+                >
+                  <input
+                    id={`${fieldId}-email`}
+                    ref={emailRef}
+                    type="email"
+                    dir="ltr"
+                    value={email}
+                    autoComplete="email"
+                    inputMode="email"
+                    placeholder={text.emailPlaceholder}
+                    aria-invalid={emailIssue ? true : undefined}
+                    aria-describedby={emailIssue ? `${fieldId}-email-error` : undefined}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      if (emailIssue) setEmailIssue(null);
+                    }}
+                    className="min-w-0 flex-1 bg-transparent px-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  />
                   <button
-                    type="button"
-                    onClick={() => setShowPassword((current) => !current)}
-                    aria-label={showPassword ? text.hidePassword : text.showPassword}
-                    aria-pressed={showPassword}
-                    className="text-muted-foreground transition-colors hover:text-gold"
+                    type="submit"
+                    disabled={submitting || !configured}
+                    aria-label={text.continueWithEmail}
+                    title={text.continueWithEmail}
+                    className="grid w-12 shrink-0 place-items-center border-s border-border text-foreground transition-colors hover:bg-navy hover:text-navy-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    <ArrowRight size={18} aria-hidden="true" className="rtl:rotate-180" />
                   </button>
-                }
-              />
+                </div>
+                {emailIssue && (
+                  <p
+                    id={`${fieldId}-email-error`}
+                    className="mt-1.5 text-xs leading-relaxed text-destructive"
+                  >
+                    {emailIssue}
+                  </p>
+                )}
 
-              {mode === "signin" ? (
+                <label className="mt-5 flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
+                  <Checkbox
+                    checked={marketingOptIn}
+                    onCheckedChange={(value) => setMarketingOptIn(value === true)}
+                    aria-label={text.marketing}
+                    className="mt-0.5 rounded-[2px] border-border shadow-none data-[state=checked]:border-navy data-[state=checked]:bg-navy data-[state=checked]:text-navy-foreground"
+                  />
+                  <span className="text-foreground">{text.marketing}</span>
+                </label>
+
+                <p className="mt-6 text-center text-[0.7rem] leading-relaxed text-muted-foreground">
+                  {text.termsPrefix}{" "}
+                  <a
+                    href="/terms"
+                    className="underline underline-offset-4 transition-colors hover:text-gold"
+                  >
+                    {text.termsLink}
+                  </a>
+                </p>
+              </form>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStep("password");
+                  setFormError(null);
+                }}
+                className="mt-4 w-full text-center text-[0.7rem] text-muted-foreground underline underline-offset-4 transition-colors hover:text-gold"
+              >
+                {text.usePassword}
+              </button>
+            </>
+          )}
+
+          {step === "code" && (
+            <form
+              className="mt-6"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitCode(code);
+              }}
+            >
+              <p className="eyebrow text-[0.6rem] text-muted-foreground">{text.codeLabel}</p>
+              <InputOTP
+                autoFocus
+                maxLength={6}
+                value={code}
+                onChange={setCode}
+                onComplete={(value) => void submitCode(value)}
+                aria-label={text.codeLabel}
+                containerClassName="mt-3 justify-center gap-2"
+              >
+                <InputOTPGroup className="gap-2">
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <InputOTPSlot
+                      key={index}
+                      index={index}
+                      className="h-12 w-10 rounded-[2px] border border-border bg-background text-base first:rounded-[2px] last:rounded-[2px]"
+                    />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+
+              <button
+                ref={verifyRef}
+                type="submit"
+                disabled={submitting || code.replace(/\D/g, "").length !== 6}
+                className="btn-lux mt-5 w-full"
+              >
+                {submitting ? text.verifying : text.verify}
+              </button>
+
+              <div className="mt-4 flex items-center justify-between gap-3 text-[0.7rem]">
+                <button
+                  type="button"
+                  onClick={() => void onResend()}
+                  disabled={submitting}
+                  className="text-muted-foreground underline underline-offset-4 transition-colors hover:text-gold disabled:opacity-60"
+                >
+                  {submitting ? text.resending : text.resend}
+                </button>
+                <button
+                  type="button"
+                  onClick={focusEmail}
+                  className="text-muted-foreground underline underline-offset-4 transition-colors hover:text-gold"
+                >
+                  {text.changeEmail}
+                </button>
+              </div>
+
+              <p className="mt-5 text-center text-[0.68rem] leading-relaxed text-muted-foreground">
+                {text.newHere}
+              </p>
+            </form>
+          )}
+
+          {step === "password" && (
+            <form className="mt-5 space-y-4" onSubmit={onSubmitPassword} noValidate>
+              <div>
+                <label htmlFor={`${fieldId}-password-email`} className="sr-only">
+                  {text.emailLabel}
+                </label>
+                <input
+                  id={`${fieldId}-password-email`}
+                  type="email"
+                  dir="ltr"
+                  value={email}
+                  autoComplete="email"
+                  placeholder={text.emailPlaceholder}
+                  aria-invalid={issues.email ? true : undefined}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="input-lux w-full"
+                />
+                {issues.email && (
+                  <p className="mt-1.5 text-xs text-destructive">
+                    {issues.email === "emailInvalid" ? text.emailInvalid : text.emailRequired}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor={`${fieldId}-password`} className="sr-only">
+                  {text.passwordLabel}
+                </label>
+                <input
+                  id={`${fieldId}-password`}
+                  type="password"
+                  dir="ltr"
+                  value={password}
+                  autoComplete="current-password"
+                  placeholder={text.passwordLabel}
+                  aria-invalid={issues.password ? true : undefined}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (!issues.password) return;
+                    setIssues((current) => {
+                      const next = { ...current };
+                      delete next.password;
+                      return next;
+                    });
+                  }}
+                  className="input-lux w-full"
+                />
+                {passwordIssue && (
+                  <p className="mt-1.5 text-xs text-destructive">{passwordIssue}</p>
+                )}
+              </div>
+
+              <button type="submit" disabled={submitting || !configured} className="btn-lux w-full">
+                {submitting ? text.signingIn : text.signIn}
+              </button>
+
+              <div className="flex items-center justify-between gap-3 text-[0.7rem]">
                 <button
                   type="button"
                   onClick={() => void onForgotPassword()}
                   disabled={sendingReset}
-                  className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-gold disabled:opacity-60"
+                  className="text-muted-foreground underline underline-offset-4 transition-colors hover:text-gold disabled:opacity-60"
                 >
                   {sendingReset ? text.sendingReset : text.forgot}
                 </button>
-              ) : (
-                <RuledField
-                  id={id("confirmPassword")}
-                  label={text.confirmPassword}
-                  type={showPassword ? "text" : "password"}
-                  dir="ltr"
-                  value={confirmPassword}
-                  autoComplete="new-password"
-                  error={issueMessage("confirmPassword")}
-                  onChange={(value) => {
-                    setConfirmPassword(value);
-                    clearIssue("confirmPassword");
-                  }}
-                />
-              )}
-
-              {formError && (
-                <p
-                  role="alert"
-                  className="border border-destructive/40 bg-destructive/5 p-3 text-xs leading-relaxed text-destructive"
+                <button
+                  type="button"
+                  onClick={focusEmail}
+                  className="text-muted-foreground underline underline-offset-4 transition-colors hover:text-gold"
                 >
-                  {formError}
-                </p>
-              )}
-
-              {!configured && (
-                <p className="border border-border p-3 text-xs leading-relaxed text-muted-foreground">
-                  {text.notConfigured}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={submitting || !configured}
-                className="btn-lux w-full"
-              >
-                {submitting
-                  ? mode === "signin"
-                    ? text.signingIn
-                    : text.creating
-                  : mode === "signin"
-                    ? text.signIn
-                    : text.register}
-              </button>
-
-              {mode === "register" && (
-                <p className="text-[0.7rem] leading-relaxed text-muted-foreground">
-                  {text.terms}{" "}
-                  <a href="/terms" className="underline underline-offset-4 hover:text-gold">
-                    {text.termsLink}
-                  </a>{" "}
-                  {text.and}{" "}
-                  <a href="/privacy" className="underline underline-offset-4 hover:text-gold">
-                    {text.privacyLink}
-                  </a>
-                  .
-                </p>
-              )}
+                  {text.backToEmail}
+                </button>
+              </div>
             </form>
-          </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function RuledField({
-  id,
-  label,
-  value,
-  onChange,
-  type = "text",
-  error,
-  trailing,
-  autoComplete,
-  autoFocus,
-  inputMode,
-  dir,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: "text" | "email" | "password";
-  error?: string;
-  trailing?: React.ReactNode;
-  autoComplete?: string;
-  autoFocus?: boolean;
-  inputMode?: "email";
-  dir?: "ltr" | "rtl" | "auto";
-}) {
-  return (
-    <div>
-      <label htmlFor={id} className="eyebrow block text-[0.6rem] text-muted-foreground">
-        {label}
-      </label>
-      <div className="relative mt-1">
-        <input
-          id={id}
-          type={type}
-          dir={dir}
-          value={value}
-          autoComplete={autoComplete}
-          autoFocus={autoFocus}
-          inputMode={inputMode}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${id}-error` : undefined}
-          onChange={(event) => onChange(event.target.value)}
-          className={cn("field-rule", trailing && "pe-8")}
-        />
-        {trailing && <div className="absolute inset-y-0 end-0 flex items-center">{trailing}</div>}
-      </div>
-      {error && (
-        <p id={`${id}-error`} className="mt-1.5 text-xs leading-relaxed text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

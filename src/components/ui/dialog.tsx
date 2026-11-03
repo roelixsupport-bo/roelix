@@ -34,10 +34,12 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     /** Set false when the dialog draws its own close affordance. */
     showCloseButton?: boolean;
+    /** Replaces the default black scrim, e.g. the ROELIX navy one. */
+    overlayClassName?: string;
   }
->(({ className, children, showCloseButton = true, ...props }, ref) => (
+>(({ className, children, showCloseButton = true, overlayClassName, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(

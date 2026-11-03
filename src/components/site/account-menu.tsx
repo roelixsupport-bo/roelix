@@ -62,7 +62,10 @@ export function AccountMenu() {
   const [authOpen, setAuthOpen] = useState(false);
 
   const name = displayNameFor(profile, user?.email ?? "");
-  const initials = initialsFor({ fullName: profile?.fullName, email: user?.email });
+  const initials = initialsFor({
+    ...(profile?.fullName ? { fullName: profile.fullName } : {}),
+    ...(user?.email ? { email: user.email } : {}),
+  });
 
   async function handleSignOut() {
     try {

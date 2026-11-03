@@ -48,6 +48,18 @@ export type AccountContextValue = {
     email: string;
     password: string;
   }) => Promise<RegisterOutcome>;
+  /**
+   * Stores the address on `public.customers` and asks Supabase for a magic link
+   * plus a six-digit code. The address is saved first so the register keeps it
+   * even when the customer never opens the email.
+   */
+  requestEmailSignIn: (input: {
+    email: string;
+    marketingOptIn: boolean;
+    redirectPath?: string;
+  }) => Promise<void>;
+  /** Completes the passwordless flow with the six-digit code from the email. */
+  verifyEmailCode: (email: string, code: string) => Promise<void>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   updateProfile: (input: { fullName: string; marketingOptIn: boolean }) => Promise<void>;
@@ -90,6 +102,40 @@ function isMissingProfileColumn(error: unknown): boolean {
 function userMetadataName(user: { user_metadata?: Record<string, unknown> }): string {
   const fullName = user.user_metadata?.["full_name"];
   return typeof fullName === "string" ? fullName.trim() : "";
+}
+
+/**
+ * Writes the submitted address to `public.customers` before the email is sent.
+ *
+ * Best effort on purpose: a deployment that has not applied the customers
+ * migration must still be able to sign in — the missing row is logged, not
+ * turned into a failed login the customer cannot act on.
+ */
+async function captureSignInEmail(
+  client: SupabaseClient,
+  email: string,
+  marketingOptIn: boolean,
+): Promise<void> {
+  try {
+    const { error } = await client.rpc("capture_roelix_customer_email", {
+      p_email: email,
+      p_marketing_opt_in: marketingOptIn,
+      p_source: "signin_modal",
+    });
+    if (error) throw error;
+  } catch (error) {
+    console.warn("ROELIX accounts: the sign-in address could not be saved", error);
+  }
+}
+
+/** Attaches the signed-in account to its address row; telemetry only. */
+async function linkSignInEmail(client: SupabaseClient): Promise<void> {
+  try {
+    const { error } = await client.rpc("link_roelix_customer_account");
+    if (error) throw error;
+  } catch (error) {
+    console.warn("ROELIX accounts: the sign-in address could not be linked", error);
+  }
 }
 
 export function AccountProvider({ children }: { children: ReactNode }) {
@@ -197,9 +243,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       if (disposed) return;
       setLoading(false);
 
-      const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+      const { data: listener } = client.auth.onAuthStateChange((event, session) => {
         if (disposed) return;
         const next = session?.user;
+        // Every way in — magic link, six-digit code, password — lands here, so
+        // this is the one place the address register is joined to the account.
+        if (event === "SIGNED_IN" && next) void linkSignInEmail(client);
         void applySessionUser(next ? { id: next.id, email: next.email ?? "" } : null);
       });
       unsubscribe = () => listener.subscription.unsubscribe();
@@ -224,6 +273,59 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
 
       // Telemetry only: a missing RPC must never fail a valid sign in.
+      try {
+        await client.rpc("touch_roelix_session");
+      } catch (telemetryError) {
+        console.warn("ROELIX accounts: could not record the sign in", telemetryError);
+      }
+
+      await applySessionUser(
+        data.user ? { id: data.user.id, email: data.user.email ?? cleanEmail } : null,
+      );
+    },
+    [applySessionUser],
+  );
+
+  const requestEmailSignIn = useCallback(
+    async (input: { email: string; marketingOptIn: boolean; redirectPath?: string }) => {
+      const client = await accountClient();
+      if (!client) throw new Error(MIGRATION_HINT);
+
+      const cleanEmail = input.email.trim().toLowerCase();
+      await captureSignInEmail(client, cleanEmail, input.marketingOptIn);
+
+      const { error } = await client.auth.signInWithOtp({
+        email: cleanEmail,
+        options: {
+          // A first-time visitor is a new account: the link both proves the
+          // address and creates the customer, which is what the one-field
+          // modal promises.
+          shouldCreateUser: true,
+          ...(typeof window === "undefined"
+            ? {}
+            : {
+                emailRedirectTo: `${window.location.origin}${input.redirectPath ?? "/"}`,
+              }),
+        },
+      });
+      if (error) throw error;
+    },
+    [],
+  );
+
+  const verifyEmailCode = useCallback(
+    async (email: string, code: string) => {
+      const client = await accountClient();
+      if (!client) throw new Error(MIGRATION_HINT);
+
+      const cleanEmail = email.trim().toLowerCase();
+      const { data, error } = await client.auth.verifyOtp({
+        email: cleanEmail,
+        token: code.trim(),
+        type: "email",
+      });
+      if (error) throw error;
+
       try {
         await client.rpc("touch_roelix_session");
       } catch (telemetryError) {
@@ -320,6 +422,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       configured,
       signIn,
       register,
+      requestEmailSignIn,
+      verifyEmailCode,
       signOut,
       requestPasswordReset,
       updateProfile,
@@ -333,6 +437,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       configured,
       signIn,
       register,
+      requestEmailSignIn,
+      verifyEmailCode,
       signOut,
       requestPasswordReset,
       updateProfile,

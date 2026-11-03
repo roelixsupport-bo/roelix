@@ -78,12 +78,14 @@ export function Header() {
             <button
               onClick={() => s.setCartOpen(true)}
               aria-label={s.t.cart}
-              className="relative p-1.5 hover:text-gold transition-colors text-foreground"
+              className="relative rounded-full bg-muted p-2 text-foreground transition-colors hover:bg-accent hover:text-gold"
             >
               <ShoppingBag size={22} />
               {s.count > 0 && <Badge n={s.count} />}
             </button>
 
+            {/* The account control sits directly beside the bag: one 22px outline
+                glyph, which becomes the identity tile once signed in. */}
             <AccountMenu />
 
             <Link
