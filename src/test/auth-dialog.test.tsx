@@ -109,6 +109,24 @@ describe("sign-in modal", () => {
     expect(screen.getByLabelText("Sign-in code")).toBeInTheDocument();
   });
 
+  it("verifies the six-digit code against the address it was sent to", async () => {
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "nour@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue with email" }));
+
+    const input = await screen.findByLabelText("Sign-in code");
+    expect(screen.getByRole("button", { name: "Verify code" })).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: "123456" } });
+
+    await waitFor(() =>
+      expect(account.verifyEmailCode).toHaveBeenCalledWith("nour@example.com", "123456"),
+    );
+  });
+
   it("passes a cleared consent checkbox through to the save", async () => {
     renderDialog();
 

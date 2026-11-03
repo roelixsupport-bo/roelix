@@ -268,6 +268,91 @@ export function authErrorMessage(error: unknown, lang: Language = "en"): string 
   return lang === "ar" ? "تعذر إتمام الطلب." : "The request could not be completed.";
 }
 
+// --- Emailed one-time codes -------------------------------------------------
+
+/**
+ * The token kinds Supabase accepts for a six-digit code sent by email, most
+ * common first.
+ *
+ * `signInWithOtp` writes a `magiclink` token for an address that already exists
+ * and a `signup` token when the visitor is new, while current GoTrue also
+ * accepts both under `email`. No single type is right for every visitor, so the
+ * card tries them in order instead of betting on one.
+ */
+export const EMAIL_OTP_TYPES = ["email", "signup", "magiclink"] as const;
+
+export type EmailOtpType = (typeof EMAIL_OTP_TYPES)[number];
+
+export const OTP_CODE_LENGTH = 6;
+
+/** Digits only — what the code field accepts and what `verifyOtp` expects. */
+export function normalizeOtpCode(code: string): string {
+  return code.replace(/\D/g, "").slice(0, OTP_CODE_LENGTH);
+}
+
+export function isCompleteOtpCode(code: string): boolean {
+  return normalizeOtpCode(code).length === OTP_CODE_LENGTH;
+}
+
+/**
+ * Whether a rejected code is worth retrying as a different token kind.
+ *
+ * A wrong kind and a wrong code both answer "Token has expired or is invalid",
+ * so those are retried. A rate limit or a network failure is not fixed by
+ * changing the kind and would spend another attempt, so the chain stops.
+ */
+export function shouldRetryOtpType(error: unknown): boolean {
+  const record = isRecord(error) ? error : {};
+  const code = (typeof record["code"] === "string" ? record["code"] : "").toLowerCase();
+  const message = (
+    typeof record["message"] === "string"
+      ? record["message"]
+      : error instanceof Error
+        ? error.message
+        : ""
+  ).toLowerCase();
+
+  if (
+    record["status"] === 429 ||
+    code.includes("rate_limit") ||
+    /rate limit|too many requests|failed to fetch|network error/.test(message)
+  ) {
+    return false;
+  }
+
+  return (
+    code === "otp_expired" ||
+    /token has expired or is invalid|invalid (one-time )?token|token.*not found/.test(message)
+  );
+}
+
+export type OtpVerificationOutcome<T> =
+  | { ok: true; data: T; type: EmailOtpType }
+  | { ok: false; error: unknown };
+
+/**
+ * Verifies a code with each token kind until one is accepted.
+ *
+ * `verify` is the Supabase call itself, injected so the ordering, the stop rule
+ * and the error that reaches the customer can be tested without a network.
+ */
+export async function verifyEmailOtp<T>(
+  verify: (type: EmailOtpType) => Promise<{ data: T | null; error: unknown }>,
+): Promise<OtpVerificationOutcome<T>> {
+  let lastError: unknown = null;
+
+  for (const type of EMAIL_OTP_TYPES) {
+    const { data, error } = await verify(type);
+
+    if (!error && data) return { ok: true, data, type };
+    if (error && !shouldRetryOtpType(error)) return { ok: false, error };
+
+    lastError = error ?? new Error("The sign-in code was not accepted.");
+  }
+
+  return { ok: false, error: lastError };
+}
+
 // --- Dates and grouping -----------------------------------------------------
 
 function localeFor(lang: Language): string {

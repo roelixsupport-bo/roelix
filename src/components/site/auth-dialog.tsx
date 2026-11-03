@@ -13,6 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input_otp";
 import {
   authErrorMessage,
+  isCompleteOtpCode,
+  normalizeOtpCode,
   validateAuthForm,
   type AuthFieldIssues,
   type AuthMode,
@@ -203,8 +205,8 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
   async function submitCode(value: string) {
     if (submitting) return;
-    const token = value.replace(/\D/g, "");
-    if (token.length !== 6) {
+    const token = normalizeOtpCode(value);
+    if (!isCompleteOtpCode(token)) {
       setFormError(text.invalidCode);
       return;
     }
@@ -461,7 +463,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                 autoFocus
                 maxLength={6}
                 value={code}
-                onChange={setCode}
+                onChange={(value) => setCode(normalizeOtpCode(value))}
                 onComplete={(value) => void submitCode(value)}
                 aria-label={text.codeLabel}
                 containerClassName="mt-3 justify-center gap-2"
@@ -480,7 +482,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
               <button
                 ref={verifyRef}
                 type="submit"
-                disabled={submitting || code.replace(/\D/g, "").length !== 6}
+                disabled={submitting || !isCompleteOtpCode(code)}
                 className="btn-lux mt-5 w-full"
               >
                 {submitting ? text.verifying : text.verify}

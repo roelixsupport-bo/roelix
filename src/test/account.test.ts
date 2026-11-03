@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  EMAIL_OTP_TYPES,
   accountStatus,
   authErrorKey,
   authErrorMessage,
@@ -8,11 +9,15 @@ import {
   filterProfiles,
   groupByJoinMonth,
   initialsFor,
+  isCompleteOtpCode,
   joinDateLabel,
   joinMonthLabel,
+  normalizeOtpCode,
   profileFromRecord,
   profilesFromRecords,
+  shouldRetryOtpType,
   validateAuthForm,
+  verifyEmailOtp,
   type CustomerProfile,
 } from "@/lib/account";
 
@@ -173,6 +178,71 @@ describe("auth errors", () => {
     expect(authErrorMessage({ code: "email_not_confirmed" }, "ar")).toBe(
       "أكّد بريدك الإلكتروني قبل تسجيل الدخول.",
     );
+  });
+});
+
+describe("emailed sign-in codes", () => {
+  const rejected = { code: "otp_expired", message: "Token has expired or is invalid" };
+
+  it("keeps only the six digits a code can carry", () => {
+    expect(normalizeOtpCode(" 123-456 ")).toBe("123456");
+    expect(normalizeOtpCode("1234567")).toBe("123456");
+    expect(normalizeOtpCode("abc")).toBe("");
+    expect(isCompleteOtpCode("123456")).toBe(true);
+    expect(isCompleteOtpCode("12345")).toBe(false);
+  });
+
+  it("offers every token kind Supabase issues for an emailed code", () => {
+    expect([...EMAIL_OTP_TYPES]).toEqual(["email", "signup", "magiclink"]);
+  });
+
+  it("retries only when the token itself was rejected", () => {
+    expect(shouldRetryOtpType(rejected)).toBe(true);
+    expect(shouldRetryOtpType({ status: 403, message: "Token has expired or is invalid" })).toBe(
+      true,
+    );
+    expect(shouldRetryOtpType({ status: 429, code: "over_email_send_rate_limit" })).toBe(false);
+    expect(shouldRetryOtpType(new Error("Too many requests"))).toBe(false);
+    expect(shouldRetryOtpType(new TypeError("Failed to fetch"))).toBe(false);
+    expect(shouldRetryOtpType(null)).toBe(false);
+  });
+
+  it("accepts the signup token a first-time customer receives", async () => {
+    const tried: string[] = [];
+    const outcome = await verifyEmailOtp<{ id: string }>(async (type) => {
+      tried.push(type);
+      return type === "signup"
+        ? { data: { id: "user-1" }, error: null }
+        : { data: null, error: rejected };
+    });
+
+    expect(tried).toEqual(["email", "signup"]);
+    expect(outcome).toEqual({ ok: true, data: { id: "user-1" }, type: "signup" });
+  });
+
+  it("exhausts the kinds, then reports the last rejection", async () => {
+    const tried: string[] = [];
+    const outcome = await verifyEmailOtp<{ id: string }>(async (type) => {
+      tried.push(type);
+      return { data: null, error: rejected };
+    });
+
+    expect(tried).toEqual([...EMAIL_OTP_TYPES]);
+    expect(outcome.ok).toBe(false);
+  });
+
+  it("stops immediately on a rate limit instead of spending another attempt", async () => {
+    const tried: string[] = [];
+    const outcome = await verifyEmailOtp<{ id: string }>(async (type) => {
+      tried.push(type);
+      return {
+        data: null,
+        error: { status: 429, code: "over_email_send_rate_limit", message: "Too many requests" },
+      };
+    });
+
+    expect(tried).toEqual(["email"]);
+    expect(outcome.ok).toBe(false);
   });
 });
 

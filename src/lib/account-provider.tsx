@@ -13,6 +13,7 @@ import {
   PROFILE_COLUMNS,
   authErrorMessage,
   profileFromRecord,
+  verifyEmailOtp,
   type CustomerProfile,
 } from "@/lib/account";
 import { describeError } from "@/lib/errors";
@@ -49,16 +50,19 @@ export type AccountContextValue = {
     password: string;
   }) => Promise<RegisterOutcome>;
   /**
-   * Stores the address on `public.customers` and asks Supabase for a magic link
-   * plus a six-digit code. The address is saved first so the register keeps it
-   * even when the customer never opens the email.
+   * Stores the address on `public.customers` and asks Supabase for a one-time
+   * code for it. The address is saved first so the register keeps it even when
+   * the customer never opens the email.
    */
   requestEmailSignIn: (input: {
     email: string;
     marketingOptIn: boolean;
     redirectPath?: string;
   }) => Promise<void>;
-  /** Completes the passwordless flow with the six-digit code from the email. */
+  /**
+   * Completes the passwordless flow with the six-digit code from the email,
+   * accepting whichever token kind Supabase issued for that address.
+   */
   verifyEmailCode: (email: string, code: string) => Promise<void>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
@@ -294,10 +298,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       const cleanEmail = input.email.trim().toLowerCase();
       await captureSignInEmail(client, cleanEmail, input.marketingOptIn);
 
+      // `signInWithOtp` *is* GoTrue's one-time-code endpoint (`POST /auth/v1/otp`);
+      // there is no separate "otp only" call. It posts a six-digit token for this
+      // single address, and the Magic Link template prints that token through
+      // `{{ .Token }}` — the link in the same email is the fallback for a
+      // customer who reads the inbox on another device.
       const { error } = await client.auth.signInWithOtp({
         email: cleanEmail,
         options: {
-          // A first-time visitor is a new account: the link both proves the
+          // A first-time visitor is a new account: the code both proves the
           // address and creates the customer, which is what the one-field
           // modal promises.
           shouldCreateUser: true,
@@ -319,12 +328,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       if (!client) throw new Error(MIGRATION_HINT);
 
       const cleanEmail = email.trim().toLowerCase();
-      const { data, error } = await client.auth.verifyOtp({
-        email: cleanEmail,
-        token: code.trim(),
-        type: "email",
-      });
-      if (error) throw error;
+      const token = code.trim();
+
+      // A code from `signInWithOtp` is a `magiclink` token when the address is
+      // already a customer and a `signup` token when it is new, so every token
+      // kind is offered before the code is reported as unusable.
+      const outcome = await verifyEmailOtp((type) =>
+        client.auth.verifyOtp({ email: cleanEmail, token, type }),
+      );
+      if (!outcome.ok) throw outcome.error;
 
       try {
         await client.rpc("touch_roelix_session");
@@ -332,9 +344,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         console.warn("ROELIX accounts: could not record the sign in", telemetryError);
       }
 
-      await applySessionUser(
-        data.user ? { id: data.user.id, email: data.user.email ?? cleanEmail } : null,
-      );
+      const user = outcome.data.user;
+      await applySessionUser(user ? { id: user.id, email: user.email ?? cleanEmail } : null);
     },
     [applySessionUser],
   );
