@@ -105,8 +105,11 @@ export function AccountMenu() {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent
-          align="end"
+          // The trigger sits at the leading edge of the bar, so the card opens
+          // inwards from it; "end" would push the 17rem panel off the screen.
+          align="start"
           sideOffset={10}
+          collisionPadding={12}
           className="w-[17rem] rounded-[2px] border bg-card p-0 text-card-foreground shadow-lux"
         >
           <div className="p-4" dir={langKey === "ar" ? "rtl" : "ltr"}>
