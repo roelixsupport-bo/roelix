@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Heart, LayoutDashboard, UserRound } from "lucide-react";
+import { Heart, LayoutDashboard } from "lucide-react";
 import { toast } from "sonner";
 
 import { AuthDialog } from "@/components/site/auth-dialog";
+import { ProfileIcon } from "@/components/site/profile-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,12 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown_menu";
-import {
-  displayNameFor,
-  initialsFor,
-  isTeamRole,
-  joinDateLabel,
-} from "@/lib/account";
+import { displayNameFor, isTeamRole, joinDateLabel } from "@/lib/account";
 import { useAccount } from "@/lib/account-provider";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -46,13 +42,16 @@ const COPY = {
   },
 } as const;
 
+/** One hairline trigger for both states, so the header never grows an extra tile. */
+const TRIGGER_CLASS =
+  "relative p-1.5 text-foreground transition-colors hover:text-gold focus-visible:text-gold focus-visible:outline-hidden";
+
 /**
  * The account affordance in the main header.
  *
- * Signed out it is the same 22px outline glyph as the bag beside it, and it opens
- * the auth card. Signed in it becomes the identity tile — initials on navy with a
- * gold hairline — and opens the account card. One component owns both states so
- * the header stays free of session logic.
+ * Signed out it opens the auth card; signed in it opens the account card. In
+ * both states it is the same 22px outline profile glyph — the ROELIX mark stays
+ * the only lettering on the bar, and the hairline icon matches the bag beside it.
  */
 export function AccountMenu() {
   const { lang } = useStore();
@@ -62,10 +61,6 @@ export function AccountMenu() {
   const [authOpen, setAuthOpen] = useState(false);
 
   const name = displayNameFor(profile, user?.email ?? "");
-  const initials = initialsFor({
-    ...(profile?.fullName ? { fullName: profile.fullName } : {}),
-    ...(user?.email ? { email: user.email } : {}),
-  });
 
   async function handleSignOut() {
     try {
@@ -86,12 +81,9 @@ export function AccountMenu() {
           aria-label={text.account}
           title={text.account}
           aria-busy={loading || undefined}
-          className={cn(
-            "relative p-1.5 text-foreground transition-colors hover:text-gold",
-            loading && "opacity-40",
-          )}
+          className={cn(TRIGGER_CLASS, loading && "opacity-40")}
         >
-          <UserRound size={22} />
+          <ProfileIcon size={22} />
         </button>
         <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
       </>
@@ -106,9 +98,9 @@ export function AccountMenu() {
             type="button"
             aria-label={`${text.openAccount}: ${name}`}
             title={name}
-            className="identity-tile h-8 w-8 text-[0.8rem] tracking-[0.04em] transition-colors hover:shadow-[inset_0_0_0_1px_var(--gold)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-gold"
+            className={TRIGGER_CLASS}
           >
-            {initials}
+            <ProfileIcon size={22} />
           </button>
         </DropdownMenuTrigger>
 
@@ -119,7 +111,9 @@ export function AccountMenu() {
         >
           <div className="p-4" dir={langKey === "ar" ? "rtl" : "ltr"}>
             <div className="flex items-start gap-3">
-              <span className="identity-tile h-10 w-10 shrink-0 text-sm">{initials}</span>
+              <span className="grid size-10 shrink-0 place-items-center rounded-full border border-gold/45 text-foreground">
+                <ProfileIcon size={20} />
+              </span>
               <div className="min-w-0">
                 <p className="truncate font-serif text-base leading-tight">{name}</p>
                 <p className="mt-0.5 break-all text-xs text-muted-foreground">
