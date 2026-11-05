@@ -191,7 +191,8 @@ export function reviewFromRecord(value: unknown): ProductReview | null {
   const id = readString(value, "id");
   const productId = readString(value, "product_id", "productId");
   const authorName = readString(value, "author_name", "authorName").trim();
-  const body = readString(value, "body").trim();
+  // `comment` is what the oldest deployed table called this column.
+  const body = readString(value, "body", "comment").trim();
   const createdAt = readString(value, "created_at", "createdAt");
   if (!id || !productId || !authorName || !body || !createdAt || rating === null) return null;
 
@@ -441,12 +442,22 @@ async function readReviewRows(
   run: (columns: string) => PromiseLike<ReviewQueryResult>,
 ): Promise<ReviewQueryResult> {
   let result = await run(reviewColumns());
+
+  // The oldest deployed table called the text column `comment`.
+  if (result.error && isMissingBodyColumn(result.error)) {
+    console.warn(
+      "ROELIX reviews: this project stores review text in `comment`. Apply supabase/migrations/20261105120000_reviews_body_column.sql to align it with `body`.",
+    );
+    bodyColumn = "comment";
+    result = await run(reviewColumns());
+  }
+
   if (result.error && isMissingColumnError(result.error)) {
     console.warn(
       "ROELIX reviews: author/photo columns are missing. Apply supabase/migrations/20261103120000_review_auth_and_images.sql.",
     );
     mediaColumnsAvailable = false;
-    result = await run(REVIEW_COLUMNS);
+    result = await run(reviewColumns());
   }
   return result;
 }
@@ -465,6 +476,58 @@ async function reviewClient(): Promise<
     tripCloudBreaker(error);
     return null;
   }
+}
+
+type ReviewSupabaseClient = NonNullable<Awaited<ReturnType<typeof reviewClient>>>;
+
+type ReviewInsertFields = {
+  /** Client-generated id, used by the device queue so replays are idempotent. */
+  id?: string;
+  productId: string;
+  authorName: string;
+  rating: number;
+  body: string;
+  userId?: string | null;
+  imageUrl?: string | null;
+};
+
+/**
+ * Inserts one pending review, adapting to the project's schema as it goes.
+ *
+ * Two migrations are still not applied everywhere: the text column was once
+ * called `comment`, and the author/photo columns arrived later. Each adaptation
+ * is learned once per session from a real error and then reused, so a shopper
+ * never has to meet a 400 because their project is one migration behind.
+ */
+async function insertReview(
+  client: ReviewSupabaseClient,
+  fields: ReviewInsertFields,
+): Promise<{ error: { code?: string; message?: string } | null }> {
+  const payload = (): Record<string, unknown> => ({
+    ...(fields.id ? { id: fields.id } : {}),
+    product_id: fields.productId,
+    author_name: fields.authorName,
+    rating: fields.rating,
+    [bodyColumn]: fields.body,
+    // Explicit, not just the column default: RLS only accepts pending inserts,
+    // so a project without the approval migration fails loudly instead of
+    // publishing straight to the storefront.
+    status: "pending" as const,
+    ...(mediaColumnsAvailable && fields.userId ? { user_id: fields.userId } : {}),
+    ...(mediaColumnsAvailable && fields.imageUrl ? { image_url: fields.imageUrl } : {}),
+  });
+
+  let result = await client.from("product_reviews").insert(payload());
+
+  if (result.error && isMissingBodyColumn(result.error)) {
+    bodyColumn = "comment";
+    result = await client.from("product_reviews").insert(payload());
+  }
+  if (result.error && isMissingColumnError(result.error)) {
+    mediaColumnsAvailable = false;
+    result = await client.from("product_reviews").insert(payload());
+  }
+  return result;
 }
 
 // --- Reads ------------------------------------------------------------------
@@ -577,36 +640,14 @@ export async function submitProductReview(input: ReviewInput): Promise<ProductRe
     const supabase = await reviewClient();
     if (!supabase) return saveLocalReview(draft);
 
-    const payload = {
-      product_id: draft.productId,
-      author_name: draft.authorName,
+    const { error } = await insertReview(supabase, {
+      productId: draft.productId,
+      authorName: draft.authorName,
       rating: draft.rating,
       body: draft.body,
-      // Explicit, not just the column default: RLS only accepts pending inserts,
-      // so a project without the approval migration fails loudly instead of
-      // publishing straight to the storefront.
-      status: "pending" as const,
-      ...(mediaColumnsAvailable && draft.authorId ? { user_id: draft.authorId } : {}),
-      ...(mediaColumnsAvailable && draft.imageUrl ? { image_url: draft.imageUrl } : {}),
-    };
-
-    let { error } = await supabase.from("product_reviews").insert(payload);
-
-    // A project still on the pre-photo schema keeps the review — minus the photo,
-    // which is reported rather than silently dropped inside the form.
-    if (error && isMissingColumnError(error)) {
-      console.warn(
-        "ROELIX reviews: saving without the author/photo columns. Apply supabase/migrations/20261103120000_review_auth_and_images.sql.",
-      );
-      mediaColumnsAvailable = false;
-      ({ error } = await supabase.from("product_reviews").insert({
-        product_id: draft.productId,
-        author_name: draft.authorName,
-        rating: draft.rating,
-        body: draft.body,
-        status: "pending" as const,
-      }));
-    }
+      userId: draft.authorId,
+      imageUrl: draft.imageUrl,
+    });
     if (error) throw error;
 
     return draft;
@@ -755,15 +796,14 @@ async function runDrain(): Promise<ReviewDrainResult> {
     if (!UUID_PATTERN.test(review.id) || review.authorId !== userId) continue;
 
     try {
-      const { error } = await supabase.from("product_reviews").insert({
+      const { error } = await insertReview(supabase, {
         id: review.id,
-        product_id: review.productId,
-        author_name: review.authorName,
+        productId: review.productId,
+        authorName: review.authorName,
         rating: review.rating,
         body: review.body,
-        status: "pending",
-        user_id: userId,
-        ...(review.imageUrl ? { image_url: review.imageUrl } : {}),
+        userId,
+        imageUrl: review.imageUrl,
       });
 
       if (!error) {

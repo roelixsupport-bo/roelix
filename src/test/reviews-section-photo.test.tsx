@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ReviewsSection } from "@/components/product/reviews-section";
+import { ReviewsSection, type ReviewSubmission } from "@/components/product/reviews-section";
 import { summarizeReviews, type ProductReview } from "@/lib/reviews";
 
 /**
@@ -58,7 +58,7 @@ describe("review form with a broken photo upload", () => {
   });
 
   it("still sends the review, without the photo, and says so", async () => {
-    const onSubmit = vi.fn(async () => stored[0] ?? null);
+    const onSubmit = vi.fn(async (_input: ReviewSubmission) => stored[0] ?? null);
 
     root = createRoot(container);
     await act(async () => {
