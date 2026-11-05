@@ -9,6 +9,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Component tests mount real DOM in jsdom and take seconds on a busy laptop;
+    // the Vitest default of 5s produced failures that passed when re-run alone.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },

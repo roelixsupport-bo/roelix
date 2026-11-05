@@ -20,6 +20,9 @@ vi.mock("@/lib/supabase", () => {
       channel: () => channel,
       removeChannel: async () => {},
     },
+    // The real module exports this alongside the client; the store awaits it
+    // before every catalogue read.
+    healStaleSession: async () => false,
   };
 });
 

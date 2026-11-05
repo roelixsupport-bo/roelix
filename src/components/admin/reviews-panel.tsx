@@ -7,6 +7,7 @@ import {
   approveReview,
   deleteReview,
   fetchAllReviews,
+  queuedReviewCount,
   reviewsCloudEnabled,
   setReviewStatus,
   type ProductReview,
@@ -45,6 +46,8 @@ const COPY = {
     unknownProduct: "Deleted product",
     stars: "stars",
     photo: "Customer photo",
+    queued: (count: number) =>
+      `${count} ${count === 1 ? "review" : "reviews"} saved on this device, waiting to upload.`,
   },
   ar: {
     title: "تقييمات العملاء",
@@ -76,6 +79,7 @@ const COPY = {
     unknownProduct: "منتج محذوف",
     stars: "نجوم",
     photo: "صورة العميل",
+    queued: (count: number) => `${count} تقييم محفوظ على هذا الجهاز بانتظار الرفع.`,
   },
 } as const;
 
@@ -106,6 +110,8 @@ export function ReviewsPanel({
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("pending");
+  /** Reviews this browser still holds because the cloud was unreachable. */
+  const [queued, setQueued] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -114,6 +120,9 @@ export function ReviewsPanel({
       console.error("Could not load ROELIX reviews", error);
       toast.error(error instanceof Error ? error.message : text.loadFailed);
     } finally {
+      // `fetchAllReviews` drains the device queue first, so this number is what
+      // is genuinely still stuck here.
+      setQueued(queuedReviewCount());
       setLoading(false);
     }
   }, [text.loadFailed]);
@@ -212,6 +221,12 @@ export function ReviewsPanel({
       <div>
         <h2 className="font-serif text-2xl sm:text-3xl">{text.title}</h2>
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">{text.hint}</p>
+        {queued > 0 && (
+          <p className="mt-2 inline-flex items-center gap-2 border border-gold/50 bg-gold/5 px-2.5 py-1.5 text-xs text-foreground">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-gold" />
+            {text.queued(queued)}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

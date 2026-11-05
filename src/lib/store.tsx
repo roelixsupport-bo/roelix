@@ -419,7 +419,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const { supabase } = await import("@/lib/supabase");
+      const { supabase, healStaleSession } = await import("@/lib/supabase");
+      // A session this project cannot verify is attached to every request, which
+      // would make the whole catalogue 401 and silently fall back to cache.
+      await healStaleSession();
       const rows = await fetchCloudCatalog(supabase);
 
       catalogFromCloud.current = true;

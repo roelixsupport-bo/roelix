@@ -428,7 +428,10 @@ async function reviewClient(): Promise<
   Awaited<typeof import("@/lib/supabase")>["supabase"] | null
 > {
   try {
-    const { supabase } = await import("@/lib/supabase");
+    const { supabase, healStaleSession } = await import("@/lib/supabase");
+    // An unverifiable stored session makes every review request 401 and would
+    // otherwise push a healthy project onto the local fallback for good.
+    await healStaleSession();
     return supabase;
   } catch (error) {
     tripCloudBreaker(error);
@@ -457,6 +460,9 @@ export async function fetchProductReviews(productId: string): Promise<ProductRev
     );
     if (error) throw error;
 
+    // The cloud answered, so anything queued on this device can go up now.
+    void drainQueuedReviews();
+
     return ((data ?? []) as unknown[])
       .map(reviewFromRecord)
       .filter((review): review is ProductReview => review !== null);
@@ -475,6 +481,10 @@ export async function fetchProductReviews(productId: string): Promise<ProductRev
  */
 export async function fetchAllReviews(): Promise<ProductReview[]> {
   if (!reviewsCloudEnabled() || reviewCloudDisabled()) return localQueue();
+
+  // Drain first so the moderation queue the admin sees already contains what
+  // this device was holding.
+  await drainQueuedReviews();
 
   try {
     const supabase = await reviewClient();
@@ -650,4 +660,111 @@ export async function deleteReview(id: string): Promise<void> {
     }
     throw reviewError(readErrorShape(error));
   }
+}
+
+// --- Device-queue drain -----------------------------------------------------
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type ReviewDrainResult = {
+  /** Rows Supabase now owns. */
+  uploaded: number;
+  /** Rows still waiting on this device. */
+  pending: number;
+};
+
+/** Reviews written here that have not reached Supabase yet. */
+export function queuedReviewCount(): number {
+  return readLocalReviews().filter((review) => review.status === "pending").length;
+}
+
+let drainPromise: Promise<ReviewDrainResult> | null = null;
+
+/**
+ * Uploads reviews that were queued on this device while the cloud was unusable.
+ *
+ * Runs whenever a cloud read succeeds, so nothing the shopper wrote is stranded
+ * on one browser: their review reaches the moderation queue as soon as the
+ * connection (or the project) recovers.
+ *
+ * Idempotent by construction — the client id is the row's primary key, so a
+ * replay after a half-finished upload collides on `23505` and is treated as
+ * already delivered rather than duplicated. The insert policy demands
+ * `user_id = auth.uid()`, so rows only travel while their author is signed in on
+ * this device; otherwise they stay queued instead of failing repeatedly.
+ */
+export function drainQueuedReviews(): Promise<ReviewDrainResult> {
+  drainPromise ??= runDrain().finally(() => {
+    drainPromise = null;
+  });
+  return drainPromise;
+}
+
+async function runDrain(): Promise<ReviewDrainResult> {
+  const queue = readLocalReviews().filter((review) => review.status === "pending");
+  if (queue.length === 0) return { uploaded: 0, pending: 0 };
+  if (!reviewsCloudEnabled() || reviewCloudDisabled()) {
+    return { uploaded: 0, pending: queue.length };
+  }
+
+  const supabase = await reviewClient();
+  if (!supabase) return { uploaded: 0, pending: queue.length };
+
+  let userId: string | null = null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    userId = data.session?.user?.id ?? null;
+  } catch (error) {
+    console.warn("ROELIX reviews: could not read the session before draining", error);
+  }
+  if (!userId) return { uploaded: 0, pending: queue.length };
+
+  const uploaded = new Set<string>();
+
+  for (const review of queue) {
+    // A legacy id (`local-…`) is not a uuid and cannot be the cloud primary key,
+    // and another account's review cannot satisfy the policy.
+    if (!UUID_PATTERN.test(review.id) || review.authorId !== userId) continue;
+
+    try {
+      const { error } = await supabase.from("product_reviews").insert({
+        id: review.id,
+        product_id: review.productId,
+        author_name: review.authorName,
+        rating: review.rating,
+        body: review.body,
+        status: "pending",
+        user_id: userId,
+        ...(review.imageUrl ? { image_url: review.imageUrl } : {}),
+      });
+
+      if (!error) {
+        uploaded.add(review.id);
+        continue;
+      }
+      // Already there from an interrupted run: treat as delivered, not an error.
+      if (readErrorShape(error).code === "23505") {
+        uploaded.add(review.id);
+        continue;
+      }
+      console.warn("ROELIX reviews: a queued review was not uploaded", error);
+      // The backend itself is unusable: leave the rest queued rather than burning
+      // a request per row. A policy rejection (42501) is about this row, not the
+      // table, so reads elsewhere in the session keep working.
+      if (isReviewInfrastructureError(error)) {
+        if (readErrorShape(error).code !== "42501") tripCloudBreaker(error);
+        break;
+      }
+    } catch (error) {
+      if (isReviewInfrastructureError(error)) tripCloudBreaker(error);
+      break;
+    }
+  }
+
+  if (uploaded.size > 0) {
+    writeLocalReviews(readLocalReviews().filter((review) => !uploaded.has(review.id)));
+    console.info(`ROELIX reviews: uploaded ${uploaded.size} queued review(s) to Supabase`);
+  }
+
+  return { uploaded: uploaded.size, pending: queuedReviewCount() };
 }
