@@ -15,6 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductSchema } from "@/components/ProductSchema";
 import { useProductReviews } from "@/hooks/use-product-reviews";
+import { displayNameFor } from "@/lib/account";
+import { useAccount } from "@/lib/account-provider";
+import { useAuthDialog } from "@/lib/auth-dialog-provider";
 import { recordProductInteraction } from "@/lib/local-data";
 import {
   firstPurchasableVariant,
@@ -180,6 +183,15 @@ export function ProductDetail({ productId }: { productId: string }) {
     submitting: reviewsSubmitting,
     submit: submitReview,
   } = useProductReviews(product?.id);
+
+  // Writing a review is tied to the signed-in account, so the section is handed
+  // the name to credit and a way to open the storefront's auth card.
+  const { user, profile } = useAccount();
+  const authDialog = useAuthDialog();
+  const reviewViewer = useMemo(
+    () => (user ? { id: user.id, name: displayNameFor(profile, user.email) } : null),
+    [user, profile],
+  );
 
   const variants = useMemo(() => product?.variants ?? [], [product]);
 
@@ -879,6 +891,8 @@ export function ProductDetail({ productId }: { productId: string }) {
           summary={reviewSummary}
           loading={reviewsLoading}
           submitting={reviewsSubmitting}
+          viewer={reviewViewer}
+          onRequestSignIn={authDialog.open}
           onSubmit={submitReview}
         />
       </Suspense>

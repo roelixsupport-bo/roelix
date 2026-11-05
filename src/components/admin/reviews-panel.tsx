@@ -44,6 +44,7 @@ const COPY = {
     loadFailed: "Could not load reviews.",
     unknownProduct: "Deleted product",
     stars: "stars",
+    photo: "Customer photo",
   },
   ar: {
     title: "تقييمات العملاء",
@@ -74,6 +75,7 @@ const COPY = {
     loadFailed: "تعذر تحميل التقييمات.",
     unknownProduct: "منتج محذوف",
     stars: "نجوم",
+    photo: "صورة العميل",
   },
 } as const;
 
@@ -346,9 +348,26 @@ export function ReviewsPanel({
                   </button>
                 </div>
               </div>
-              <p className="mt-2 whitespace-pre-line break-words text-sm leading-relaxed text-muted-foreground">
-                {review.body}
-              </p>
+              <div className="mt-2 flex items-start gap-3">
+                {review.imageUrl && (
+                  <a
+                    href={review.imageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={text.photo}
+                    className="shrink-0 border"
+                  >
+                    <img
+                      src={review.imageUrl}
+                      alt={`${text.photo}: ${review.authorName}`}
+                      className="size-12 object-cover"
+                    />
+                  </a>
+                )}
+                <p className="min-w-0 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+                  {review.body}
+                </p>
+              </div>
             </li>
           ))}
         </ul>

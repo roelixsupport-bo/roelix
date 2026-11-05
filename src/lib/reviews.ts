@@ -31,6 +31,10 @@ export type ProductReview = {
   body: string;
   status: ReviewStatus;
   createdAt: string;
+  /** Auth user who wrote it; null on rows written before sign-in was required. */
+  authorId: string | null;
+  /** Public URL of the customer photo, when one was attached. */
+  imageUrl: string | null;
 };
 
 export type ReviewInput = {
@@ -38,6 +42,10 @@ export type ReviewInput = {
   authorName: string;
   rating: number;
   body: string;
+  /** Set by the signed-in reviewer; the database pins the row to this user. */
+  authorId?: string | null;
+  /** Storage URL returned by `uploadReviewImage`. */
+  imageUrl?: string | null;
 };
 
 export type ReviewFieldError = { field: "authorName" | "rating" | "body" };
@@ -80,11 +88,17 @@ export function reviewsCloudEnabled(): boolean {
 /**
  * Postgres/PostgREST failures that mean "this table cannot be used right now".
  *
- * 42P01       relation does not exist
- * PGRST205    "Could not find the table in the schema cache" (the reported bug)
+ * 42P01        relation does not exist
+ * PGRST205     "Could not find the table in the schema cache" (the reported bug)
  * PGRST202/204 stale schema cache after a column/function change
- * 3F000       invalid schema
- * 08xxx       connection exceptions
+ * PGRST301/302 expired or bad JWT
+ * 3F000        invalid schema
+ * 08xxx        connection exceptions
+ * 42501        row-level security denial — a misconfigured key or policy
+ *
+ * None of these are the customer's fault and none of them can be fixed from the
+ * storefront, so a submission must degrade to the device queue instead of
+ * failing in the shopper's face.
  */
 const UNUSABLE_TABLE_CODES = new Set([
   "42P01",
@@ -94,14 +108,17 @@ const UNUSABLE_TABLE_CODES = new Set([
   "PGRST001",
   "PGRST002",
   "PGRST003",
+  "PGRST301",
+  "PGRST302",
   "3F000",
   "08000",
   "08003",
   "08006",
+  "42501",
 ]);
 
 const UNUSABLE_TABLE_MESSAGE =
-  /schema cache|could not find the table|no such table|undefined table|relation .* does not exist|does not exist|failed to fetch|networkerror|network error|fetch failed|load failed|connection (?:closed|refused|reset|terminated)|timed out|timeout/i;
+  /schema cache|could not find the table|no such table|undefined table|relation .* does not exist|does not exist|failed to fetch|networkerror|network error|fetch failed|load failed|connection (?:closed|refused|reset|terminated)|timed out|timeout|jwt|api ?key|no suitable key|unauthorized|invalid claim|permission denied/i;
 
 function readErrorShape(value: unknown): { code: string; message: string } {
   if (typeof value === "string") return { code: "", message: value };
@@ -114,10 +131,14 @@ function readErrorShape(value: unknown): { code: string; message: string } {
 }
 
 /**
- * True when the failure is about the reviews table/connection rather than about
- * this particular review. RLS denials (42501) and constraint violations (23514)
- * stay visible: they are fixable configuration problems, not reasons to quietly
- * store a review somewhere the storefront will never read.
+ * True when the failure is about the table, the connection or the credentials,
+ * rather than about this particular review.
+ *
+ * Constraint violations (23514 and the 22xxx data errors) stay visible: those are
+ * real answers about the review being written. A 42501 RLS denial counts as
+ * infrastructure here so a shopper's text is never lost to a misconfigured
+ * policy — the moderation callers test for it first and still report
+ * "administrators only" in the dashboard.
  */
 export function isReviewInfrastructureError(value: unknown): boolean {
   const { code, message } = readErrorShape(value);
@@ -174,6 +195,8 @@ export function reviewFromRecord(value: unknown): ProductReview | null {
   const createdAt = readString(value, "created_at", "createdAt");
   if (!id || !productId || !authorName || !body || !createdAt || rating === null) return null;
 
+  const imageUrl = readString(value, "image_url", "imageUrl").trim();
+
   return {
     id,
     productId,
@@ -183,6 +206,9 @@ export function reviewFromRecord(value: unknown): ProductReview | null {
     // Fail closed: an unknown or missing status must never publish a review.
     status: readStatus(value["status"]),
     createdAt,
+    authorId: readString(value, "user_id", "userId", "authorId").trim() || null,
+    // A stored value that is not a URL would render as a broken image; drop it.
+    imageUrl: /^https?:\/\//i.test(imageUrl) ? imageUrl : null,
   };
 }
 
@@ -218,6 +244,60 @@ export function summarizeReviews(reviews: ProductReview[]): ReviewSummary {
   }
 
   return { count: counted, average: counted === 0 ? 0 : total / counted, distribution };
+}
+
+// --- Paging -----------------------------------------------------------------
+
+/** Reviews shown per page in the storefront ledger. */
+export const REVIEWS_PER_PAGE = 6;
+
+export type ReviewPage = {
+  items: ProductReview[];
+  /** 1-based page actually shown, clamped into the available range. */
+  page: number;
+  pageCount: number;
+  total: number;
+  /** 1-based position of the first and last row on this page; 0 when empty. */
+  from: number;
+  to: number;
+};
+
+/**
+ * Slices one page of the ledger.
+ *
+ * A page number left over from a longer list (an admin hid a review, the product
+ * changed) is pulled back into range instead of rendering an empty page.
+ */
+export function paginateReviews(
+  reviews: ProductReview[],
+  page: number,
+  perPage: number = REVIEWS_PER_PAGE,
+): ReviewPage {
+  const size = Math.max(1, Math.floor(perPage));
+  const total = reviews.length;
+  const pageCount = Math.max(1, Math.ceil(total / size));
+  const current = Math.min(pageCount, Math.max(1, Math.floor(page) || 1));
+  const start = (current - 1) * size;
+  const items = reviews.slice(start, start + size);
+
+  return {
+    items,
+    page: current,
+    pageCount,
+    total,
+    from: items.length === 0 ? 0 : start + 1,
+    to: start + items.length,
+  };
+}
+
+/** The page numerals to render: a window that keeps the current page centred. */
+export function reviewPageNumbers(page: number, pageCount: number, max = 5): number[] {
+  const count = Math.max(1, pageCount);
+  const width = Math.min(count, Math.max(1, max));
+  const current = Math.min(count, Math.max(1, page));
+  const start = Math.min(Math.max(1, current - Math.floor(width / 2)), count - width + 1);
+
+  return Array.from({ length: width }, (_, index) => start + index);
 }
 
 // --- Local storage fallback -------------------------------------------------
@@ -295,6 +375,54 @@ function reviewError(error: { code?: string; message?: string }): Error {
 
 const REVIEW_COLUMNS = "id,product_id,author_name,rating,body,status,created_at";
 
+/**
+ * Author and photo columns added by the 2026-11-03 migration.
+ *
+ * A project that has not run it yet still serves reviews: one failed read flips
+ * this off for the session and everything falls back to the base columns, rather
+ * than the storefront losing every review until the DDL is applied.
+ */
+const REVIEW_MEDIA_COLUMNS = "user_id,image_url";
+let mediaColumnsAvailable = true;
+
+/** Test hook: pretend a fresh deployment where the media columns exist. */
+export function resetReviewMediaColumns(): void {
+  mediaColumnsAvailable = true;
+}
+
+function reviewColumns(): string {
+  return mediaColumnsAvailable ? `${REVIEW_COLUMNS},${REVIEW_MEDIA_COLUMNS}` : REVIEW_COLUMNS;
+}
+
+function isMissingColumnError(value: unknown): boolean {
+  const { code, message } = readErrorShape(value);
+  return code === "42703" || code === "PGRST204" || /column .* does not exist/i.test(message);
+}
+
+type ReviewQueryResult = {
+  data: unknown;
+  error: { code?: string; message?: string } | null;
+};
+
+/**
+ * Runs a review select, retrying once without the author/photo columns when the
+ * project has not been migrated. Only that failure demotes the columns; any
+ * other error is returned untouched for the caller to classify.
+ */
+async function readReviewRows(
+  run: (columns: string) => PromiseLike<ReviewQueryResult>,
+): Promise<ReviewQueryResult> {
+  let result = await run(reviewColumns());
+  if (result.error && isMissingColumnError(result.error)) {
+    console.warn(
+      "ROELIX reviews: author/photo columns are missing. Apply supabase/migrations/20261103120000_review_auth_and_images.sql.",
+    );
+    mediaColumnsAvailable = false;
+    result = await run(REVIEW_COLUMNS);
+  }
+  return result;
+}
+
 /** Opens a client, or null when the module/env is missing. Never throws. */
 async function reviewClient(): Promise<
   Awaited<typeof import("@/lib/supabase")>["supabase"] | null
@@ -318,16 +446,18 @@ export async function fetchProductReviews(productId: string): Promise<ProductRev
     const supabase = await reviewClient();
     if (!supabase) return localPublishedFor(productId);
 
-    const { data, error } = await supabase
-      .from("product_reviews")
-      .select(REVIEW_COLUMNS)
-      .eq("product_id", productId)
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(100);
+    const { data, error } = await readReviewRows((columns) =>
+      supabase
+        .from("product_reviews")
+        .select(columns)
+        .eq("product_id", productId)
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(100),
+    );
     if (error) throw error;
 
-    return (data ?? [])
+    return ((data ?? []) as unknown[])
       .map(reviewFromRecord)
       .filter((review): review is ProductReview => review !== null);
   } catch (error) {
@@ -350,14 +480,16 @@ export async function fetchAllReviews(): Promise<ProductReview[]> {
     const supabase = await reviewClient();
     if (!supabase) return localQueue();
 
-    const { data, error } = await supabase
-      .from("product_reviews")
-      .select(REVIEW_COLUMNS)
-      .order("created_at", { ascending: false })
-      .limit(500);
+    const { data, error } = await readReviewRows((columns) =>
+      supabase
+        .from("product_reviews")
+        .select(columns)
+        .order("created_at", { ascending: false })
+        .limit(500),
+    );
     if (error) throw error;
 
-    return (data ?? [])
+    return ((data ?? []) as unknown[])
       .map(reviewFromRecord)
       .filter((review): review is ProductReview => review !== null);
   } catch (error) {
@@ -397,6 +529,8 @@ export async function submitProductReview(input: ReviewInput): Promise<ProductRe
     // Nothing a customer writes is live until an admin approves it.
     status: "pending",
     createdAt: new Date().toISOString(),
+    authorId: input.authorId?.trim() || null,
+    imageUrl: input.imageUrl?.trim() || null,
   };
 
   if (!reviewsCloudEnabled() || reviewCloudDisabled()) return saveLocalReview(draft);
@@ -405,7 +539,7 @@ export async function submitProductReview(input: ReviewInput): Promise<ProductRe
     const supabase = await reviewClient();
     if (!supabase) return saveLocalReview(draft);
 
-    const { error } = await supabase.from("product_reviews").insert({
+    const payload = {
       product_id: draft.productId,
       author_name: draft.authorName,
       rating: draft.rating,
@@ -413,8 +547,28 @@ export async function submitProductReview(input: ReviewInput): Promise<ProductRe
       // Explicit, not just the column default: RLS only accepts pending inserts,
       // so a project without the approval migration fails loudly instead of
       // publishing straight to the storefront.
-      status: "pending",
-    });
+      status: "pending" as const,
+      ...(mediaColumnsAvailable && draft.authorId ? { user_id: draft.authorId } : {}),
+      ...(mediaColumnsAvailable && draft.imageUrl ? { image_url: draft.imageUrl } : {}),
+    };
+
+    let { error } = await supabase.from("product_reviews").insert(payload);
+
+    // A project still on the pre-photo schema keeps the review — minus the photo,
+    // which is reported rather than silently dropped inside the form.
+    if (error && isMissingColumnError(error)) {
+      console.warn(
+        "ROELIX reviews: saving without the author/photo columns. Apply supabase/migrations/20261103120000_review_auth_and_images.sql.",
+      );
+      mediaColumnsAvailable = false;
+      ({ error } = await supabase.from("product_reviews").insert({
+        product_id: draft.productId,
+        author_name: draft.authorName,
+        rating: draft.rating,
+        body: draft.body,
+        status: "pending" as const,
+      }));
+    }
     if (error) throw error;
 
     return draft;
@@ -456,6 +610,9 @@ export async function setReviewStatus(id: string, status: ReviewStatus): Promise
     const { error } = await supabase.from("product_reviews").update({ status }).eq("id", id);
     if (error) throw error;
   } catch (error) {
+    // A row-level-security denial is an answer about *this admin*, not a broken
+    // table: it must be shown, not quietly applied to the local copy.
+    if (readErrorShape(error).code === "42501") throw reviewError(readErrorShape(error));
     if (isReviewInfrastructureError(error)) {
       // The cloud row cannot be reached; keep the local copy in step so the
       // dashboard still reflects the decision the admin just made.
@@ -485,6 +642,7 @@ export async function deleteReview(id: string): Promise<void> {
     const { error } = await supabase.from("product_reviews").delete().eq("id", id);
     if (error) throw error;
   } catch (error) {
+    if (readErrorShape(error).code === "42501") throw reviewError(readErrorShape(error));
     if (isReviewInfrastructureError(error)) {
       tripCloudBreaker(error);
       applyLocally();

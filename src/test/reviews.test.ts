@@ -19,6 +19,8 @@ const review = (patch: Partial<ProductReview> = {}): ProductReview => ({
   body: "Cool and heavy, exactly as described.",
   status: "published",
   createdAt: "2026-10-01T10:00:00.000Z",
+  authorId: null,
+  imageUrl: null,
   ...patch,
 });
 

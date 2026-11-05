@@ -1,9 +1,7 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Heart, LayoutDashboard } from "lucide-react";
 import { toast } from "sonner";
 
-import { AuthDialog } from "@/components/site/auth-dialog";
 import { ProfileIcon } from "@/components/site/profile-icon";
 import {
   DropdownMenu,
@@ -14,6 +12,7 @@ import {
 } from "@/components/ui/dropdown_menu";
 import { displayNameFor, isTeamRole, joinDateLabel } from "@/lib/account";
 import { useAccount } from "@/lib/account-provider";
+import { useAuthDialog } from "@/lib/auth-dialog-provider";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +57,7 @@ export function AccountMenu() {
   const langKey = lang === "ar" ? "ar" : "en";
   const text = COPY[langKey];
   const { user, profile, loading, profileError, signOut } = useAccount();
-  const [authOpen, setAuthOpen] = useState(false);
+  const authDialog = useAuthDialog();
 
   const name = displayNameFor(profile, user?.email ?? "");
 
@@ -74,19 +73,16 @@ export function AccountMenu() {
 
   if (!user) {
     return (
-      <>
-        <button
-          type="button"
-          onClick={() => setAuthOpen(true)}
-          aria-label={text.account}
-          title={text.account}
-          aria-busy={loading || undefined}
-          className={cn(TRIGGER_CLASS, loading && "opacity-40")}
-        >
-          <ProfileIcon size={22} />
-        </button>
-        <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
-      </>
+      <button
+        type="button"
+        onClick={authDialog.open}
+        aria-label={text.account}
+        title={text.account}
+        aria-busy={loading || undefined}
+        className={cn(TRIGGER_CLASS, loading && "opacity-40")}
+      >
+        <ProfileIcon size={22} />
+      </button>
     );
   }
 
@@ -169,8 +165,6 @@ export function AccountMenu() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </>
   );
 }

@@ -35,16 +35,23 @@ describe("review infrastructure failures", () => {
     expect(isReviewInfrastructureError("Load failed")).toBe(true);
   });
 
-  it("keeps real configuration errors visible instead of hiding them", () => {
-    expect(isReviewInfrastructureError({ code: "23514", message: "status check failed" })).toBe(
-      false,
-    );
+  it("treats a rejected key or expired token as unavailable, not as the customer's fault", () => {
     expect(
       isReviewInfrastructureError({
-        code: "42501",
-        message: "new row violates row-level security",
+        message: "No suitable key or wrong key type: none of the keys was able to decode the JWT",
       }),
-    ).toBe(false);
+    ).toBe(true);
+    expect(isReviewInfrastructureError({ message: "TypeError: Invalid API key" })).toBe(true);
+    expect(isReviewInfrastructureError({ code: "PGRST301" })).toBe(true);
+    // A policy misconfiguration must not throw the shopper's text away.
+    expect(isReviewInfrastructureError({ code: "42501", message: "permission denied" })).toBe(true);
+  });
+
+  it("keeps review validation failures visible instead of hiding them", () => {
+    expect(isReviewInfrastructureError({ code: "23514", message: "check constraint failed" })).toBe(
+      false,
+    );
+    expect(isReviewInfrastructureError({ code: "22001", message: "value too long" })).toBe(false);
   });
 
   it("starts each session with the cloud path open", () => {
