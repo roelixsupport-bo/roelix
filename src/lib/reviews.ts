@@ -373,7 +373,24 @@ function reviewError(error: { code?: string; message?: string }): Error {
   return new Error(error.message || "The review could not be saved.");
 }
 
-const REVIEW_COLUMNS = "id,product_id,author_name,rating,body,status,created_at";
+/**
+ * The review text column.
+ *
+ * The shipped schema calls it `body`, but the first deployed version of the table
+ * used `comment`. Reads ask for whichever one this project actually has, flipped
+ * by a single failed request, so the storefront works before the rename migration
+ * is applied — and afterwards without another change.
+ */
+let bodyColumn: "body" | "comment" = "body";
+
+/** Test hook: assume a project where the column is already `body`. */
+export function resetReviewBodyColumn(): void {
+  bodyColumn = "body";
+}
+
+function reviewBaseColumns(): string {
+  return `id,product_id,author_name,rating,${bodyColumn},status,created_at`;
+}
 
 /**
  * Author and photo columns added by the 2026-11-03 migration.
@@ -391,12 +408,23 @@ export function resetReviewMediaColumns(): void {
 }
 
 function reviewColumns(): string {
-  return mediaColumnsAvailable ? `${REVIEW_COLUMNS},${REVIEW_MEDIA_COLUMNS}` : REVIEW_COLUMNS;
+  const base = reviewBaseColumns();
+  return mediaColumnsAvailable ? `${base},${REVIEW_MEDIA_COLUMNS}` : base;
 }
 
 function isMissingColumnError(value: unknown): boolean {
   const { code, message } = readErrorShape(value);
   return code === "42703" || code === "PGRST204" || /column .* does not exist/i.test(message);
+}
+
+/** The text column itself is missing: this project predates the `body` rename. */
+function isMissingBodyColumn(value: unknown): boolean {
+  const { code, message } = readErrorShape(value);
+  return (
+    (code === "42703" || code === "PGRST204" || isMissingColumnError(value)) &&
+    /\bbody\b/i.test(message) &&
+    bodyColumn === "body"
+  );
 }
 
 type ReviewQueryResult = {
