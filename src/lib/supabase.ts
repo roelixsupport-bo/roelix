@@ -7,7 +7,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be configured.");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: {
+    // PostgREST and Storage have no default deadline, so a stalled socket left
+    // submissions spinning forever. Failing in 15s lets the local fallbacks take
+    // over instead of showing "Sending…" indefinitely.
+    fetch: (input, init) =>
+      fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(15_000) }),
+  },
+});
 
 /**
  * Errors that mean "the token in this browser is not a token this project can

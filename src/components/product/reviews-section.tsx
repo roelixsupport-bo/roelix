@@ -5,12 +5,7 @@ import { toast } from "sonner";
 import { ReviewPhotoField } from "@/components/product/review-photo-field";
 import { StarPicker, StarRating } from "@/components/product/star-rating";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { reviewImageLimit, uploadReviewImage } from "@/lib/review-images";
 import {
@@ -46,6 +41,8 @@ const COPY = {
     photoTooLarge: "That photo is larger than 5 MB.",
     photoWrongType: "Choose a JPG, PNG or WebP photo.",
     photoFailed: "The photo could not be uploaded. Try again.",
+    photoDropped:
+      "Your review was sent without the photo — the upload did not finish. You can review it on the product page later.",
     submit: "Submit review",
     submitting: "Sending…",
     success: "Thank you — your review is with our team for approval.",
@@ -89,6 +86,8 @@ const COPY = {
     photoTooLarge: "حجم الصورة أكبر من 5 ميجابايت.",
     photoWrongType: "اختر صورة JPG أو PNG أو WebP.",
     photoFailed: "تعذر رفع الصورة. حاول مرة أخرى.",
+    photoDropped:
+      "تم إرسال تقييمك بدون الصورة — لم يكتمل رفع الصورة. يمكنك إرفاقها لاحقاً من صفحة المنتج.",
     submit: "إرسال التقييم",
     submitting: "جارٍ الإرسال…",
     success: "شكراً لك — تقييمك بانتظار موافقة فريقنا.",
@@ -174,6 +173,8 @@ export function ReviewsSection({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<ReviewFieldError["field"] | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  /** Set after a successful submit whose photo was dropped, so the customer knows why. */
+  const [photoNotice, setPhotoNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [lightbox, setLightbox] = useState<string | null>(null);
 
@@ -212,6 +213,7 @@ export function ReviewsSection({
     error === "rating" ? copy.ratingError : error === "body" ? copy.bodyError : null;
 
   function pickPhoto(file: File | null) {
+    setPhotoNotice(null);
     setPhotoError(null);
     if (!file) {
       setImageFile(null);
@@ -242,9 +244,26 @@ export function ReviewsSection({
 
     setError(null);
     setPhotoError(null);
+    setPhotoNotice(null);
     setUploading(true);
+
+    // The photo is a bonus, the review is the point: an upload that fails or
+    // stalls must not hold the customer's words hostage.
+    let imageUrl: string | null = null;
+    let photoDropped = false;
+    if (imageFile) {
+      try {
+        imageUrl = await uploadReviewImage(imageFile, viewer.id);
+      } catch (photoFailure) {
+        photoDropped = true;
+        console.warn(
+          "ROELIX reviews: sending the review without its photo — the upload did not complete",
+          photoFailure,
+        );
+      }
+    }
+
     try {
-      const imageUrl = imageFile ? await uploadReviewImage(imageFile, viewer.id) : null;
       const saved = await onSubmit({
         authorName: viewer.name,
         rating,
@@ -255,13 +274,13 @@ export function ReviewsSection({
       if (!saved) return;
 
       toast.success(copy.success);
+      if (photoDropped) setPhotoNotice(copy.photoDropped);
       setRating(0);
       setBody("");
       setImageFile(null);
     } catch (submitError) {
       console.error("Could not publish the ROELIX review", submitError);
       const message = submitError instanceof Error ? submitError.message : copy.failure;
-      if (imageFile) setPhotoError(message);
       toast.error(message);
     } finally {
       setUploading(false);
@@ -396,6 +415,13 @@ export function ReviewsSection({
               </div>
             </div>
           </div>
+
+          {photoNotice && (
+            <p role="status" className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
+              <span aria-hidden="true" className="mt-0.5 size-1.5 shrink-0 rounded-full bg-gold" />
+              {photoNotice}
+            </p>
+          )}
 
           {errorText && (
             <p role="alert" className="mt-3 text-xs text-destructive">

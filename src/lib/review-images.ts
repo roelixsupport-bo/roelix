@@ -66,15 +66,45 @@ export type SupabaseStorageClient = {
 };
 
 /**
+ * How long an upload may take before the form gives up on the photo.
+ *
+ * Storage has no default timeout, so a stalled socket or a missing bucket left
+ * the shopper staring at "Sending…" with the review never leaving the page. The
+ * review now goes up without the photo rather than waiting on it.
+ */
+export const REVIEW_UPLOAD_TIMEOUT_MS = 12_000;
+
+/** Rejects with `message` when `work` has not settled within `ms`. */
+export async function withDeadline<T>(work: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
  * Uploads one review photo and returns its public URL.
  *
- * Throws with a sentence the form can show: a refusal to store the file must be
- * visible, because a review saved without its photo would look like a success
- * to the customer who attached it.
+ * Throws with a sentence the form can show, and never hangs: the caller treats a
+ * failure as "send the review without the photo" rather than as a dead end.
  */
-export async function uploadReviewImage(file: File, userId: string): Promise<string> {
+export async function uploadReviewImage(
+  file: File,
+  userId: string,
+  { timeoutMs = REVIEW_UPLOAD_TIMEOUT_MS }: { timeoutMs?: number } = {},
+): Promise<string> {
   const limit = reviewImageLimit(file);
-  if (limit) throw new Error(limit === "tooLarge" ? "The photo is larger than 5 MB." : "Choose a JPG, PNG or WebP photo.");
+  if (limit)
+    throw new Error(
+      limit === "tooLarge" ? "The photo is larger than 5 MB." : "Choose a JPG, PNG or WebP photo.",
+    );
   if (!userId) throw new Error("Sign in again to add a photo.");
 
   const { supabase } = await import("@/lib/supabase");
@@ -87,11 +117,15 @@ export async function uploadReviewImage(file: File, userId: string): Promise<str
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const path = reviewImagePath(userId, key, reviewImageExtension(file));
 
-  const { error } = await bucket.upload(path, file, {
-    cacheControl: "31536000",
-    upsert: false,
-    contentType: file.type,
-  });
+  const { error } = await withDeadline(
+    bucket.upload(path, file, {
+      cacheControl: "31536000",
+      upsert: false,
+      contentType: file.type,
+    }),
+    timeoutMs,
+    "The photo upload timed out.",
+  );
   if (error) {
     throw new Error(
       error.message
