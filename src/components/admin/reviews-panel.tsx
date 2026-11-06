@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Check, Eye, EyeOff, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { StarRating } from "@/components/product/star-rating";
 import {
   approveReview,
   deleteReview,
+  drainQueuedReviews,
   fetchAllReviews,
   queuedReviewCount,
   reviewsCloudEnabled,
@@ -48,6 +49,11 @@ const COPY = {
     photo: "Customer photo",
     queued: (count: number) =>
       `${count} ${count === 1 ? "review" : "reviews"} saved on this device, waiting to upload.`,
+    pendingUpload:
+      "Saved on this device only. Sign in with the account that submitted it, then retry upload before approval.",
+    retryUpload: "Retry upload",
+    syncComplete: "Review uploaded and is ready for approval",
+    syncBlocked: "Review is still on this device and could not be uploaded.",
   },
   ar: {
     title: "تقييمات العملاء",
@@ -80,6 +86,11 @@ const COPY = {
     stars: "نجوم",
     photo: "صورة العميل",
     queued: (count: number) => `${count} تقييم محفوظ على هذا الجهاز بانتظار الرفع.`,
+    pendingUpload:
+      "التقييم محفوظ على هذا الجهاز فقط. سجّل الدخول بالحساب الذي أرسله، ثم أعد محاولة الرفع قبل الموافقة.",
+    retryUpload: "إعادة محاولة الرفع",
+    syncComplete: "تم رفع التقييم وأصبح جاهزًا للموافقة",
+    syncBlocked: "ما زال التقييم محفوظًا على هذا الجهاز وتعذر رفعه.",
   },
 } as const;
 
@@ -320,18 +331,45 @@ export function ReviewsPanel({
 
                 <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
                   {review.status === "pending" ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void runAction(() => approveReview(review.id), text.approvedToast)
-                      }
-                      aria-label={text.approveTitle}
-                      title={text.approveTitle}
-                      className="inline-flex flex-1 items-center justify-center gap-1.5 border border-gold bg-gold/15 px-3 py-2 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-foreground transition duration-200 hover:bg-gold/25 focus-visible:ring-1 focus-visible:ring-gold focus-visible:outline-hidden sm:flex-none"
-                    >
-                      <Check size={14} aria-hidden="true" />
-                      {text.approve}
-                    </button>
+                    review.pendingUpload ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void runAction(async () => {
+                            await drainQueuedReviews();
+                            const nextReviews = await fetchAllReviews();
+                            setReviews(nextReviews);
+                            setQueued(queuedReviewCount());
+                            if (
+                              nextReviews.some(
+                                (item) => item.id === review.id && item.pendingUpload,
+                              )
+                            ) {
+                              throw new Error(text.syncBlocked);
+                            }
+                          }, text.syncComplete)
+                        }
+                        aria-label={text.retryUpload}
+                        title={text.retryUpload}
+                        className="inline-flex flex-1 items-center justify-center gap-1.5 border px-3 py-2 text-[0.62rem] font-semibold uppercase tracking-[0.12em] transition duration-200 hover:border-gold hover:bg-gold/5 focus-visible:ring-1 focus-visible:ring-gold focus-visible:outline-hidden sm:flex-none"
+                      >
+                        <RefreshCw size={14} aria-hidden="true" />
+                        {text.retryUpload}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void runAction(() => approveReview(review.id), text.approvedToast)
+                        }
+                        aria-label={text.approveTitle}
+                        title={text.approveTitle}
+                        className="inline-flex flex-1 items-center justify-center gap-1.5 border border-gold bg-gold/15 px-3 py-2 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-foreground transition duration-200 hover:bg-gold/25 focus-visible:ring-1 focus-visible:ring-gold focus-visible:outline-hidden sm:flex-none"
+                      >
+                        <Check size={14} aria-hidden="true" />
+                        {text.approve}
+                      </button>
+                    )
                   ) : (
                     <button
                       type="button"
@@ -363,6 +401,14 @@ export function ReviewsPanel({
                   </button>
                 </div>
               </div>
+              {review.pendingUpload && (
+                <p
+                  role="status"
+                  className="mt-3 border border-gold/40 bg-gold/5 px-3 py-2 text-xs leading-relaxed text-muted-foreground"
+                >
+                  {text.pendingUpload}
+                </p>
+              )}
               <div className="mt-2 flex items-start gap-3">
                 {review.imageUrl && (
                   <a

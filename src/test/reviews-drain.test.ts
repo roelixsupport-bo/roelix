@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { drainQueuedReviews, queuedReviewCount, type ProductReview } from "@/lib/reviews";
+import {
+  drainQueuedReviews,
+  fetchAllReviews,
+  queuedReviewCount,
+  setReviewStatus,
+  type ProductReview,
+} from "@/lib/reviews";
 
 /**
  * The drain only matters in a real deployment: it exists for reviews written on
@@ -8,6 +14,7 @@ import { drainQueuedReviews, queuedReviewCount, type ProductReview } from "@/lib
  * a fake client records exactly what would have been sent.
  */
 const inserts: Array<Record<string, unknown>> = [];
+let cloudRows: Array<Record<string, unknown>> = [];
 let insertError: { code?: string; message?: string } | null = null;
 let sessionUserId: string | null = "user-1";
 
@@ -25,6 +32,11 @@ vi.mock("@/lib/supabase", () => ({
         inserts.push(payload);
         return { error: null };
       },
+      select: () => ({
+        order: () => ({
+          limit: async () => ({ data: cloudRows, error: null }),
+        }),
+      }),
     }),
   },
   healStaleSession: async () => false,
@@ -57,6 +69,7 @@ beforeEach(async () => {
   vi.stubEnv("VITE_SUPABASE_ANON_KEY", "anon-key");
   localStorage.clear();
   inserts.length = 0;
+  cloudRows = [];
   insertError = null;
   sessionUserId = "user-1";
   const { resetReviewCloudState } = await import("@/lib/reviews");
@@ -104,6 +117,21 @@ describe("device review queue drain", () => {
     );
 
     await expect(drainQueuedReviews()).resolves.toEqual({ uploaded: 0, pending: 2 });
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("shows a review that cannot sync in the admin queue without allowing approval", async () => {
+    queue(review({ authorId: "another-account" }));
+    sessionUserId = "admin-account";
+
+    await expect(fetchAllReviews()).resolves.toMatchObject([
+      { id: uuid(1), status: "pending", pendingUpload: true },
+    ]);
+
+    await expect(setReviewStatus(uuid(1), "published")).rejects.toThrow(
+      "still saved on this device",
+    );
+    expect(queuedReviewCount()).toBe(1);
     expect(inserts).toHaveLength(0);
   });
 

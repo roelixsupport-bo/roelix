@@ -35,6 +35,8 @@ export type ProductReview = {
   authorId: string | null;
   /** Public URL of the customer photo, when one was attached. */
   imageUrl: string | null;
+  /** This device still owns the review; it has not been accepted by Supabase yet. */
+  pendingUpload?: boolean;
 };
 
 export type ReviewInput = {
@@ -590,9 +592,15 @@ export async function fetchAllReviews(): Promise<ProductReview[]> {
     );
     if (error) throw error;
 
-    return ((data ?? []) as unknown[])
+    const cloudReviews = ((data ?? []) as unknown[])
       .map(reviewFromRecord)
       .filter((review): review is ProductReview => review !== null);
+    const cloudIds = new Set(cloudReviews.map((review) => review.id));
+    const queuedReviews = readLocalReviews()
+      .filter((review) => review.status === "pending" && !cloudIds.has(review.id))
+      .map((review) => ({ ...review, pendingUpload: true }));
+
+    return [...cloudReviews, ...queuedReviews].sort(newestFirst);
   } catch (error) {
     if (isReviewInfrastructureError(error)) {
       tripCloudBreaker(error);
@@ -670,6 +678,18 @@ export async function approveReview(id: string): Promise<void> {
 }
 
 export async function setReviewStatus(id: string, status: ReviewStatus): Promise<void> {
+  const queuedReview = readLocalReviews().find((review) => review.id === id);
+  if (
+    reviewsCloudEnabled() &&
+    !reviewCloudDisabled() &&
+    queuedReview?.status === "pending" &&
+    status !== "pending"
+  ) {
+    throw new Error(
+      "This review is still saved on this device. Sign in with the account that wrote it and retry the upload before approving it.",
+    );
+  }
+
   const applyLocally = () =>
     writeLocalReviews(
       readLocalReviews().map((review) => (review.id === id ? { ...review, status } : review)),
@@ -704,6 +724,12 @@ export async function setReviewStatus(id: string, status: ReviewStatus): Promise
 }
 
 export async function deleteReview(id: string): Promise<void> {
+  const queuedReview = readLocalReviews().find((review) => review.id === id);
+  if (reviewsCloudEnabled() && !reviewCloudDisabled() && queuedReview?.status === "pending") {
+    writeLocalReviews(readLocalReviews().filter((review) => review.id !== id));
+    return;
+  }
+
   const applyLocally = () =>
     writeLocalReviews(readLocalReviews().filter((review) => review.id !== id));
 
