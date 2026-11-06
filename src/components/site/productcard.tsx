@@ -10,7 +10,7 @@ export function ProductCard({ p }: { p: Product }) {
   return (
     <div className="group relative flex flex-col h-full w-full overflow-hidden">
       {/* Container للصورة ورابط المنتج */}
-      <div className="relative w-full overflow-hidden bg-muted rounded-sm">
+      <div className="relative w-full overflow-hidden rounded-sm bg-muted">
         <Link
           to="/product/$id"
           params={{ id: p.id }}
@@ -21,7 +21,7 @@ export function ProductCard({ p }: { p: Product }) {
             src={p.images[0]}
             alt={p.name}
             loading="lazy"
-            className="aspect-[4/5] w-full object-cover transition duration-[1.2s] group-hover:scale-105"
+            className="aspect-square w-full object-cover transition duration-[1.2s] group-hover:scale-105 sm:aspect-[4/5]"
           />
         </Link>
         
@@ -36,8 +36,8 @@ export function ProductCard({ p }: { p: Product }) {
       </div>
 
       {/* تفاصيل المنتج والنصوص المتجاوبة */}
-      <div className="mt-2.5 sm:mt-4 flex flex-col items-center text-center flex-grow px-1">
-        <p className="eyebrow text-[0.65rem] sm:text-xs text-muted-foreground uppercase tracking-wider line-clamp-1">
+      <div className="mt-2.5 flex flex-grow flex-col items-center px-0.5 text-center sm:mt-4 sm:px-1">
+        <p className="eyebrow line-clamp-1 text-[0.56rem] uppercase tracking-[0.12em] text-muted-foreground sm:text-xs sm:tracking-wider">
           {p.category}
         </p>
         
@@ -45,12 +45,12 @@ export function ProductCard({ p }: { p: Product }) {
           to="/product/$id"
           params={{ id: p.id }}
           onClick={() => recordProductInteraction("product_click", p.id, p.name)}
-          className="mt-1 block font-serif text-sm sm:text-lg md:text-xl leading-snug hover:text-gold transition-colors line-clamp-2"
+          className="mt-1 block line-clamp-2 font-serif text-xs leading-snug transition-colors hover:text-gold sm:text-lg md:text-xl"
         >
           {s.lang === "ar" ? p.nameAr : p.name}
         </Link>
         
-        <p className="mt-1 text-xs sm:text-sm font-medium text-foreground">
+        <p className="mt-1 text-[0.68rem] font-medium text-foreground sm:text-sm">
           {s.fmt(p.price)}
         </p>
       </div>

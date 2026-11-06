@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import hero from "@/assets/hero.jpg";
 import { readCustomBundleSettings } from "@/lib/local-data";
 import { CATEGORIES, useStore } from "@/lib/store";
 import { ProductCard } from "@/components/site/productcard";
@@ -8,13 +7,13 @@ import { ProductCard } from "@/components/site/productcard";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ROELIX — Unmatched Sleep Luxury" },
+      { title: "ROELIX — Refined Elegance for Your Home" },
       {
         name: "description",
         content:
           "Hotel-grade Egyptian cotton bedding, pillows, mattress protectors and towels for the refined home.",
       },
-      { property: "og:title", content: "ROELIX — Unmatched Sleep Luxury" },
+      { property: "og:title", content: "ROELIX — Refined Elegance for Your Home" },
       {
         property: "og:description",
         content: "Hotel-grade Egyptian cotton bedding and linens for the refined home.",
@@ -44,27 +43,22 @@ function Home() {
   const list = s.products.filter((p) => p.isPublished && (cat === "All" || p.category === cat));
   return (
     <>
-      <section className="relative h-[calc(100svh-7rem)] min-h-[480px] overflow-hidden sm:h-[calc(100vh-110px)] sm:min-h-[560px]">
-        <img
-          src={hero}
-          alt="ROELIX luxury bedroom"
-          width={1920}
-          height={1088}
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-navy/70 via-navy/30 to-transparent rtl:bg-gradient-to-l" />
-        <div className="relative mx-auto flex h-full max-w-7xl items-center px-4 sm:px-6">
-          <div className="max-w-[22rem] animate-rise text-navy-foreground sm:max-w-xl">
+      <section className="overflow-hidden border-b border-gold/20 bg-gradient-to-br from-secondary via-background to-accent/30">
+        <div className="mx-auto flex min-h-[19rem] max-w-7xl items-center px-5 py-14 sm:min-h-[26rem] sm:px-8 sm:py-20 lg:min-h-[30rem]">
+          <div className="max-w-3xl animate-rise">
             <p className="eyebrow text-gold">Maison ROELIX · Est. Giza</p>
-            <h1 className="mt-4 text-4xl leading-[1.08] sm:mt-6 sm:text-5xl md:text-7xl">
-              Unmatched Sleep Luxury & Refined Elegance for Your Home
+            <h1 className="mt-5 max-w-2xl font-serif text-4xl leading-[1.08] text-foreground sm:mt-6 sm:text-6xl lg:text-7xl">
+              Refined Elegance for Your Home
             </h1>
-            <div className="mt-7 flex flex-col items-start gap-3 sm:mt-10 sm:flex-row sm:flex-wrap">
-              <Link to="/shop" className="btn-ghost-lux">
+            <div className="mt-7 flex flex-col items-start gap-3 sm:mt-9 sm:flex-row sm:flex-wrap">
+              <Link to="/shop" className="btn-lux">
                 Explore The Collection
               </Link>
               {bundleEnabled && (
-                <Link to="/custom-bundle" className="btn-lux">
+                <Link
+                  to="/custom-bundle"
+                  className="inline-flex items-center justify-center border border-navy/35 px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-foreground transition-colors hover:border-gold hover:bg-gold/10"
+                >
                   {s.lang === "ar" ? "أنشئ طقمك الفاخر" : "Build a Custom Set"}
                 </Link>
               )}
@@ -73,23 +67,23 @@ function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-28">
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20 lg:py-24">
         <div className="text-center">
           <p className="eyebrow text-gold">Curated</p>
-          <h2 className="mt-3 text-5xl">Featured Collections</h2>
+          <h2 className="mt-3 font-serif text-3xl sm:text-5xl">Featured Collections</h2>
         </div>
-        <div className="mt-10 flex flex-wrap justify-center gap-2">
+        <div className="mt-7 flex flex-wrap justify-center gap-1.5 sm:mt-10 sm:gap-2">
           {["All", ...categories].map((c) => (
             <button
               key={c}
               onClick={() => setCat(c)}
-              className={`eyebrow border px-4 py-2 transition ${cat === c ? "border-navy bg-navy text-navy-foreground" : "hover:border-gold"}`}
+              className={`eyebrow border px-2.5 py-2 text-[0.58rem] transition sm:px-4 sm:text-[0.7rem] ${cat === c ? "border-navy bg-navy text-navy-foreground" : "hover:border-gold"}`}
             >
               {c}
             </button>
           ))}
         </div>
-        <div className="mt-14 grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid grid-cols-2 gap-x-3 gap-y-9 sm:mt-12 sm:gap-x-6 sm:gap-y-12 lg:grid-cols-3 lg:gap-x-8">
           {list.map((p) => (
             <ProductCard key={p.id} p={p} />
           ))}
