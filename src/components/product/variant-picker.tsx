@@ -45,8 +45,8 @@ export function variantOptionClassName(active: boolean, selectable: boolean): st
  *
  * Every option reads its own live stock from the variant matrix (which is the
  * Supabase `product_variants` table, refreshed by the store's realtime
- * subscription): zero stock disables and dims the button, low stock advertises
- * the remaining count.
+ * subscription): sold-out choices remain selectable so the main availability
+ * status can report the selected variant, while low stock advertises its count.
  *
  * Products that only carry sizes (or only dimensions) render a single group; the
  * component adapts to whichever axes the matrix actually has.
@@ -71,7 +71,6 @@ export function VariantPicker({
     dimensionHint: isArabic
       ? "اختر الأبعاد لعرض السعر والتوفر"
       : "Choose a dimension to see its price and availability",
-    outOfStock: isArabic ? "نفذت الكمية" : "Out of stock",
     left: (count: number) => (isArabic ? `باقي ${count}` : `${count} left`),
     unavailable: isArabic ? "غير متاح" : "Unavailable",
   };
@@ -84,14 +83,9 @@ export function VariantPicker({
   const isActive = (current: string, option: string) =>
     current.trim().toLowerCase() === option.toLowerCase();
 
-  /** "Out of stock" at zero, "3 left" near the end of the run, nothing in between. */
+  /** Show a remaining count near the end of the run; otherwise keep the option clean. */
   const stockCaption = (stock: number, active: boolean): { text: string; tone: string } | null => {
-    if (stock === 0) {
-      return {
-        text: copy.outOfStock,
-        tone: active ? "text-navy-foreground/80" : "text-destructive/80",
-      };
-    }
+    if (stock === 0) return null;
     if (stock <= LOW_STOCK_THRESHOLD) {
       return { text: copy.left(stock), tone: active ? "text-navy-foreground/75" : "text-gold" };
     }
@@ -112,7 +106,7 @@ export function VariantPicker({
               const exists = variants.some((variant) => isActive(variant.sizeName, size));
               // Stock for this size across every dimension it is sold in.
               const stock = axisStock(variants, "sizeName", size);
-              const selectable = exists && stock > 0;
+              const selectable = exists;
               const caption = stockCaption(stock, active);
 
               return (
@@ -122,11 +116,10 @@ export function VariantPicker({
                   aria-pressed={active}
                   aria-disabled={!selectable}
                   disabled={!selectable}
-                  title={stock === 0 ? copy.outOfStock : undefined}
                   onClick={() => pickSize(size)}
                   className={variantOptionClassName(active, selectable)}
                 >
-                  <span className={cn(stock === 0 && "line-through decoration-1")}>{size}</span>
+                  <span>{size}</span>
                   {caption && (
                     <span className={cn("text-[0.58rem] uppercase tracking-[0.1em]", caption.tone)}>
                       {caption.text}
@@ -149,7 +142,7 @@ export function VariantPicker({
               const exists = variants.some((variant) => isActive(variant.dimension, dimension));
               // Stock for this dimension across every size it is sold in.
               const stock = axisStock(variants, "dimension", dimension);
-              const selectable = exists && stock > 0;
+              const selectable = exists;
               const caption = stockCaption(stock, active);
 
               return (
@@ -159,13 +152,10 @@ export function VariantPicker({
                   aria-pressed={active}
                   aria-disabled={!selectable}
                   disabled={!selectable}
-                  title={stock === 0 ? copy.outOfStock : undefined}
                   onClick={() => pickDimension(dimension)}
                   className={variantOptionClassName(active, selectable)}
                 >
-                  <span className={cn(stock === 0 && "line-through decoration-1")}>
-                    {dimension}
-                  </span>
+                  <span>{dimension}</span>
                   {caption && (
                     <span className={cn("text-[0.58rem] uppercase tracking-[0.1em]", caption.tone)}>
                       {caption.text}

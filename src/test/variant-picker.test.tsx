@@ -87,24 +87,25 @@ describe("variant picker independence", () => {
     );
   });
 
-  it("disables an option whose own stock is zero and labels it", () => {
+  it("keeps a sold-out option selectable without striking it or labeling it", () => {
     render(<Harness initial={{ sizeName: "Standard", dimension: "50 × 70 cm" }} />);
 
     const king = screen.getByRole("button", { name: /^King/ });
-    expect(king).toBeDisabled();
-    expect(king.textContent).toContain("Out of stock");
+    expect(king).toBeEnabled();
+    expect(king.textContent).not.toContain("Out of stock");
+    expect(king.querySelector("span")).not.toHaveClass("line-through");
 
     const standard = screen.getByRole("button", { name: "Standard" });
     expect(standard).toBeEnabled();
     expect(standard.textContent).not.toContain("Out of stock");
   });
 
-  it("ignores a click on a sold-out option", () => {
+  it("lets a shopper select a sold-out option so its availability can be shown", () => {
     render(<Harness initial={{ sizeName: "Standard", dimension: "50 × 70 cm" }} />);
 
     fireEvent.click(screen.getByRole("button", { name: /^King/ }));
 
-    expect(screen.getByTestId("picked").textContent).toBe("Standard|50 × 70 cm");
+    expect(screen.getByTestId("picked").textContent).toBe("King|50 × 70 cm");
   });
 
   it("advertises the remaining count once stock runs low", () => {

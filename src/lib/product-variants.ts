@@ -322,8 +322,8 @@ export function hasStockFor(
  *
  * A single size button stands for every dimension that size is sold in, so its
  * own stock is the total the shopper could still buy in that size. Zero means the
- * option is genuinely unavailable and its button is disabled; a small number is
- * shown as "N left" so the shopper can see the same figure the PDP reports.
+ * option is sold out when the total is zero; a small number is shown as "N left"
+ * so the shopper can see the same figure the PDP reports.
  */
 export function axisStock(
   variants: ProductVariant[],
