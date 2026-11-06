@@ -301,9 +301,9 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
         // The storefront dims with the navy scrim (navy at 60%) that the cart
         // drawer already uses, not a neutral black wash.
         overlayClassName="bg-navy/60 backdrop-blur-xs"
-        className="w-[calc(100%-2rem)] max-w-[26rem] gap-0 rounded-[2px] border bg-card p-0 shadow-lux sm:rounded-[2px]"
+        className="max-h-[calc(100dvh-2rem)] w-[calc(100%-1.5rem)] max-w-[26rem] gap-0 overflow-y-auto overscroll-contain rounded-[2px] border bg-card p-0 shadow-lux ring-1 ring-border/70 sm:w-[calc(100%-2rem)] sm:rounded-[2px]"
       >
-        <div dir={lang2 === "ar" ? "rtl" : "ltr"} className="px-6 pb-6 pt-6">
+        <div dir={lang2 === "ar" ? "rtl" : "ltr"} className="px-5 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <DialogTitle className="font-serif text-2xl leading-tight">

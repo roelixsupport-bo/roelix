@@ -63,24 +63,24 @@ export function Header() {
       <div className="bg-background/95 backdrop-blur" onMouseLeave={() => setMega(false)}>
         <div
           dir="ltr"
-          className="mx-auto flex max-w-7xl items-center justify-between gap-3 sm:gap-6 px-4 sm:px-6 py-3.5 sm:py-5"
+          className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2.5 sm:gap-6 sm:px-6 sm:py-5"
         >
           {/* اليسار: أزرار التحكم والقائمة في الموبايل */}
-          <div className="flex items-center gap-2.5 sm:gap-4">
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
             <button
-              className="lg:hidden p-1.5 hover:text-gold transition-colors text-foreground"
+              className="grid size-9 place-items-center text-foreground transition-colors hover:text-gold sm:size-10 lg:hidden"
               onClick={() => setMobile(!mobile)}
               aria-label="Menu"
             >
-              {mobile ? <X size={24} /> : <Menu size={24} />}
+              {mobile ? <X size={21} /> : <Menu size={21} />}
             </button>
 
             <button
               onClick={() => s.setCartOpen(true)}
               aria-label={s.t.cart}
-              className="relative rounded-full bg-muted p-2 text-foreground transition-colors hover:bg-accent hover:text-gold"
+              className="relative grid size-9 place-items-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent hover:text-gold sm:size-10"
             >
-              <ShoppingBag size={22} />
+              <ShoppingBag size={20} />
               {s.count > 0 && <Badge n={s.count} />}
             </button>
 
@@ -92,19 +92,19 @@ export function Header() {
               to="/shop"
               search={{ wish: true }}
               aria-label={s.t.wishlist}
-              className="relative p-1.5 hover:text-gold transition-colors text-foreground"
+              className="relative grid size-9 place-items-center text-foreground transition-colors hover:text-gold sm:size-10"
             >
-              <Heart size={22} />
+              <Heart size={20} />
               {s.wishlist.length > 0 && <Badge n={s.wishlist.length} />}
             </Link>
 
             {/* زر البحث على الموبايل */}
             <button
-              className="md:hidden p-1.5 hover:text-gold transition-colors text-foreground"
+              className="grid size-9 place-items-center text-foreground transition-colors hover:text-gold sm:size-10 md:hidden"
               onClick={() => setSearchOpenMobile(!searchOpenMobile)}
               aria-label="Search"
             >
-              <Search size={22} />
+              <Search size={20} />
             </button>
 
             {/* مربع البحث الخاص بالكمبيوتر */}
@@ -150,7 +150,7 @@ export function Header() {
           {/* اسم المتجر / الشعار في المنتصف */}
           <Link
             to="/"
-            className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold tracking-[0.2em] sm:tracking-[0.3em] text-center text-foreground hover:text-gold transition-colors"
+            className="shrink-0 text-center font-serif text-xl font-bold tracking-[0.18em] text-foreground transition-colors hover:text-gold sm:text-3xl sm:tracking-[0.3em] lg:text-4xl"
           >
             ROELIX
           </Link>
@@ -183,7 +183,7 @@ export function Header() {
 
         {/* حقل البحث المتجاوب الخاص بالشاشات الصغيرة */}
         {searchOpenMobile && (
-          <div className="p-3 border-t bg-background md:hidden">
+          <div className="border-t bg-background p-3 md:hidden">
             <div className="flex items-center gap-2 border border-border rounded px-3 py-2 bg-muted/30">
               <Search size={18} className="text-muted-foreground" />
               <input

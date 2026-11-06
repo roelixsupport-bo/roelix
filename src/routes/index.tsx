@@ -44,7 +44,7 @@ function Home() {
   const list = s.products.filter((p) => p.isPublished && (cat === "All" || p.category === cat));
   return (
     <>
-      <section className="relative h-[calc(100vh-110px)] min-h-[560px] overflow-hidden">
+      <section className="relative h-[calc(100svh-7rem)] min-h-[480px] overflow-hidden sm:h-[calc(100vh-110px)] sm:min-h-[560px]">
         <img
           src={hero}
           alt="ROELIX luxury bedroom"
@@ -53,13 +53,13 @@ function Home() {
           className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-navy/70 via-navy/30 to-transparent rtl:bg-gradient-to-l" />
-        <div className="relative mx-auto flex h-full max-w-7xl items-center px-6">
-          <div className="max-w-xl text-navy-foreground animate-rise">
+        <div className="relative mx-auto flex h-full max-w-7xl items-center px-4 sm:px-6">
+          <div className="max-w-[22rem] animate-rise text-navy-foreground sm:max-w-xl">
             <p className="eyebrow text-gold">Maison ROELIX · Est. Giza</p>
-            <h1 className="mt-6 text-5xl leading-[1.05] md:text-7xl">
+            <h1 className="mt-4 text-4xl leading-[1.08] sm:mt-6 sm:text-5xl md:text-7xl">
               Unmatched Sleep Luxury & Refined Elegance for Your Home
             </h1>
-            <div className="mt-10 flex flex-wrap gap-3">
+            <div className="mt-7 flex flex-col items-start gap-3 sm:mt-10 sm:flex-row sm:flex-wrap">
               <Link to="/shop" className="btn-ghost-lux">
                 Explore The Collection
               </Link>

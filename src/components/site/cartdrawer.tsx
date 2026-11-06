@@ -15,11 +15,11 @@ export function CartDrawer() {
         onClick={() => s.setCartOpen(false)}
       />
 
-      <aside className="absolute inset-y-0 end-0 flex w-full max-w-md flex-col bg-background shadow-2xl duration-300 animate-in slide-in-from-right rtl:slide-in-from-left">
+      <aside className="absolute inset-y-0 end-0 flex w-full flex-col border-s border-border bg-background shadow-2xl duration-300 animate-in slide-in-from-right rtl:slide-in-from-left sm:max-w-md">
         {/* رأس السلة */}
-        <div className="flex items-center justify-between border-b border-border px-5 sm:px-8 py-5 sm:py-6">
+        <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-8 sm:py-6">
           <div className="flex items-center gap-2">
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold">{s.t.cart}</h2>
+            <h2 className="font-serif text-xl font-bold sm:text-3xl">{s.t.cart}</h2>
             <span className="text-xs font-sans font-bold bg-amber-500/10 text-gold px-2 py-0.5 rounded-full">
               {s.count}
             </span>
@@ -34,7 +34,7 @@ export function CartDrawer() {
         </div>
 
         {/* قائمة منتجات السلة */}
-        <div className="flex-1 space-y-5 sm:space-y-6 overflow-y-auto px-5 sm:px-8 py-6">
+        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:space-y-6 sm:px-8 sm:py-6">
           {s.lines.length === 0 && (
             <div className="mt-20 text-center space-y-4">
               <p className="font-serif text-xl sm:text-2xl text-muted-foreground">{s.t.empty}</p>
@@ -59,7 +59,7 @@ export function CartDrawer() {
 
         {/* أسفل السلة (الإجمالي وزر الشراء) */}
         {s.lines.length > 0 && (
-          <div className="space-y-4 border-t border-border px-5 sm:px-8 py-5 sm:py-6 bg-muted/20">
+          <div className="space-y-4 border-t border-border bg-muted/20 px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-8 sm:py-6">
             <p className="text-xs text-muted-foreground leading-relaxed">
               {s.lang === "ar"
                 ? "تُحدَّد تكلفة الشحن عبر بوستا حسب المحافظة عند إتمام الطلب."
@@ -106,16 +106,16 @@ function CartItem({ line }: { line: CartLine }) {
   };
 
   return (
-    <div className="flex gap-4 border-b border-border/50 pb-5 last:border-0 last:pb-0">
+    <div className="flex gap-3 border-b border-border/50 pb-5 last:border-0 last:pb-0 sm:gap-4">
       <img
         src={line.product.images[0]}
         alt={line.product.name}
-        className="h-24 w-20 sm:h-28 sm:w-22 object-cover rounded-sm border border-border"
+        className="h-24 w-20 shrink-0 rounded-sm border border-border object-cover sm:h-28 sm:w-22"
       />
       <div className="flex-1 flex flex-col justify-between">
         <div>
           <div className="flex justify-between items-start gap-2">
-            <p className="font-serif text-base sm:text-lg font-semibold leading-tight text-foreground">
+            <p className="min-w-0 break-words font-serif text-sm font-semibold leading-tight text-foreground sm:text-lg">
               {productName}
             </p>
             <button
@@ -146,7 +146,7 @@ function CartItem({ line }: { line: CartLine }) {
           </p>
         </div>
 
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center border border-border rounded bg-background">
             <button
               className="p-1.5 sm:p-2 hover:bg-muted transition"

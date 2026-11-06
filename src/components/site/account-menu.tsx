@@ -43,7 +43,7 @@ const COPY = {
 
 /** One hairline trigger for both states, so the header never grows an extra tile. */
 const TRIGGER_CLASS =
-  "relative p-1.5 text-foreground transition-colors hover:text-gold focus-visible:text-gold focus-visible:outline-hidden";
+  "relative grid size-9 place-items-center text-foreground transition-colors hover:text-gold focus-visible:text-gold focus-visible:outline-hidden sm:size-10";
 
 /**
  * The account affordance in the main header.
