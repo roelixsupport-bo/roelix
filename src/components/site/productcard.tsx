@@ -37,7 +37,7 @@ export function ProductCard({ p }: { p: Product }) {
 
       {/* تفاصيل المنتج والنصوص المتجاوبة */}
       <div className="mt-2.5 flex flex-grow flex-col items-center px-0.5 text-center sm:mt-4 sm:px-1">
-        <p className="eyebrow line-clamp-1 text-[0.56rem] uppercase tracking-[0.12em] text-muted-foreground sm:text-xs sm:tracking-wider">
+        <p className="eyebrow line-clamp-1 text-[clamp(0.56rem,1vw,0.75rem)] uppercase tracking-[0.12em] text-muted-foreground">
           {p.category}
         </p>
         
@@ -45,12 +45,12 @@ export function ProductCard({ p }: { p: Product }) {
           to="/product/$id"
           params={{ id: p.id }}
           onClick={() => recordProductInteraction("product_click", p.id, p.name)}
-          className="mt-1 block line-clamp-2 font-serif text-xs leading-snug transition-colors hover:text-gold sm:text-lg md:text-xl"
+          className="mt-1 block line-clamp-2 font-serif text-[clamp(0.75rem,1.3vw,1.125rem)] leading-snug transition-colors hover:text-gold"
         >
           {s.lang === "ar" ? p.nameAr : p.name}
         </Link>
         
-        <p className="mt-1 text-[0.68rem] font-medium text-foreground sm:text-sm">
+        <p className="mt-1 text-[clamp(0.68rem,1vw,0.875rem)] font-medium text-foreground">
           {s.fmt(p.price)}
         </p>
       </div>

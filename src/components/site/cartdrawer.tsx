@@ -17,9 +17,9 @@ export function CartDrawer() {
 
       <aside className="absolute inset-y-0 end-0 flex w-full flex-col border-s border-border bg-background shadow-2xl duration-300 animate-in slide-in-from-right rtl:slide-in-from-left sm:max-w-md">
         {/* رأس السلة */}
-        <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-8 sm:py-6">
+        <div className="flex items-center justify-between border-b border-border px-4 py-4">
           <div className="flex items-center gap-2">
-            <h2 className="font-serif text-xl font-bold sm:text-3xl">{s.t.cart}</h2>
+            <h2 className="font-serif text-xl font-bold">{s.t.cart}</h2>
             <span className="text-xs font-sans font-bold bg-amber-500/10 text-gold px-2 py-0.5 rounded-full">
               {s.count}
             </span>
@@ -34,10 +34,10 @@ export function CartDrawer() {
         </div>
 
         {/* قائمة منتجات السلة */}
-        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:space-y-6 sm:px-8 sm:py-6">
+        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5">
           {s.lines.length === 0 && (
             <div className="mt-20 text-center space-y-4">
-              <p className="font-serif text-xl sm:text-2xl text-muted-foreground">{s.t.empty}</p>
+              <p className="font-serif text-xl text-muted-foreground">{s.t.empty}</p>
               <button
                 onClick={() => s.setCartOpen(false)}
                 className="text-xs uppercase tracking-widest text-gold underline font-semibold hover:text-foreground transition"
@@ -59,14 +59,14 @@ export function CartDrawer() {
 
         {/* أسفل السلة (الإجمالي وزر الشراء) */}
         {s.lines.length > 0 && (
-          <div className="space-y-4 border-t border-border bg-muted/20 px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-8 sm:py-6">
+          <div className="space-y-4 border-t border-border bg-muted/20 px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
             <p className="text-xs text-muted-foreground leading-relaxed">
               {s.lang === "ar"
                 ? "تُحدَّد تكلفة الشحن عبر بوستا حسب المحافظة عند إتمام الطلب."
                 : "Bosta shipping is calculated by governorate at checkout."}
             </p>
 
-            <div className="flex justify-between items-center font-serif text-xl sm:text-2xl font-bold pt-1">
+            <div className="flex items-center justify-between pt-1 font-serif text-xl font-bold">
               <span>{s.t.subtotal}</span>
               <span className="text-gold">{s.fmt(s.subtotal)}</span>
             </div>
@@ -74,7 +74,7 @@ export function CartDrawer() {
             <Link
               to="/checkout"
               onClick={() => s.setCartOpen(false)}
-              className="flex items-center justify-center bg-black hover:bg-zinc-800 text-white font-bold py-4 px-6 rounded text-xs sm:text-sm uppercase tracking-wider transition shadow-md w-full text-center cursor-pointer"
+              className="flex w-full cursor-pointer items-center justify-center rounded bg-navy px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-navy-foreground shadow-md transition hover:bg-gold hover:text-gold-foreground"
             >
               {s.t.checkout || "CHECKOUT"}
             </Link>
@@ -106,16 +106,16 @@ function CartItem({ line }: { line: CartLine }) {
   };
 
   return (
-    <div className="flex gap-3 border-b border-border/50 pb-5 last:border-0 last:pb-0 sm:gap-4">
+    <div className="flex gap-3 border-b border-border/50 pb-5 last:border-0 last:pb-0">
       <img
         src={line.product.images[0]}
         alt={line.product.name}
-        className="h-24 w-20 shrink-0 rounded-sm border border-border object-cover sm:h-28 sm:w-22"
+        className="h-24 w-20 shrink-0 rounded-sm border border-border object-cover"
       />
       <div className="flex-1 flex flex-col justify-between">
         <div>
           <div className="flex justify-between items-start gap-2">
-            <p className="min-w-0 break-words font-serif text-sm font-semibold leading-tight text-foreground sm:text-lg">
+            <p className="min-w-0 break-words font-serif text-sm font-semibold leading-tight text-foreground">
               {productName}
             </p>
             <button
@@ -149,7 +149,7 @@ function CartItem({ line }: { line: CartLine }) {
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center border border-border rounded bg-background">
             <button
-              className="p-1.5 sm:p-2 hover:bg-muted transition"
+              className="p-2 transition hover:bg-muted"
               onClick={() => s.setQty(line, line.qty - 1)}
               disabled={line.qty <= 1 || maxQuantity === 0}
               aria-label="Decrease"
@@ -169,10 +169,10 @@ function CartItem({ line }: { line: CartLine }) {
                 s.setQty(line, Math.max(1, Math.min(maxQuantity || 1, Math.floor(value))));
               }}
               disabled={maxQuantity === 0}
-              className="w-9 bg-transparent text-center text-xs sm:text-sm font-bold outline-none disabled:opacity-50"
+              className="w-9 bg-transparent text-center text-sm font-bold outline-none disabled:opacity-50"
             />
             <button
-              className="p-1.5 sm:p-2 hover:bg-muted transition"
+              className="p-2 transition hover:bg-muted"
               onClick={() => {
                 if (line.qty >= maxQuantity) warnLimit();
                 else s.setQty(line, line.qty + 1);

@@ -37,7 +37,7 @@ export function Header() {
     <header className="relative w-full z-40 bg-background border-b overflow-x-hidden">
       {/* Top Announcement Bar - شريط التنبيهات الفاخر */}
       <div className="bg-navy text-navy-foreground w-full border-b border-white/10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 py-2 text-[0.68rem] sm:text-[0.72rem] tracking-wider uppercase">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2 text-[0.68rem] tracking-wider uppercase sm:px-6">
           <div className="flex items-center gap-2 shrink-0">
             <span className="font-semibold" title={s.lang === "ar" ? "العملة" : "Currency"}>
               {s.lang === "ar" ? "ج.م" : "EGP"}
@@ -49,12 +49,9 @@ export function Header() {
           </div>
           <span
             dir="auto"
-            className="min-w-0 flex-1 text-center font-medium text-gold truncate px-2 text-xs sm:text-sm"
+            className="min-w-0 flex-1 truncate px-2 text-center text-xs font-medium text-gold"
           >
             {s.t.announce}
-          </span>
-          <span className="hidden justify-self-end whitespace-nowrap opacity-75 sm:block shrink-0 text-xs">
-            Concierge · +1 800 ROELIX
           </span>
         </div>
       </div>
@@ -63,14 +60,14 @@ export function Header() {
       <div className="bg-background/95 backdrop-blur" onMouseLeave={() => setMega(false)}>
         <div
           dir="ltr"
-          className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2.5 sm:gap-6 sm:px-6 sm:py-5"
+          className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-2 py-2.5 sm:px-6"
         >
-          {/* اليسار: أزرار التحكم والقائمة في الموبايل */}
-          <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-0">
             <button
-              className="grid size-9 place-items-center text-foreground transition-colors hover:text-gold sm:size-10 lg:hidden"
+              className="grid size-9 place-items-center text-foreground transition-colors hover:text-gold"
               onClick={() => setMobile(!mobile)}
               aria-label="Menu"
+              aria-expanded={mobile}
             >
               {mobile ? <X size={21} /> : <Menu size={21} />}
             </button>
@@ -78,9 +75,9 @@ export function Header() {
             <button
               onClick={() => s.setCartOpen(true)}
               aria-label={s.t.cart}
-              className="relative grid size-9 place-items-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent hover:text-gold sm:size-10"
+              className="relative grid size-9 place-items-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent hover:text-gold"
             >
-              <ShoppingBag size={20} />
+              <ShoppingBag size={18} />
               {s.count > 0 && <Badge n={s.count} />}
             </button>
 
@@ -92,98 +89,32 @@ export function Header() {
               to="/shop"
               search={{ wish: true }}
               aria-label={s.t.wishlist}
-              className="relative grid size-9 place-items-center text-foreground transition-colors hover:text-gold sm:size-10"
+              className="relative grid size-9 place-items-center text-foreground transition-colors hover:text-gold"
             >
-              <Heart size={20} />
+              <Heart size={18} />
               {s.wishlist.length > 0 && <Badge n={s.wishlist.length} />}
             </Link>
 
-            {/* زر البحث على الموبايل */}
             <button
-              className="grid size-9 place-items-center text-foreground transition-colors hover:text-gold sm:size-10 md:hidden"
+              className="grid size-9 place-items-center text-foreground transition-colors hover:text-gold"
               onClick={() => setSearchOpenMobile(!searchOpenMobile)}
               aria-label="Search"
+              aria-expanded={searchOpenMobile}
             >
-              <Search size={20} />
+              <Search size={18} />
             </button>
-
-            {/* مربع البحث الخاص بالكمبيوتر */}
-            <div className="relative hidden md:block">
-              <div className="flex items-center gap-2 border-b border-border pb-1">
-                <Search size={16} className="text-muted-foreground" />
-                <input
-                  dir="auto"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder={s.t.search}
-                  className="w-36 lg:w-48 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
-                />
-              </div>
-              {results.length > 0 && (
-                <div className="absolute start-0 top-full mt-3 w-80 border bg-popover shadow-lux z-50 rounded-sm">
-                  {results.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        if (pathname !== "/admin") {
-                          recordProductInteraction("product_click", p.id, p.name);
-                        }
-                        setQ("");
-                        nav({ to: "/product/$id", params: { id: p.id } });
-                      }}
-                      className="flex w-full items-center gap-3 p-3 text-start hover:bg-muted transition"
-                    >
-                      <img src={p.images[0]} alt="" className="h-14 w-12 object-cover rounded-sm" />
-                      <div dir="auto">
-                        <div className="font-serif text-base font-semibold leading-tight text-foreground">
-                          {s.lang === "ar" ? p.nameAr : p.name}
-                        </div>
-                        <div className="text-xs text-gold font-bold mt-1">{s.fmt(p.price)}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* اسم المتجر / الشعار في المنتصف */}
           <Link
             to="/"
-            className="shrink-0 text-center font-serif text-xl font-bold tracking-[0.18em] text-foreground transition-colors hover:text-gold sm:text-3xl sm:tracking-[0.3em] lg:text-4xl"
+            className="shrink-0 text-center font-serif text-[clamp(0.9rem,2vw,1.25rem)] font-bold tracking-[clamp(0.06em,0.5vw,0.14em)] text-foreground transition-colors hover:text-gold"
           >
             ROELIX
           </Link>
-
-          {/* روابط القائمة اليمنى للكمبيوتر */}
-          <nav className="hidden items-center justify-end gap-6 lg:gap-8 eyebrow lg:flex font-semibold text-xs sm:text-sm">
-            <Link
-              to="/shop"
-              search={{ c: "Luxury Towels" }}
-              className="hover:text-gold transition-colors text-foreground"
-            >
-              Bath
-            </Link>
-            <Link
-              to="/shop"
-              search={{ c: "Bedding Sets" }}
-              className="hover:text-gold transition-colors text-foreground"
-            >
-              Bedding
-            </Link>
-            <button
-              onMouseEnter={() => setMega(true)}
-              onClick={() => setMega(!mega)}
-              className="hover:text-gold transition-colors text-foreground cursor-pointer"
-            >
-              Groups
-            </button>
-          </nav>
         </div>
 
-        {/* حقل البحث المتجاوب الخاص بالشاشات الصغيرة */}
         {searchOpenMobile && (
-          <div className="border-t bg-background p-3 md:hidden">
+          <div className="border-t bg-background p-3">
             <div className="flex items-center gap-2 border border-border rounded px-3 py-2 bg-muted/30">
               <Search size={18} className="text-muted-foreground" />
               <input
@@ -191,7 +122,7 @@ export function Header() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder={s.t.search}
-                className="w-full bg-transparent text-sm outline-none text-foreground font-medium"
+                className="min-w-0 w-full bg-transparent text-sm font-medium text-foreground outline-none"
                 autoFocus
               />
               <button onClick={() => setSearchOpenMobile(false)}>
@@ -199,7 +130,7 @@ export function Header() {
               </button>
             </div>
             {results.length > 0 && (
-              <div className="mt-2 border bg-popover shadow-lux divide-y rounded">
+              <div className="mt-2 max-h-[min(50dvh,24rem)] overflow-y-auto divide-y rounded border bg-popover shadow-lux">
                 {results.map((p) => (
                   <button
                     key={p.id}
@@ -233,7 +164,7 @@ export function Header() {
             <div className="mx-auto grid max-w-7xl gap-8 px-6 py-8 md:grid-cols-4">
               <div>
                 <p className="eyebrow mb-4 text-gold font-bold">The Collections</p>
-                <ul className="space-y-3 font-serif text-lg sm:text-xl">
+                <ul className="space-y-3 font-serif text-lg">
                   {CATEGORIES.map((category) => (
                     <li key={category}>
                       <Link
@@ -275,7 +206,7 @@ export function Header() {
                       setMega(false);
                       setMobile(false);
                     }}
-                    className="hidden group md:block"
+                    className="group"
                   >
                     <img
                       src={p.images[0]}

@@ -46,7 +46,7 @@ function Home() {
       <section className="overflow-hidden border-b border-gold/20 bg-gradient-to-br from-secondary via-background to-accent/30">
         <div className="mx-auto flex min-h-[19rem] max-w-7xl items-center px-5 py-14 sm:min-h-[26rem] sm:px-8 sm:py-20 lg:min-h-[30rem]">
           <div className="max-w-3xl animate-rise">
-            <h1 className="mt-5 max-w-2xl font-serif text-4xl leading-[1.08] text-foreground sm:mt-6 sm:text-6xl lg:text-7xl">
+            <h1 className="mt-5 max-w-2xl font-serif text-[clamp(2rem,5vw,3.75rem)] leading-[1.08] text-foreground">
               Refined Elegance for Your Home
             </h1>
             <div className="mt-7 flex flex-col items-start gap-3 sm:mt-9 sm:flex-row sm:flex-wrap">
@@ -69,7 +69,7 @@ function Home() {
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20 lg:py-24">
         <div className="text-center">
           <p className="eyebrow text-gold">Curated</p>
-          <h2 className="mt-3 font-serif text-3xl sm:text-5xl">Featured Collections</h2>
+          <h2 className="mt-3 font-serif text-[clamp(1.75rem,4vw,3rem)]">Featured Collections</h2>
         </div>
         <div className="mt-7 flex flex-wrap justify-center gap-1.5 sm:mt-10 sm:gap-2">
           {["All", ...categories].map((c) => (
