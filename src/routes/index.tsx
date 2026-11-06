@@ -46,7 +46,6 @@ function Home() {
       <section className="overflow-hidden border-b border-gold/20 bg-gradient-to-br from-secondary via-background to-accent/30">
         <div className="mx-auto flex min-h-[19rem] max-w-7xl items-center px-5 py-14 sm:min-h-[26rem] sm:px-8 sm:py-20 lg:min-h-[30rem]">
           <div className="max-w-3xl animate-rise">
-            <p className="eyebrow text-gold">Maison ROELIX · Est. Giza</p>
             <h1 className="mt-5 max-w-2xl font-serif text-4xl leading-[1.08] text-foreground sm:mt-6 sm:text-6xl lg:text-7xl">
               Refined Elegance for Your Home
             </h1>
