@@ -1,19 +1,17 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Heart, Search, ShoppingBag, Menu, X } from "lucide-react";
+import { Heart, Menu, Search, ShoppingBag, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AccountMenu } from "@/components/site/account-menu";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { recordProductInteraction, recordSearchQuery } from "@/lib/local-data";
-import { CATEGORIES, useStore } from "@/lib/store";
+import { CATEGORIES, useStore, type Product } from "@/lib/store";
 
 export function Header() {
   const s = useStore();
   const pathname = useLocation({ select: (location) => location.pathname });
   const nav = useNavigate();
   const [q, setQ] = useState("");
-  const [mega, setMega] = useState(false);
   const [mobile, setMobile] = useState(false);
-  const [searchOpenMobile, setSearchOpenMobile] = useState(false);
 
   useEffect(() => {
     const query = q.trim();
@@ -33,148 +31,124 @@ export function Header() {
           .slice(0, 5)
       : [];
 
+  const selectProduct = (product: Product) => {
+    if (pathname !== "/admin") {
+      recordProductInteraction("product_click", product.id, product.name);
+    }
+    setQ("");
+    nav({ to: "/product/$id", params: { id: product.id } });
+  };
+
   return (
-    <header className="relative w-full z-40 bg-background border-b overflow-x-hidden">
-      {/* Top Announcement Bar - شريط التنبيهات الفاخر */}
-      <div className="bg-navy text-navy-foreground w-full border-b border-white/10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2 text-[0.68rem] tracking-wider uppercase sm:px-6">
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="font-semibold" title={s.lang === "ar" ? "العملة" : "Currency"}>
-              {s.lang === "ar" ? "ج.م" : "EGP"}
-            </span>
-            <span aria-hidden="true" className="opacity-40">
-              ·
-            </span>
-            <LanguageSwitcher />
-          </div>
-          <span
-            dir="auto"
-            className="min-w-0 flex-1 truncate px-2 text-center text-xs font-medium text-gold"
-          >
-            {s.t.announce}
+    <header className="relative z-40 w-full overflow-x-clip border-b bg-background">
+      <div className="relative flex min-h-8 items-center justify-center bg-navy px-3 py-1 text-center text-[0.62rem] tracking-[0.12em] text-navy-foreground sm:min-h-9 sm:text-xs">
+        <span dir="auto" className="max-w-[72%] truncate sm:max-w-none">
+          {s.t.announce}
+        </span>
+        <div className="absolute start-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5 sm:start-6 sm:gap-2">
+          <span className="hidden text-[0.62rem] font-semibold text-gold sm:inline">
+            {s.lang === "ar" ? "ج.م" : "EGP"}
           </span>
+          <span aria-hidden="true" className="hidden text-gold/50 sm:inline">
+            ·
+          </span>
+          <LanguageSwitcher />
         </div>
       </div>
 
-      {/* Main Navigation Bar - شريط التصفح الرئيسي */}
-      <div className="bg-background/95 backdrop-blur" onMouseLeave={() => setMega(false)}>
+      <div className="bg-background">
         <div
           dir="ltr"
-          className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-2 py-2.5 sm:px-6"
+          className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-x-2 gap-y-2 px-3 py-2.5 sm:px-6 md:grid-cols-[1fr_minmax(16rem,30rem)_1fr] md:gap-x-8 md:py-4"
         >
-          <div className="flex shrink-0 items-center gap-0">
-            <button
-              className="grid size-9 place-items-center text-foreground transition-colors hover:text-gold"
-              onClick={() => setMobile(!mobile)}
-              aria-label="Menu"
-              aria-expanded={mobile}
-            >
-              {mobile ? <X size={21} /> : <Menu size={21} />}
-            </button>
+          <button
+            type="button"
+            className="col-start-1 row-start-1 grid size-9 place-items-center text-foreground transition-colors hover:text-gold md:hidden"
+            onClick={() => setMobile(!mobile)}
+            aria-label={mobile ? (s.lang === "ar" ? "إغلاق القائمة" : "Close menu") : s.t.menu}
+            aria-expanded={mobile}
+          >
+            {mobile ? <X size={21} /> : <Menu size={21} />}
+          </button>
 
-            <button
-              onClick={() => s.setCartOpen(true)}
-              aria-label={s.t.cart}
-              className="relative grid size-9 place-items-center rounded-full bg-muted text-foreground transition-colors hover:bg-accent hover:text-gold"
-            >
-              <ShoppingBag size={18} />
-              {s.count > 0 && <Badge n={s.count} />}
-            </button>
+          <Link
+            to="/"
+            aria-label="ROELIX home"
+            className="col-start-2 row-start-1 whitespace-nowrap text-center font-serif text-[clamp(1.25rem,5vw,1.8rem)] font-bold tracking-[0.13em] text-foreground transition-colors hover:text-gold md:col-start-1 md:text-left md:text-[clamp(1.5rem,2.4vw,2rem)] md:tracking-[0.16em]"
+          >
+            ROELIX
+          </Link>
 
-            {/* The account control sits directly beside the bag: one 22px outline
-                glyph, which becomes the identity tile once signed in. */}
-            <AccountMenu />
+          <SearchField
+            value={q}
+            onChange={setQ}
+            onSelect={selectProduct}
+            results={results}
+            placeholder={s.t.search}
+            lang={s.lang}
+            formatPrice={s.fmt}
+          />
 
+          <div className="col-start-3 row-start-1 flex items-center justify-self-end">
             <Link
               to="/shop"
               search={{ wish: true }}
               aria-label={s.t.wishlist}
+              title={s.t.wishlist}
               className="relative grid size-9 place-items-center text-foreground transition-colors hover:text-gold"
             >
-              <Heart size={18} />
+              <Heart size={19} strokeWidth={1.6} />
               {s.wishlist.length > 0 && <Badge n={s.wishlist.length} />}
             </Link>
-
+            <AccountMenu />
             <button
-              className="grid size-9 place-items-center text-foreground transition-colors hover:text-gold"
-              onClick={() => setSearchOpenMobile(!searchOpenMobile)}
-              aria-label="Search"
-              aria-expanded={searchOpenMobile}
+              type="button"
+              onClick={() => s.setCartOpen(true)}
+              aria-label={s.t.cart}
+              title={s.t.cart}
+              className="relative grid size-9 place-items-center text-foreground transition-colors hover:text-gold"
             >
-              <Search size={18} />
+              <ShoppingBag size={19} strokeWidth={1.6} />
+              {s.count > 0 && <Badge n={s.count} />}
             </button>
           </div>
-
-          <Link
-            to="/"
-            className="shrink-0 text-center font-serif text-[clamp(0.9rem,2vw,1.25rem)] font-bold tracking-[clamp(0.06em,0.5vw,0.14em)] text-foreground transition-colors hover:text-gold"
-          >
-            ROELIX
-          </Link>
         </div>
 
-        {searchOpenMobile && (
-          <div className="border-t bg-background p-3">
-            <div className="flex items-center gap-2 border border-border rounded px-3 py-2 bg-muted/30">
-              <Search size={18} className="text-muted-foreground" />
-              <input
-                dir="auto"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder={s.t.search}
-                className="min-w-0 w-full bg-transparent text-sm font-medium text-foreground outline-none"
-                autoFocus
-              />
-              <button onClick={() => setSearchOpenMobile(false)}>
-                <X size={18} className="text-muted-foreground" />
-              </button>
-            </div>
-            {results.length > 0 && (
-              <div className="mt-2 max-h-[min(50dvh,24rem)] overflow-y-auto divide-y rounded border bg-popover shadow-lux">
-                {results.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      if (pathname !== "/admin") {
-                        recordProductInteraction("product_click", p.id, p.name);
-                      }
-                      setQ("");
-                      setSearchOpenMobile(false);
-                      nav({ to: "/product/$id", params: { id: p.id } });
-                    }}
-                    className="flex w-full items-center gap-3 p-3 text-start hover:bg-muted"
-                  >
-                    <img src={p.images[0]} alt="" className="h-12 w-10 object-cover rounded-sm" />
-                    <div dir="auto">
-                      <div className="font-serif text-sm font-semibold leading-tight text-foreground">
-                        {s.lang === "ar" ? p.nameAr : p.name}
-                      </div>
-                      <div className="text-xs text-gold font-bold mt-0.5">{s.fmt(p.price)}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <nav
+          aria-label={s.lang === "ar" ? "تسوق حسب المجموعة" : "Shop by collection"}
+          dir="ltr"
+          className="border-t border-border/70"
+        >
+          <ul className="mx-auto flex max-w-7xl items-center gap-6 overflow-x-auto px-4 py-2.5 text-[0.68rem] font-medium uppercase tracking-[0.08em] sm:gap-8 sm:px-6 sm:text-xs md:justify-center md:gap-9">
+            {CATEGORIES.map((category) => (
+              <li key={category} className="shrink-0">
+                <Link
+                  to="/shop"
+                  search={{ c: category }}
+                  onClick={() => setMobile(false)}
+                  dir="auto"
+                  className="block border-b border-transparent py-1 text-foreground/85 transition-colors hover:border-gold hover:text-gold"
+                >
+                  {category}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
-        {/* القائمة الجانبية (Mega Menu & Mobile Drawer) */}
-        {(mega || mobile) && (
-          <div className="border-t bg-background animate-in fade-in slide-in-from-top-2 shadow-2xl">
-            <div className="mx-auto grid max-w-7xl gap-8 px-6 py-8 md:grid-cols-4">
+        {mobile && (
+          <div className="border-t bg-background shadow-xl">
+            <div className="mx-auto grid max-w-7xl gap-6 px-5 py-5 sm:grid-cols-2 md:grid-cols-4 md:px-6">
               <div>
-                <p className="eyebrow mb-4 text-gold font-bold">The Collections</p>
-                <ul className="space-y-3 font-serif text-lg">
+                <p className="eyebrow mb-3 font-bold text-gold">The Collections</p>
+                <ul className="space-y-2 font-serif text-base">
                   {CATEGORIES.map((category) => (
                     <li key={category}>
                       <Link
                         to="/shop"
                         search={{ c: category }}
-                        onClick={() => {
-                          setMega(false);
-                          setMobile(false);
-                        }}
-                        className="hover:text-gold transition-colors block text-foreground font-medium"
+                        onClick={() => setMobile(false)}
+                        className="block text-foreground transition-colors hover:text-gold"
                       >
                         {category}
                       </Link>
@@ -182,39 +156,36 @@ export function Header() {
                   ))}
                 </ul>
               </div>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p className="eyebrow mb-4 text-foreground font-bold">By Fabric</p>
-                <p className="hover:text-foreground cursor-pointer transition">
-                  Egyptian Giza Cotton
-                </p>
-                <p className="hover:text-foreground cursor-pointer transition">Sateen 1000 TC</p>
-                <p className="hover:text-foreground cursor-pointer transition">Percale 600 TC</p>
-                <p className="hover:text-foreground cursor-pointer transition">Hotel Microfiber</p>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p className="eyebrow mb-3 font-bold text-foreground">By Fabric</p>
+                <p>Egyptian Giza Cotton</p>
+                <p>Sateen 1000 TC</p>
+                <p>Percale 600 TC</p>
+                <p>Hotel Microfiber</p>
               </div>
               {s.products
-                .filter((p) => p.isPublished)
+                .filter((product) => product.isPublished)
                 .slice(0, 2)
-                .map((p) => (
+                .map((product) => (
                   <Link
-                    key={p.id}
+                    key={product.id}
                     to="/product/$id"
-                    params={{ id: p.id }}
+                    params={{ id: product.id }}
                     onClick={() => {
                       if (pathname !== "/admin") {
-                        recordProductInteraction("product_click", p.id, p.name);
+                        recordProductInteraction("product_click", product.id, product.name);
                       }
-                      setMega(false);
                       setMobile(false);
                     }}
                     className="group"
                   >
                     <img
-                      src={p.images[0]}
-                      alt={p.name}
-                      className="h-48 w-full object-cover transition duration-700 group-hover:scale-[1.02] rounded-sm"
+                      src={product.images[0]}
+                      alt={product.name}
+                      className="h-36 w-full rounded-sm object-cover transition duration-700 group-hover:scale-[1.02]"
                     />
-                    <p className="mt-3 font-serif text-lg font-semibold text-foreground group-hover:text-gold transition-colors">
-                      {p.name}
+                    <p className="mt-2 font-serif text-base font-semibold text-foreground transition-colors group-hover:text-gold">
+                      {product.name}
                     </p>
                   </Link>
                 ))}
@@ -226,9 +197,65 @@ export function Header() {
   );
 }
 
+function SearchField({
+  value,
+  onChange,
+  onSelect,
+  results,
+  placeholder,
+  lang,
+  formatPrice,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onSelect: (product: Product) => void;
+  results: Product[];
+  placeholder: string;
+  lang: "en" | "ar";
+  formatPrice: (price: number) => string;
+}) {
+  return (
+    <div className="relative col-span-3 row-start-2 min-w-0 md:col-span-1 md:col-start-2 md:row-start-1">
+      <label className="flex items-center gap-2 border-b border-border px-2 py-2 text-muted-foreground transition-colors focus-within:border-foreground">
+        <Search size={19} strokeWidth={1.6} aria-hidden="true" />
+        <input
+          dir="auto"
+          type="search"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="w-full min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+        />
+      </label>
+      {results.length > 0 && (
+        <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-[min(50dvh,24rem)] overflow-y-auto divide-y rounded-sm border bg-popover shadow-lux">
+          {results.map((product) => (
+            <button
+              key={product.id}
+              type="button"
+              onClick={() => onSelect(product)}
+              className="flex w-full items-center gap-3 p-3 text-start transition-colors hover:bg-muted"
+            >
+              <img src={product.images[0]} alt="" className="h-12 w-10 rounded-sm object-cover" />
+              <span dir="auto" className="min-w-0">
+                <span className="block truncate font-serif text-sm font-semibold leading-tight text-foreground">
+                  {lang === "ar" ? product.nameAr : product.name}
+                </span>
+                <span className="mt-0.5 block text-xs font-bold text-gold">
+                  {formatPrice(product.price)}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Badge({ n }: { n: number }) {
   return (
-    <span className="absolute -top-1 -end-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[0.65rem] font-bold text-gold-foreground shadow-sm">
+    <span className="absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[0.65rem] font-bold text-gold-foreground shadow-sm">
       {n}
     </span>
   );
