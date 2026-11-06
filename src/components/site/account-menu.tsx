@@ -146,7 +146,7 @@ export function AccountMenu() {
             </Link>
           </DropdownMenuItem>
 
-          {isTeamRole(profile?.role ?? "customer") && (
+          {profile?.id === user.id && isTeamRole(profile.role) && (
             <DropdownMenuItem asChild className="cursor-pointer rounded-none px-4 py-2.5">
               <Link to="/admin">
                 <LayoutDashboard size={14} aria-hidden="true" />
