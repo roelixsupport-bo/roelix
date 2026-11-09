@@ -119,20 +119,70 @@ export function Header() {
           dir="ltr"
           className="border-t border-border/70"
         >
-          <ul className="mx-auto flex max-w-7xl items-center gap-6 overflow-x-auto px-4 py-2.5 text-[0.68rem] font-medium uppercase tracking-[0.08em] sm:gap-8 sm:px-6 sm:text-xs md:justify-center md:gap-9">
-            {CATEGORIES.map((category) => (
-              <li key={category} className="shrink-0">
-                <Link
-                  to="/shop"
-                  search={{ c: category }}
-                  onClick={() => setMobile(false)}
-                  dir="auto"
-                  className="block border-b border-transparent py-1 text-foreground/85 transition-colors hover:border-gold hover:text-gold"
-                >
-                  {category}
-                </Link>
-              </li>
-            ))}
+          <ul className="mx-auto flex max-w-7xl items-center gap-6 overflow-x-auto px-4 py-2.5 text-[0.68rem] font-medium uppercase tracking-[0.08em] sm:gap-8 sm:px-6 sm:text-xs md:justify-center md:gap-9 md:overflow-visible">
+            {CATEGORIES.map((category, index) => {
+              const products = s.products
+                .filter((product) => product.isPublished && product.category === category)
+                .slice(0, 5);
+
+              return (
+                <li key={category} className="group relative shrink-0">
+                  <Link
+                    to="/shop"
+                    search={{ c: category }}
+                    onClick={() => setMobile(false)}
+                    dir="auto"
+                    className="block border-b border-transparent py-1 text-foreground/85 transition-colors hover:border-gold hover:text-gold"
+                  >
+                    {category}
+                  </Link>
+                  <div
+                    className={`absolute top-full z-50 hidden w-[min(22rem,calc(100vw-2rem))] border border-border bg-background p-3 text-start normal-case tracking-normal shadow-lux group-hover:block group-focus-within:block ${
+                      index === CATEGORIES.length - 1 ? "right-0" : "left-0"
+                    }`}
+                  >
+                    <ul className="divide-y divide-border/70">
+                      {products.map((product) => (
+                        <li key={product.id}>
+                          <Link
+                            to="/product/$id"
+                            params={{ id: product.id }}
+                            onClick={() => {
+                              if (pathname !== "/admin") {
+                                recordProductInteraction("product_click", product.id, product.name);
+                              }
+                            }}
+                            dir="auto"
+                            className="flex items-center gap-3 py-2 transition-colors hover:text-gold"
+                          >
+                            <img
+                              src={product.images[0]}
+                              alt=""
+                              className="size-12 shrink-0 rounded-sm object-cover"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-serif text-sm font-semibold text-foreground">
+                                {s.lang === "ar" ? product.nameAr : product.name}
+                              </span>
+                              <span className="mt-0.5 block text-xs text-gold">
+                                {s.fmt(product.price)}
+                              </span>
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      to="/shop"
+                      search={{ c: category }}
+                      className="mt-2 block border-t border-border pt-3 text-xs font-semibold uppercase tracking-wider text-foreground transition-colors hover:text-gold"
+                    >
+                      {s.lang === "ar" ? "عرض كل المنتجات" : "View all products"}
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
