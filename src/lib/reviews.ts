@@ -515,7 +515,7 @@ async function insertReview(
     // publishing straight to the storefront.
     status: "pending" as const,
     ...(mediaColumnsAvailable && fields.userId ? { user_id: fields.userId } : {}),
-    ...(mediaColumnsAvailable && fields.imageUrl ? { image_url: fields.imageUrl } : {}),
+    ...(mediaColumnsAvailable ? { image_url: fields.imageUrl ?? null } : {}),
   });
 
   let result = await client.from("product_reviews").insert(payload());
