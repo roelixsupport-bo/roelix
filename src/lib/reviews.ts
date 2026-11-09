@@ -813,13 +813,23 @@ export async function editOwnReview(input: {
       editLocally();
       return;
     }
-    const { data, error } = await supabase.rpc("edit_own_product_review", {
-      p_review_id: input.reviewId,
-      p_rating: input.rating,
-      p_body: body,
-    });
+    const { count, error } = await supabase
+      .from("product_reviews")
+      .update(
+        {
+          rating: input.rating,
+          body,
+          status: "pending",
+          official_reply: null,
+          replied_at: null,
+          updated_at: new Date().toISOString(),
+        },
+        { count: "exact" },
+      )
+      .eq("id", input.reviewId)
+      .eq("user_id", input.authorId);
     if (error) throw error;
-    if (data !== true) throw new Error("You can only edit a review written by your account.");
+    if (count === 0) throw new Error("You can only edit a review written by your account.");
   } catch (error) {
     throw error instanceof Error ? error : reviewError(readErrorShape(error));
   }
