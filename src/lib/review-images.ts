@@ -68,11 +68,10 @@ export type SupabaseStorageClient = {
 /**
  * How long an upload may take before the form gives up on the photo.
  *
- * Storage has no default timeout, so a stalled socket or a missing bucket left
- * the shopper staring at "Sending…" with the review never leaving the page. The
- * review now goes up without the photo rather than waiting on it.
+ * Review images may be uploaded over a slow mobile connection, so give the
+ * Storage request enough time while still preventing the form from hanging.
  */
-export const REVIEW_UPLOAD_TIMEOUT_MS = 12_000;
+export const REVIEW_UPLOAD_TIMEOUT_MS = 60_000;
 
 /** Rejects with `message` when `work` has not settled within `ms`. */
 export async function withDeadline<T>(work: Promise<T>, ms: number, message: string): Promise<T> {

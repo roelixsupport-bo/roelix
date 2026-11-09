@@ -9,11 +9,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: {
-    // PostgREST and Storage have no default deadline, so a stalled socket left
-    // submissions spinning forever. Failing in 15s lets the local fallbacks take
-    // over instead of showing "Sending…" indefinitely.
-    fetch: (input, init) =>
-      fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(15_000) }),
+    // Review photos can take longer on mobile than regular API calls.
+    fetch: (input, init) => {
+      const requestUrl =
+        typeof input === "string" || input instanceof URL ? input.toString() : input.url;
+      const isStorageRequest = new URL(requestUrl).pathname.includes("/storage/v1/object/");
+      const timeout = isStorageRequest ? 65_000 : 15_000;
+      return fetch(input, {
+        ...init,
+        signal: init?.signal ?? AbortSignal.timeout(timeout),
+      });
+    },
   },
 });
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  REVIEW_UPLOAD_TIMEOUT_MS,
   reviewImageExtension,
   reviewImageLimit,
   reviewImagePath,
@@ -64,6 +65,10 @@ describe("review photo rules", () => {
 });
 
 describe("photo upload", () => {
+  it("allows enough time for a slow mobile upload", () => {
+    expect(REVIEW_UPLOAD_TIMEOUT_MS).toBe(60_000);
+  });
+
   it("returns the public URL of the uploaded file", async () => {
     await expect(uploadReviewImage(photo(), "user-1")).resolves.toMatch(
       /^https:\/\/cdn\.example\.test\/review-images\/user-1\/.+\.jpg$/,
