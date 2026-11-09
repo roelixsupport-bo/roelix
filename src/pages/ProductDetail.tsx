@@ -174,6 +174,10 @@ export function ProductDetail({ productId }: { productId: string }) {
 
   useProductMeta(product, s.lang);
 
+  // Review mutations and personalized likes are scoped to this signed-in account.
+  const { user, profile } = useAccount();
+  const authDialog = useAuthDialog();
+
   // One live subscription for the page: the rating row under the title and the
   // reviews section below both read from it.
   const {
@@ -182,12 +186,12 @@ export function ProductDetail({ productId }: { productId: string }) {
     loading: reviewsLoading,
     submitting: reviewsSubmitting,
     submit: submitReview,
-  } = useProductReviews(product?.id);
+    edit: editReview,
+    toggleLike: toggleReviewLike,
+  } = useProductReviews(product?.id, user?.id);
 
   // Writing a review is tied to the signed-in account, so the section is handed
   // the name to credit and a way to open the storefront's auth card.
-  const { user, profile } = useAccount();
-  const authDialog = useAuthDialog();
   const reviewViewer = useMemo(
     () => (user ? { id: user.id, name: displayNameFor(profile, user.email) } : null),
     [user, profile],
@@ -894,6 +898,8 @@ export function ProductDetail({ productId }: { productId: string }) {
           viewer={reviewViewer}
           onRequestSignIn={authDialog.open}
           onSubmit={submitReview}
+          onEdit={editReview}
+          onToggleLike={toggleReviewLike}
         />
       </Suspense>
 

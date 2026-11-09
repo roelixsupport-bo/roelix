@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ChevronLeft, ChevronRight, Lock, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, Lock, Pencil, Star } from "lucide-react";
 import { toast } from "sonner";
 
 import { ReviewPhotoField } from "@/components/product/review-photo-field";
@@ -65,6 +65,13 @@ const COPY = {
     photoTitle: "Customer photo",
     photoBody: "Photo attached to this review.",
     photoOpen: "Open the photo",
+    edit: "Edit your review",
+    cancelEdit: "Cancel",
+    saveEdit: "Save changes",
+    editSuccess: "Your changes were sent for approval.",
+    like: "Like review",
+    unlike: "Unlike review",
+    officialReply: "Official response",
   },
   ar: {
     title: "تقييمات العملاء",
@@ -109,6 +116,13 @@ const COPY = {
     photoTitle: "صورة العميل",
     photoBody: "الصورة المرفقة بهذا التقييم.",
     photoOpen: "افتح الصورة",
+    edit: "تعديل تقييمك",
+    cancelEdit: "إلغاء",
+    saveEdit: "حفظ التعديلات",
+    editSuccess: "تم إرسال التعديلات للمراجعة والموافقة.",
+    like: "أعجبني التقييم",
+    unlike: "إلغاء الإعجاب",
+    officialReply: "الرد الرسمي",
   },
 } as const;
 
@@ -137,6 +151,13 @@ export type ReviewSubmission = {
   imageUrl: string | null;
 };
 
+export type ReviewEditSubmission = {
+  reviewId: string;
+  authorId: string;
+  rating: number;
+  body: string;
+};
+
 export type ReviewsSectionProps = {
   isArabic: boolean;
   reviews: ProductReview[];
@@ -147,6 +168,8 @@ export type ReviewsSectionProps = {
   /** Opens the storefront auth card; the section never owns a second one. */
   onRequestSignIn: () => void;
   onSubmit: (input: ReviewSubmission) => Promise<ProductReview | null>;
+  onEdit?: (input: ReviewEditSubmission) => Promise<void>;
+  onToggleLike?: (reviewId: string, viewerId: string) => Promise<void>;
 };
 
 /**
@@ -164,6 +187,8 @@ export function ReviewsSection({
   viewer,
   onRequestSignIn,
   onSubmit,
+  onEdit,
+  onToggleLike,
 }: ReviewsSectionProps) {
   const copy = COPY[isArabic ? "ar" : "en"];
   const [rating, setRating] = useState(0);
@@ -177,9 +202,69 @@ export function ReviewsSection({
   const [photoNotice, setPhotoNotice] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [editRating, setEditRating] = useState(0);
+  const [editBody, setEditBody] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [likingReviewId, setLikingReviewId] = useState<string | null>(null);
 
   const pageInfo = paginateReviews(reviews, page);
   const busy = submitting || uploading;
+
+  const saveEdit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!viewer || !editingReviewId || !onEdit || savingEdit) return;
+    const invalid = validateReviewInput({
+      productId: "pending",
+      authorName: viewer.name,
+      rating: editRating,
+      body: editBody,
+    });
+    if (invalid) {
+      toast.error(
+        invalid.field === "rating"
+          ? copy.ratingError
+          : invalid.field === "body"
+            ? copy.bodyError
+            : copy.failure,
+      );
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      await onEdit({
+        reviewId: editingReviewId,
+        authorId: viewer.id,
+        rating: editRating,
+        body: editBody,
+      });
+      setEditingReviewId(null);
+      toast.success(copy.editSuccess);
+    } catch (editError) {
+      console.error("Could not edit the ROELIX review", editError);
+      toast.error(editError instanceof Error ? editError.message : copy.failure);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const toggleLike = async (reviewId: string) => {
+    if (!viewer) {
+      onRequestSignIn();
+      return;
+    }
+    if (!onToggleLike || likingReviewId) return;
+    setLikingReviewId(reviewId);
+    try {
+      await onToggleLike(reviewId, viewer.id);
+    } catch (likeError) {
+      console.error("Could not update the ROELIX review reaction", likeError);
+      toast.error(likeError instanceof Error ? likeError.message : copy.failure);
+    } finally {
+      setLikingReviewId(null);
+    }
+  };
 
   // A page left over from a longer list is pulled back into range rather than
   // showing an empty ledger after an admin hides a review.
@@ -528,6 +613,93 @@ export function ReviewsSection({
                     <p className="mt-2 whitespace-pre-line break-words text-sm leading-relaxed text-muted-foreground">
                       {review.body}
                     </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <button
+                        type="button"
+                        onClick={() => void toggleLike(review.id)}
+                        disabled={likingReviewId === review.id}
+                        aria-label={review.likedByViewer ? copy.unlike : copy.like}
+                        aria-pressed={review.likedByViewer ?? false}
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-gold disabled:opacity-50"
+                      >
+                        <Heart
+                          size={15}
+                          aria-hidden="true"
+                          className={review.likedByViewer ? "fill-gold text-gold" : ""}
+                        />
+                        <span>{review.likesCount ?? 0}</span>
+                      </button>
+                      {viewer && review.authorId === viewer.id && onEdit && (
+                        <button
+                          type="button"
+                          aria-label={copy.edit}
+                          onClick={() => {
+                            setEditingReviewId(review.id);
+                            setEditRating(review.rating);
+                            setEditBody(review.body);
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-gold"
+                        >
+                          <Pencil size={13} aria-hidden="true" />
+                          {copy.edit}
+                        </button>
+                      )}
+                    </div>
+                    {review.officialReply && (
+                      <div className="mt-4 border-s-2 border-gold/70 bg-muted/40 px-4 py-3">
+                        <p className="eyebrow text-[0.62rem] font-semibold text-gold">
+                          {copy.officialReply}
+                        </p>
+                        <p className="mt-1 whitespace-pre-line break-words text-sm leading-relaxed text-foreground">
+                          {review.officialReply}
+                        </p>
+                      </div>
+                    )}
+                    {editingReviewId === review.id && (
+                      <form onSubmit={(event) => void saveEdit(event)} className="mt-4 border p-4">
+                        <p className="text-[0.62rem] uppercase tracking-[0.14em] text-muted-foreground">
+                          {copy.rating}
+                        </p>
+                        <div className="mt-1.5">
+                          <StarPicker
+                            value={editRating}
+                            onChange={setEditRating}
+                            isArabic={isArabic}
+                            disabled={savingEdit}
+                          />
+                        </div>
+                        <label
+                          htmlFor={`edit-review-${review.id}`}
+                          className="mt-3 block text-[0.62rem] uppercase tracking-[0.14em] text-muted-foreground"
+                        >
+                          {copy.comment}
+                        </label>
+                        <Textarea
+                          id={`edit-review-${review.id}`}
+                          value={editBody}
+                          rows={3}
+                          maxLength={REVIEW_LIMITS.bodyMax}
+                          dir="auto"
+                          disabled={savingEdit}
+                          onChange={(event) => setEditBody(event.target.value)}
+                          className="mt-1.5 min-h-20 rounded-none"
+                        />
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button type="submit" disabled={savingEdit} className="rounded-none">
+                            {savingEdit ? copy.submitting : copy.saveEdit}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={savingEdit}
+                            onClick={() => setEditingReviewId(null)}
+                            className="rounded-none"
+                          >
+                            {copy.cancelEdit}
+                          </Button>
+                        </div>
+                      </form>
+                    )}
                   </div>
                 </li>
               ))}

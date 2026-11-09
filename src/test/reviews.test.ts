@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   approveReview,
+  editOwnReview,
   fetchAllReviews,
   fetchProductReviews,
+  saveReviewReply,
   setReviewStatus,
   submitProductReview,
   summarizeReviews,
+  toggleReviewLike,
   validateReviewInput,
   type ProductReview,
 } from "@/lib/reviews";
@@ -116,6 +119,80 @@ describe("local review storage", () => {
     await setReviewStatus(saved.id, "hidden");
     expect(await fetchProductReviews("cloud-pillow")).toHaveLength(0);
     expect(await fetchAllReviews()).toHaveLength(1);
+  });
+
+  it("publishes an official reply with the approved review", async () => {
+    const saved = await submitProductReview({
+      productId: "cloud-pillow",
+      authorName: "Hana",
+      rating: 5,
+      body: "Perfect loft for side sleepers.",
+    });
+    await approveReview(saved.id);
+    await saveReviewReply(saved.id, "Thank you for sharing your experience.");
+
+    const [published] = await fetchProductReviews("cloud-pillow");
+    expect(published?.officialReply).toBe("Thank you for sharing your experience.");
+    expect(published?.repliedAt).toBeTruthy();
+  });
+
+  it("lets a reviewer edit their own review and returns it to moderation", async () => {
+    const saved = await submitProductReview({
+      productId: "cloud-pillow",
+      authorName: "Hana",
+      authorId: "customer-1",
+      rating: 4,
+      body: "Comfortable, but a little firm.",
+    });
+    await approveReview(saved.id);
+
+    await editOwnReview({
+      reviewId: saved.id,
+      authorId: "customer-1",
+      rating: 5,
+      body: "Very comfortable and supportive.",
+    });
+
+    expect(await fetchProductReviews("cloud-pillow")).toHaveLength(0);
+    const [pending] = await fetchAllReviews();
+    expect(pending).toMatchObject({
+      id: saved.id,
+      rating: 5,
+      body: "Very comfortable and supportive.",
+      status: "pending",
+      officialReply: null,
+    });
+    await expect(
+      editOwnReview({
+        reviewId: saved.id,
+        authorId: "another-customer",
+        rating: 3,
+        body: "Attempt to edit someone else's review.",
+      }),
+    ).rejects.toThrow(/only edit a review written by your account/i);
+  });
+
+  it("toggles one like per signed-in customer", async () => {
+    const saved = await submitProductReview({
+      productId: "cloud-pillow",
+      authorName: "Hana",
+      authorId: "reviewer",
+      rating: 5,
+      body: "Perfect loft for side sleepers.",
+    });
+    await approveReview(saved.id);
+
+    await expect(toggleReviewLike(saved.id, "customer-1")).resolves.toEqual({
+      likesCount: 1,
+      likedByViewer: true,
+    });
+    await expect(toggleReviewLike(saved.id, "customer-1")).resolves.toEqual({
+      likesCount: 0,
+      likedByViewer: false,
+    });
+    await expect(fetchProductReviews("cloud-pillow", "customer-1")).resolves.toMatchObject([
+      { likesCount: 0, likedByViewer: false },
+    ]);
   });
 
   it("refuses an invalid submission", async () => {

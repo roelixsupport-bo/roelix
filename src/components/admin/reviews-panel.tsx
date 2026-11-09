@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Check, Eye, EyeOff, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,6 +10,7 @@ import {
   fetchAllReviews,
   queuedReviewCount,
   reviewsCloudEnabled,
+  saveReviewReply,
   setReviewStatus,
   type ProductReview,
   type ReviewStatus,
@@ -54,6 +55,10 @@ const COPY = {
     retryUpload: "Retry upload",
     syncComplete: "Review uploaded and is ready for approval",
     syncBlocked: "Review is still on this device and could not be uploaded.",
+    replyLabel: "Official reply (shown publicly)",
+    replyPlaceholder: "Write a response to the customer…",
+    saveReply: "Save reply",
+    replySaved: "Official reply saved",
   },
   ar: {
     title: "تقييمات العملاء",
@@ -91,6 +96,10 @@ const COPY = {
     retryUpload: "إعادة محاولة الرفع",
     syncComplete: "تم رفع التقييم وأصبح جاهزًا للموافقة",
     syncBlocked: "ما زال التقييم محفوظًا على هذا الجهاز وتعذر رفعه.",
+    replyLabel: "الرد الرسمي (يظهر للزوار)",
+    replyPlaceholder: "اكتب ردًا للعميل…",
+    saveReply: "حفظ الرد",
+    replySaved: "تم حفظ الرد الرسمي",
   },
 } as const;
 
@@ -429,10 +438,74 @@ export function ReviewsPanel({
                   {review.body}
                 </p>
               </div>
+              <ReplyEditor
+                key={`${review.id}:${review.officialReply ?? ""}`}
+                value={review.officialReply ?? ""}
+                isArabic={isArabic}
+                label={text.replyLabel}
+                placeholder={text.replyPlaceholder}
+                saveLabel={text.saveReply}
+                onSave={(reply) =>
+                  runAction(() => saveReviewReply(review.id, reply), text.replySaved)
+                }
+              />
             </li>
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+function ReplyEditor({
+  value,
+  isArabic,
+  label,
+  placeholder,
+  saveLabel,
+  onSave,
+}: {
+  value: string;
+  isArabic: boolean;
+  label: string;
+  placeholder: string;
+  saveLabel: string;
+  onSave: (reply: string) => Promise<void>;
+}) {
+  const [reply, setReply] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await onSave(reply);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={(event) => void submit(event)} className="mt-4 border-t pt-3">
+      <label className="block text-xs font-semibold text-foreground">
+        {label}
+        <textarea
+          value={reply}
+          maxLength={2000}
+          rows={2}
+          dir={isArabic ? "rtl" : "auto"}
+          placeholder={placeholder}
+          onChange={(event) => setReply(event.target.value)}
+          className="mt-1.5 block w-full resize-y border border-border bg-background px-3 py-2 text-sm font-normal outline-none transition-colors focus:border-gold"
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={saving}
+        className="mt-2 border border-border px-3 py-2 text-[0.62rem] font-semibold uppercase tracking-[0.12em] transition-colors hover:border-gold disabled:opacity-50"
+      >
+        {saving ? (isArabic ? "جارٍ الحفظ…" : "Saving…") : saveLabel}
+      </button>
+    </form>
   );
 }

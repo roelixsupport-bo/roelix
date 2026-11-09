@@ -36,6 +36,7 @@ const stored: ProductReview[] = [
 ];
 
 const VIEWER = { id: "user-1", name: "Nour" };
+let uploadFinished = false;
 
 function typeInto(element: HTMLTextAreaElement, value: string) {
   const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
@@ -118,9 +119,10 @@ describe("review form with a successful photo upload", () => {
   beforeEach(() => {
     container = document.createElement("div");
     document.body.append(container);
-    vi.mocked(uploadReviewImage).mockResolvedValue(
-      "https://cdn.example.test/review-images/user-1/photo.jpg",
-    );
+    vi.mocked(uploadReviewImage).mockImplementation(async () => {
+      uploadFinished = true;
+      return "https://cdn.example.test/review-images/user-1/photo.jpg";
+    });
   });
 
   afterEach(() => {
@@ -128,10 +130,15 @@ describe("review form with a successful photo upload", () => {
     container.remove();
     root = undefined;
     vi.mocked(uploadReviewImage).mockReset();
+    uploadFinished = false;
   });
 
   it("waits for the upload and submits its public URL with the review", async () => {
-    const onSubmit = vi.fn(async (_input: ReviewSubmission) => stored[0] ?? null);
+    uploadFinished = false;
+    const onSubmit = vi.fn(async (_input: ReviewSubmission) => {
+      expect(uploadFinished).toBe(true);
+      return stored[0] ?? null;
+    });
     root = createRoot(container);
     await act(async () => {
       root?.render(
@@ -176,8 +183,5 @@ describe("review form with a successful photo upload", () => {
       authorId: VIEWER.id,
       imageUrl: "https://cdn.example.test/review-images/user-1/photo.jpg",
     });
-    expect(uploadReviewImage.mock.invocationCallOrder[0]).toBeLessThan(
-      onSubmit.mock.invocationCallOrder[0]!,
-    );
   });
 });

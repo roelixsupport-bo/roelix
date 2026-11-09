@@ -35,6 +35,13 @@ export type ProductReview = {
   authorId: string | null;
   /** Public URL of the customer photo, when one was attached. */
   imageUrl: string | null;
+  officialReply?: string | null;
+  repliedAt?: string | null;
+  updatedAt?: string;
+  likesCount?: number;
+  likedByViewer?: boolean;
+  /** Local-only list used to de-duplicate likes when Supabase is unavailable. */
+  likedByUsers?: string[];
   /** This device still owns the review; it has not been accepted by Supabase yet. */
   pendingUpload?: boolean;
 };
@@ -70,6 +77,14 @@ export type ReviewSummary = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isMissingSocialColumnError(value: unknown): boolean {
+  const { message } = readErrorShape(value);
+  return (
+    isMissingColumnError(value) &&
+    /\b(official_reply|replied_at|updated_at)\b/i.test(message)
+  );
 }
 
 function clampRating(value: unknown): ReviewRating | null {
@@ -199,6 +214,10 @@ export function reviewFromRecord(value: unknown): ProductReview | null {
   if (!id || !productId || !authorName || !body || !createdAt || rating === null) return null;
 
   const imageUrl = readString(value, "image_url", "imageUrl").trim();
+  const likedByUsers = Array.isArray(value["likedByUsers"])
+    ? value["likedByUsers"].filter((userId): userId is string => typeof userId === "string")
+    : [];
+  const likesCountValue = value["likes_count"] ?? value["likesCount"];
 
   return {
     id,
@@ -212,6 +231,16 @@ export function reviewFromRecord(value: unknown): ProductReview | null {
     authorId: readString(value, "user_id", "userId", "authorId").trim() || null,
     // A stored value that is not a URL would render as a broken image; drop it.
     imageUrl: /^https?:\/\//i.test(imageUrl) ? imageUrl : null,
+    officialReply: readString(value, "official_reply", "officialReply").trim() || null,
+    repliedAt: readString(value, "replied_at", "repliedAt").trim() || null,
+    updatedAt: readString(value, "updated_at", "updatedAt") || createdAt,
+    likesCount: Array.isArray(value["likedByUsers"])
+      ? likedByUsers.length
+      : typeof likesCountValue === "number" && Number.isFinite(likesCountValue)
+        ? Math.max(0, likesCountValue)
+        : 0,
+    likedByViewer: value["liked_by_me"] === true || value["likedByViewer"] === true,
+    likedByUsers,
   };
 }
 
@@ -348,10 +377,15 @@ function newestFirst(a: ProductReview, b: ProductReview): number {
   return b.createdAt.localeCompare(a.createdAt);
 }
 
-function localPublishedFor(productId?: string): ProductReview[] {
+function localPublishedFor(productId?: string, viewerId?: string): ProductReview[] {
   return readLocalReviews()
     .filter((review) => review.status === "published")
     .filter((review) => (productId ? review.productId === productId : true))
+    .map((review) => ({
+      ...review,
+      likesCount: review.likedByUsers ? review.likedByUsers.length : (review.likesCount ?? 0),
+      likedByViewer: Boolean(viewerId && review.likedByUsers?.includes(viewerId)),
+    }))
     .sort(newestFirst);
 }
 
@@ -384,6 +418,7 @@ function reviewError(error: { code?: string; message?: string }): Error {
  * is applied — and afterwards without another change.
  */
 let bodyColumn: "body" | "comment" = "body";
+let socialColumnsAvailable = true;
 
 /** Test hook: assume a project where the column is already `body`. */
 export function resetReviewBodyColumn(): void {
@@ -409,9 +444,16 @@ export function resetReviewMediaColumns(): void {
   mediaColumnsAvailable = true;
 }
 
+/** Test hook: assume reply/edit columns are present. */
+export function resetReviewSocialColumns(): void {
+  socialColumnsAvailable = true;
+}
+
 function reviewColumns(): string {
   const base = reviewBaseColumns();
-  return mediaColumnsAvailable ? `${base},${REVIEW_MEDIA_COLUMNS}` : base;
+  const media = mediaColumnsAvailable ? `,${REVIEW_MEDIA_COLUMNS}` : "";
+  const social = socialColumnsAvailable ? ",official_reply,replied_at,updated_at" : "";
+  return `${base}${media}${social}`;
 }
 
 function isMissingColumnError(value: unknown): boolean {
@@ -443,6 +485,14 @@ async function readReviewRows(
   run: (columns: string) => PromiseLike<ReviewQueryResult>,
 ): Promise<ReviewQueryResult> {
   let result = await run(reviewColumns());
+
+  if (result.error && isMissingSocialColumnError(result.error)) {
+    console.warn(
+      "ROELIX reviews: reply/edit columns are missing. Apply supabase/migrations/20261109164700_review_edit_replies_likes.sql.",
+    );
+    socialColumnsAvailable = false;
+    result = await run(reviewColumns());
+  }
 
   // The oldest deployed table called the text column `comment`.
   if (result.error && isMissingBodyColumn(result.error)) {
@@ -480,6 +530,49 @@ async function reviewClient(): Promise<
 }
 
 type ReviewSupabaseClient = NonNullable<Awaited<ReturnType<typeof reviewClient>>>;
+
+async function hydrateReviewLikes(
+  client: ReviewSupabaseClient,
+  reviews: ProductReview[],
+  viewerId?: string,
+): Promise<ProductReview[]> {
+  const withDefaults = reviews.map((review) => ({
+    ...review,
+    likesCount: review.likesCount ?? 0,
+    likedByViewer: false,
+  }));
+  const ids = withDefaults.map((review) => review.id).filter((id) => UUID_PATTERN.test(id));
+  if (!socialColumnsAvailable || ids.length === 0) return withDefaults;
+
+  try {
+    const { data, error } = await client.rpc("get_product_review_likes", {
+      p_review_ids: ids,
+    });
+    if (error) throw error;
+
+    const likesByReview = new Map<string, { count: number; liked: boolean }>();
+    if (Array.isArray(data)) {
+      for (const row of data) {
+        if (!isRecord(row) || typeof row["review_id"] !== "string") continue;
+        const count = Number(row["likes_count"]);
+        likesByReview.set(row["review_id"], {
+          count: Number.isFinite(count) ? Math.max(0, count) : 0,
+          liked: row["liked_by_me"] === true,
+        });
+      }
+    }
+
+    return withDefaults.map((review) => {
+      const like = likesByReview.get(review.id);
+      return like
+        ? { ...review, likesCount: like.count, likedByViewer: viewerId ? like.liked : false }
+        : review;
+    });
+  } catch (error) {
+    console.warn("ROELIX reviews: could not load review likes", error);
+    return withDefaults;
+  }
+}
 
 type ReviewInsertFields = {
   /** Client-generated id, used by the device queue so replays are idempotent. */
@@ -534,12 +627,17 @@ async function insertReview(
 // --- Reads ------------------------------------------------------------------
 
 /** Published reviews for one product. Falls back to the local cache on any failure. */
-export async function fetchProductReviews(productId: string): Promise<ProductReview[]> {
-  if (!reviewsCloudEnabled() || reviewCloudDisabled()) return localPublishedFor(productId);
+export async function fetchProductReviews(
+  productId: string,
+  viewerId?: string,
+): Promise<ProductReview[]> {
+  if (!reviewsCloudEnabled() || reviewCloudDisabled()) {
+    return localPublishedFor(productId, viewerId);
+  }
 
   try {
     const supabase = await reviewClient();
-    if (!supabase) return localPublishedFor(productId);
+    if (!supabase) return localPublishedFor(productId, viewerId);
 
     const { data, error } = await readReviewRows((columns) =>
       supabase
@@ -555,13 +653,14 @@ export async function fetchProductReviews(productId: string): Promise<ProductRev
     // The cloud answered, so anything queued on this device can go up now.
     void drainQueuedReviews();
 
-    return ((data ?? []) as unknown[])
+    const publishedReviews = ((data ?? []) as unknown[])
       .map(reviewFromRecord)
       .filter((review): review is ProductReview => review !== null);
+    return hydrateReviewLikes(supabase, publishedReviews, viewerId);
   } catch (error) {
     if (isReviewInfrastructureError(error)) tripCloudBreaker(error);
     else console.warn("ROELIX reviews: live fetch failed, using the local cache", error);
-    return localPublishedFor(productId);
+    return localPublishedFor(productId, viewerId);
   }
 }
 
@@ -668,6 +767,148 @@ export async function submitProductReview(input: ReviewInput): Promise<ProductRe
       return saveLocalReview(draft);
     }
     throw reviewError(readErrorShape(error));
+  }
+}
+
+export async function editOwnReview(input: {
+  reviewId: string;
+  authorId: string;
+  rating: number;
+  body: string;
+}): Promise<void> {
+  const body = input.body.trim();
+  if (
+    !input.authorId ||
+    clampRating(input.rating) === null ||
+    body.length < REVIEW_LIMITS.bodyMin ||
+    body.length > REVIEW_LIMITS.bodyMax
+  ) {
+    throw new Error("The review did not pass validation");
+  }
+
+  const editLocally = () => {
+    const review = readLocalReviews().find((item) => item.id === input.reviewId);
+    if (!review || review.authorId !== input.authorId) {
+      throw new Error("You can only edit a review written by your account.");
+    }
+    saveLocalReview({
+      ...review,
+      rating: clampRating(input.rating) ?? review.rating,
+      body,
+      status: "pending",
+      officialReply: null,
+      repliedAt: null,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  if (!reviewsCloudEnabled() || reviewCloudDisabled()) {
+    editLocally();
+    return;
+  }
+
+  try {
+    const supabase = await reviewClient();
+    if (!supabase) {
+      editLocally();
+      return;
+    }
+    const { data, error } = await supabase.rpc("edit_own_product_review", {
+      p_review_id: input.reviewId,
+      p_rating: input.rating,
+      p_body: body,
+    });
+    if (error) throw error;
+    if (data !== true) throw new Error("You can only edit a review written by your account.");
+  } catch (error) {
+    throw error instanceof Error ? error : reviewError(readErrorShape(error));
+  }
+}
+
+export async function saveReviewReply(reviewId: string, reply: string): Promise<void> {
+  const cleanedReply = reply.trim();
+  if (cleanedReply.length > REVIEW_LIMITS.bodyMax) {
+    throw new Error(`The reply must be no longer than ${REVIEW_LIMITS.bodyMax} characters.`);
+  }
+
+  const saveLocally = () => {
+    const existing = readLocalReviews().find((review) => review.id === reviewId);
+    if (!existing) throw new Error("This review is not available on this device.");
+    saveLocalReview({
+      ...existing,
+      officialReply: cleanedReply || null,
+      repliedAt: cleanedReply ? new Date().toISOString() : null,
+    });
+  };
+
+  if (!reviewsCloudEnabled() || reviewCloudDisabled()) {
+    saveLocally();
+    return;
+  }
+
+  try {
+    const supabase = await reviewClient();
+    if (!supabase) {
+      saveLocally();
+      return;
+    }
+    const { error } = await supabase
+      .from("product_reviews")
+      .update({
+        official_reply: cleanedReply || null,
+        replied_at: cleanedReply ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", reviewId);
+    if (error) throw error;
+  } catch (error) {
+    if (isReviewInfrastructureError(error)) {
+      tripCloudBreaker(error);
+      saveLocally();
+      return;
+    }
+    throw reviewError(readErrorShape(error));
+  }
+}
+
+export async function toggleReviewLike(
+  reviewId: string,
+  viewerId: string,
+): Promise<{ likesCount: number; likedByViewer: boolean }> {
+  if (!viewerId) throw new Error("Sign in to like a review.");
+
+  const toggleLocally = () => {
+    const existing = readLocalReviews().find((review) => review.id === reviewId);
+    if (!existing || existing.status !== "published") {
+      throw new Error("This review is not available on this device.");
+    }
+    const likedByUsers = existing.likedByUsers ?? [];
+    const liked = likedByUsers.includes(viewerId);
+    const nextLikedByUsers = liked
+      ? likedByUsers.filter((id) => id !== viewerId)
+      : [...likedByUsers, viewerId];
+    saveLocalReview({ ...existing, likedByUsers: nextLikedByUsers });
+    return { likesCount: nextLikedByUsers.length, likedByViewer: !liked };
+  };
+
+  if (!reviewsCloudEnabled() || reviewCloudDisabled()) return toggleLocally();
+
+  try {
+    const supabase = await reviewClient();
+    if (!supabase) return toggleLocally();
+    const { data, error } = await supabase.rpc("toggle_product_review_like", {
+      p_review_id: reviewId,
+    });
+    if (error) throw error;
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!isRecord(result)) throw new Error("The review reaction could not be updated.");
+    const count = Number(result["likes_count"]);
+    return {
+      likesCount: Number.isFinite(count) ? Math.max(0, count) : 0,
+      likedByViewer: result["liked_by_me"] === true,
+    };
+  } catch (error) {
+    throw error instanceof Error ? error : reviewError(readErrorShape(error));
   }
 }
 

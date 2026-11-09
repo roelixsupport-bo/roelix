@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   fetchProductReviews,
+  editOwnReview,
   reviewsCloudEnabled,
   submitProductReview,
   summarizeReviews,
+  toggleReviewLike,
   type ProductReview,
   type ReviewInput,
   type ReviewSummary,
@@ -16,6 +18,8 @@ export type UseProductReviews = {
   loading: boolean;
   submitting: boolean;
   submit: (input: Omit<ReviewInput, "productId">) => Promise<ProductReview | null>;
+  edit: (input: { reviewId: string; authorId: string; rating: number; body: string }) => Promise<void>;
+  toggleLike: (reviewId: string, viewerId: string) => Promise<void>;
   reload: () => Promise<void>;
 };
 
@@ -26,7 +30,10 @@ export type UseProductReviews = {
  * so the subscription is paired with a refresh on visibility/focus, matching the
  * catalogue sync strategy in the store.
  */
-export function useProductReviews(productId: string | undefined): UseProductReviews {
+export function useProductReviews(
+  productId: string | undefined,
+  viewerId?: string,
+): UseProductReviews {
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -38,13 +45,13 @@ export function useProductReviews(productId: string | undefined): UseProductRevi
       return;
     }
     try {
-      setReviews(await fetchProductReviews(productId));
+      setReviews(await fetchProductReviews(productId, viewerId));
     } catch (error) {
       console.warn("ROELIX reviews: could not refresh", error);
     } finally {
       setLoading(false);
     }
-  }, [productId]);
+  }, [productId, viewerId]);
 
   useEffect(() => {
     setLoading(true);
@@ -127,5 +134,31 @@ export function useProductReviews(productId: string | undefined): UseProductRevi
     [productId, reload],
   );
 
-  return { reviews, summary, loading, submitting, submit, reload };
+  const edit = useCallback(
+    async (input: { reviewId: string; authorId: string; rating: number; body: string }) => {
+      await editOwnReview(input);
+      await reload();
+    },
+    [reload],
+  );
+
+  const toggleLike = useCallback(
+    async (reviewId: string, currentViewerId: string) => {
+      const like = await toggleReviewLike(reviewId, currentViewerId);
+      setReviews((current) =>
+        current.map((review) =>
+          review.id === reviewId
+            ? {
+                ...review,
+                likesCount: like.likesCount,
+                likedByViewer: like.likedByViewer,
+              }
+            : review,
+        ),
+      );
+    },
+    [],
+  );
+
+  return { reviews, summary, loading, submitting, submit, edit, toggleLike, reload };
 }

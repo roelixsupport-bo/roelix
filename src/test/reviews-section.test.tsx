@@ -1,8 +1,13 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ReviewsSection } from "@/components/product/reviews-section";
+import {
+  ReviewsSection,
+  type ReviewEditSubmission,
+  type ReviewSubmission,
+} from "@/components/product/reviews-section";
 import { summarizeReviews, type ProductReview } from "@/lib/reviews";
 
 const stored: ProductReview[] = [
@@ -46,19 +51,30 @@ describe("reviews section", () => {
   async function render({
     onSubmit = vi.fn(async () => stored[0] ?? null),
     viewer = VIEWER as { id: string; name: string } | null,
+    reviews = stored,
+    onEdit,
+    onToggleLike,
+  }: {
+    onSubmit?: (input: ReviewSubmission) => Promise<ProductReview | null>;
+    viewer?: { id: string; name: string } | null;
+    reviews?: ProductReview[];
+    onEdit?: (input: ReviewEditSubmission) => Promise<void>;
+    onToggleLike?: (reviewId: string, viewerId: string) => Promise<void>;
   } = {}) {
     root = createRoot(container);
     await act(async () => {
       root?.render(
         <ReviewsSection
           isArabic={false}
-          reviews={stored}
-          summary={summarizeReviews(stored)}
+          reviews={reviews}
+          summary={summarizeReviews(reviews)}
           loading={false}
           submitting={false}
           viewer={viewer}
           onRequestSignIn={() => {}}
           onSubmit={onSubmit}
+          {...(onEdit ? { onEdit } : {})}
+          {...(onToggleLike ? { onToggleLike } : {})}
         />,
       );
     });
@@ -117,5 +133,30 @@ describe("reviews section", () => {
 
     expect(form()).toBeNull();
     expect(container.textContent).toContain("Nour");
+  });
+
+  it("shows a public reply and lets the review owner edit and like", async () => {
+    const ownReview = {
+      ...stored[0]!,
+      authorId: VIEWER.id,
+      officialReply: "Thank you for your feedback.",
+      likesCount: 2,
+    };
+    const onEdit = vi.fn(async (_input: ReviewEditSubmission) => {});
+    const onToggleLike = vi.fn(async () => {});
+
+    await render({ reviews: [ownReview], onEdit, onToggleLike });
+
+    expect(container.textContent).toContain("Thank you for your feedback.");
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="Edit your review"]')!.click();
+    });
+    expect(container.querySelector("#edit-review-r1")).toBeInTheDocument();
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="Like review"]')!.click();
+    });
+    await waitFor(() => expect(onToggleLike).toHaveBeenCalledWith("r1", VIEWER.id));
+    expect(container.textContent).toContain("2");
   });
 });
