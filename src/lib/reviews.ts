@@ -365,9 +365,8 @@ function reviewError(error: { code?: string; message?: string }): Error {
     return new Error("Only a ROELIX administrator can change the status of a review.");
   }
   if (error.code === "23514" && /status/i.test(error.message ?? "")) {
-    // The table still only allows published/hidden, so pending inserts are rejected.
     return new Error(
-      "Review approval is not enabled on this project yet. Apply the 20261028160000 review approval migration.",
+      "The database rejected this review status. Apply the 20261109153200 repair review status constraint migration.",
     );
   }
   if (error.code === "23514") {
