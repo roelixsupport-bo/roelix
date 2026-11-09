@@ -59,7 +59,7 @@ describe("review form with a broken photo upload", () => {
     root = undefined;
   });
 
-  it("still sends the review, without the photo, and says so", async () => {
+  it("keeps the review draft and asks the customer to retry instead of dropping the photo", async () => {
     const onSubmit = vi.fn(async (_input: ReviewSubmission) => stored[0] ?? null);
 
     root = createRoot(container);
@@ -100,15 +100,10 @@ describe("review form with a broken photo upload", () => {
         .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
 
-    expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
-      rating: 5,
-      imageUrl: null,
-      authorId: "user-1",
-    });
-    expect(container.textContent).toContain("Your review was sent without the photo");
-    // The draft is cleared, so the customer is not left re-sending it.
-    expect(body.value).toBe("");
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("The photo upload timed out.");
+    expect(body.value).toBe("The sateen is cool to the touch.");
+    expect(container.querySelector('input[type="file"]')).not.toBeNull();
   });
 });
 

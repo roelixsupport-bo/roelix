@@ -134,5 +134,9 @@ export async function uploadReviewImage(
     );
   }
 
-  return bucket.getPublicUrl(path).data.publicUrl;
+  const publicUrl = bucket.getPublicUrl(path).data.publicUrl;
+  if (!/^https?:\/\//i.test(publicUrl)) {
+    throw new Error("The uploaded photo did not return a valid public URL.");
+  }
+  return publicUrl;
 }

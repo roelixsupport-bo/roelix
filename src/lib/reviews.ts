@@ -395,6 +395,9 @@ function localQueue(): ProductReview[] {
 
 /** Turns a Supabase error into something the storefront can show a customer. */
 function reviewError(error: { code?: string; message?: string }): Error {
+  if (error.code === "review_photo_schema_missing") {
+    return new Error(error.message ?? "The review photo could not be saved. Apply the review image schema migration.");
+  }
   if (error.code === "42501") {
     return new Error("Only a ROELIX administrator can change the status of a review.");
   }
@@ -618,6 +621,15 @@ async function insertReview(
     result = await client.from("product_reviews").insert(payload());
   }
   if (result.error && isMissingColumnError(result.error)) {
+    if (fields.imageUrl) {
+      return {
+        error: {
+          code: "review_photo_schema_missing",
+          message:
+            "The review photo could not be attached because the database is missing image_url. Apply supabase/migrations/20261109220330_repair_review_image_schema.sql and try again.",
+        },
+      };
+    }
     mediaColumnsAvailable = false;
     result = await client.from("product_reviews").insert(payload());
   }

@@ -42,7 +42,7 @@ const COPY = {
     photoWrongType: "Choose a JPG, PNG or WebP photo.",
     photoFailed: "The photo could not be uploaded. Try again.",
     photoDropped:
-      "Your review was sent without the photo — the upload did not finish. You can review it on the product page later.",
+      "The photo could not be uploaded. Your review was not sent; please retry or remove the photo.",
     submit: "Submit review",
     submitting: "Sending…",
     success: "Thank you — your review is with our team for approval.",
@@ -93,8 +93,7 @@ const COPY = {
     photoTooLarge: "حجم الصورة أكبر من 5 ميجابايت.",
     photoWrongType: "اختر صورة JPG أو PNG أو WebP.",
     photoFailed: "تعذر رفع الصورة. حاول مرة أخرى.",
-    photoDropped:
-      "تم إرسال تقييمك بدون الصورة — لم يكتمل رفع الصورة. يمكنك إرفاقها لاحقاً من صفحة المنتج.",
+    photoDropped: "تعذر رفع الصورة، لذلك لم يُرسل التقييم. أعد المحاولة أو أزل الصورة.",
     submit: "إرسال التقييم",
     submitting: "جارٍ الإرسال…",
     success: "شكراً لك — تقييمك بانتظار موافقة فريقنا.",
@@ -332,19 +331,21 @@ export function ReviewsSection({
     setPhotoNotice(null);
     setUploading(true);
 
-    // The photo is a bonus, the review is the point: an upload that fails or
-    // stalls must not hold the customer's words hostage.
     let imageUrl: string | null = null;
-    let photoDropped = false;
     if (imageFile) {
       try {
         imageUrl = await uploadReviewImage(imageFile, viewer.id);
       } catch (photoFailure) {
-        photoDropped = true;
         console.warn(
-          "ROELIX reviews: sending the review without its photo — the upload did not complete",
+          "ROELIX reviews: the review photo upload did not complete",
           photoFailure,
         );
+        setUploading(false);
+        const message =
+          photoFailure instanceof Error ? photoFailure.message : copy.photoDropped;
+        setPhotoError(message);
+        toast.error(message);
+        return;
       }
     }
 
@@ -359,7 +360,6 @@ export function ReviewsSection({
       if (!saved) return;
 
       toast.success(copy.success);
-      if (photoDropped) setPhotoNotice(copy.photoDropped);
       setRating(0);
       setBody("");
       setImageFile(null);
