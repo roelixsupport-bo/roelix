@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { readCustomBundleSettings } from "@/lib/local-data";
 import { CATEGORIES, useStore } from "@/lib/store";
 import { ProductCard } from "@/components/site/productcard";
+import heroImage from "@/assets/hero.jpg";
+import beddingImage from "@/assets/p_pedding.jpg";
+import towelImage from "@/assets/p_towel.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -44,7 +47,7 @@ function Home() {
   return (
     <>
       <section className="overflow-hidden border-b border-gold/20 bg-gradient-to-br from-secondary via-background to-accent/30">
-        <div className="mx-auto flex min-h-[19rem] max-w-7xl items-center px-5 py-14 sm:min-h-[26rem] sm:px-8 sm:py-20 lg:min-h-[30rem]">
+        <div className="mx-auto grid max-w-7xl items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:min-h-[30rem] lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:py-20">
           <div className="max-w-3xl animate-rise">
             <h1 className="mt-5 max-w-2xl font-serif text-[clamp(2rem,5vw,3.75rem)] leading-[1.08] text-foreground">
               Refined Elegance for Your Home
@@ -61,6 +64,23 @@ function Home() {
                   {s.lang === "ar" ? "أنشئ طقمك الفاخر" : "Build a Custom Set"}
                 </Link>
               )}
+            </div>
+          </div>
+          <div
+            aria-hidden="true"
+            className="hero-showcase relative mx-auto h-44 w-full max-w-[30rem] sm:h-56 lg:h-[22rem] lg:max-w-none"
+          >
+            <img
+              src={heroImage}
+              alt=""
+              className="absolute inset-0 h-full w-full rounded-sm object-cover object-[68%_center] shadow-lux"
+            />
+            <div className="absolute inset-0 rounded-sm bg-gradient-to-t from-navy/25 via-transparent to-white/10" />
+            <div className="hero-showcase-card hero-showcase-card-one absolute bottom-[7%] left-[5%] w-[24%] overflow-hidden border-4 border-background shadow-lux sm:w-[25%]">
+              <img src={beddingImage} alt="" className="aspect-[4/5] h-full w-full object-cover" />
+            </div>
+            <div className="hero-showcase-card hero-showcase-card-two absolute right-[5%] top-[6%] w-[24%] overflow-hidden border-4 border-background shadow-lux sm:w-[25%]">
+              <img src={towelImage} alt="" className="aspect-[4/5] h-full w-full object-cover" />
             </div>
           </div>
         </div>
