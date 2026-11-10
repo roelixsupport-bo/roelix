@@ -3,9 +3,7 @@ import { useEffect, useState } from "react";
 import { readCustomBundleSettings } from "@/lib/local-data";
 import { CATEGORIES, useStore } from "@/lib/store";
 import { ProductCard } from "@/components/site/productcard";
-import heroImage from "@/assets/hero.jpg";
-import beddingImage from "@/assets/p_pedding.jpg";
-import towelImage from "@/assets/p_towel.jpg";
+import { HeroSlider } from "@/components/site/hero-slider";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -66,23 +64,7 @@ function Home() {
               )}
             </div>
           </div>
-          <div
-            aria-hidden="true"
-            className="hero-showcase relative mx-auto h-44 w-full max-w-[30rem] sm:h-56 lg:h-[22rem] lg:max-w-none"
-          >
-            <img
-              src={heroImage}
-              alt=""
-              className="absolute inset-0 h-full w-full rounded-sm object-cover object-[68%_center] shadow-lux"
-            />
-            <div className="absolute inset-0 rounded-sm bg-gradient-to-t from-navy/25 via-transparent to-white/10" />
-            <div className="hero-showcase-card hero-showcase-card-one absolute bottom-[7%] left-[5%] w-[24%] overflow-hidden border-4 border-background shadow-lux sm:w-[25%]">
-              <img src={beddingImage} alt="" className="aspect-[4/5] h-full w-full object-cover" />
-            </div>
-            <div className="hero-showcase-card hero-showcase-card-two absolute right-[5%] top-[6%] w-[24%] overflow-hidden border-4 border-background shadow-lux sm:w-[25%]">
-              <img src={towelImage} alt="" className="aspect-[4/5] h-full w-full object-cover" />
-            </div>
-          </div>
+          <HeroSlider />
         </div>
       </section>
 
