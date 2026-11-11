@@ -42,8 +42,9 @@ describe("hero image slider", () => {
     fireEvent.click(thirdSlideButton);
 
     expect(thirdSlideButton).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("img", { name: "A plush pillow crafted for a restful night's sleep" }))
-      .toHaveAttribute("aria-hidden", "false");
+    expect(
+      screen.getByRole("img", { name: "A plush pillow crafted for a restful night's sleep" }),
+    ).toHaveAttribute("aria-hidden", "false");
   });
 
   it("uses active images managed from the dashboard", async () => {

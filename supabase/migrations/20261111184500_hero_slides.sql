@@ -17,10 +17,10 @@ grant insert, update, delete on public.hero_slides to authenticated;
 
 drop policy if exists "Anyone can read active hero slides" on public.hero_slides;
 drop policy if exists "Anyone can read hero slides" on public.hero_slides;
-create policy "Anyone can read hero slides"
+create policy "Anyone can read active hero slides"
   on public.hero_slides for select
   to anon, authenticated
-  using (true);
+  using (is_active);
 
 drop policy if exists "Admins can read all hero slides" on public.hero_slides;
 create policy "Admins can read all hero slides"

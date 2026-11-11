@@ -1,6 +1,11 @@
 export const HERO_SLIDE_BUCKET = "hero-slides";
 export const HERO_SLIDE_MAX_BYTES = 15 * 1024 * 1024;
-export const HERO_SLIDE_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"] as const;
+export const HERO_SLIDE_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+] as const;
 
 export type HeroSlide = {
   id: string;
@@ -41,7 +46,9 @@ export async function fetchHeroSlides(): Promise<HeroSlide[]> {
   return data ?? [];
 }
 
-export async function uploadHeroSlideImage(file: File): Promise<{ imageUrl: string; path: string }> {
+export async function uploadHeroSlideImage(
+  file: File,
+): Promise<{ imageUrl: string; path: string }> {
   const validationError = heroSlideImageError(file);
   if (validationError) throw new Error(validationError);
 
@@ -92,7 +99,9 @@ export async function createHeroSlide(input: {
   if (!error) return;
   const { error: cleanupError } = await supabase.storage.from(HERO_SLIDE_BUCKET).remove([path]);
   if (cleanupError) {
-    throw new Error(`${error.message}. The uploaded image also could not be cleaned up: ${cleanupError.message}`);
+    throw new Error(
+      `${error.message}. The uploaded image also could not be cleaned up: ${cleanupError.message}`,
+    );
   }
   throw error;
 }
@@ -117,7 +126,9 @@ export async function replaceHeroSlideImage(slide: HeroSlide, file: File): Promi
   if (error) {
     const { error: cleanupError } = await supabase.storage.from(HERO_SLIDE_BUCKET).remove([path]);
     if (cleanupError) {
-      throw new Error(`${error.message}. The replacement image also could not be cleaned up: ${cleanupError.message}`);
+      throw new Error(
+        `${error.message}. The replacement image also could not be cleaned up: ${cleanupError.message}`,
+      );
     }
     throw error;
   }
@@ -127,7 +138,9 @@ export async function replaceHeroSlideImage(slide: HeroSlide, file: File): Promi
       .from(HERO_SLIDE_BUCKET)
       .remove([slide.storage_path]);
     if (cleanupError) {
-      throw new Error(`The slide image was changed, but the previous image could not be removed: ${cleanupError.message}`);
+      throw new Error(
+        `The slide image was changed, but the previous image could not be removed: ${cleanupError.message}`,
+      );
     }
   }
 }
@@ -142,7 +155,9 @@ export async function deleteHeroSlide(slide: HeroSlide): Promise<void> {
       .from(HERO_SLIDE_BUCKET)
       .remove([slide.storage_path]);
     if (cleanupError) {
-      throw new Error(`The slide was deleted, but its image could not be removed: ${cleanupError.message}`);
+      throw new Error(
+        `The slide was deleted, but its image could not be removed: ${cleanupError.message}`,
+      );
     }
   }
 }

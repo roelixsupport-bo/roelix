@@ -600,7 +600,16 @@ function Admin() {
 
   const visibleTabs: AdminTab[] =
     role === "admin"
-      ? ["products", "hero", "orders", "customers", "reviews", "subscribers", "analytics", "settings"]
+      ? [
+          "products",
+          "hero",
+          "orders",
+          "customers",
+          "reviews",
+          "subscribers",
+          "analytics",
+          "settings",
+        ]
       : ["orders"];
   const activeTab: AdminTab = role === "staff" ? "orders" : tab;
 

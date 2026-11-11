@@ -9,8 +9,16 @@ import { fetchHeroSlides } from "@/lib/hero-slides";
 const SLIDE_INTERVAL_MS = 4_500;
 
 const FALLBACK_SLIDES = [
-  { id: "bedroom", src: bedroomImage, alt: "An elegant bedroom styled with luxurious ROELIX bedding" },
-  { id: "bedding", src: beddingImage, alt: "Soft, premium bedding in a refined navy and ivory palette" },
+  {
+    id: "bedroom",
+    src: bedroomImage,
+    alt: "An elegant bedroom styled with luxurious ROELIX bedding",
+  },
+  {
+    id: "bedding",
+    src: beddingImage,
+    alt: "Soft, premium bedding in a refined navy and ivory palette",
+  },
   { id: "pillow", src: pillowImage, alt: "A plush pillow crafted for a restful night's sleep" },
   { id: "towel", src: towelImage, alt: "Hotel-quality towels in timeless neutral colors" },
 ];
@@ -28,15 +36,18 @@ export function HeroSlider() {
           rows
             .filter((slide) => slide.is_active)
             .map((slide) => ({
-            id: slide.id,
-            src: slide.image_url,
-            alt: slide.alt_text,
+              id: slide.id,
+              src: slide.image_url,
+              alt: slide.alt_text,
             })),
         );
         setActiveIndex(0);
       })
       .catch((error) => {
-        console.warn("ROELIX hero slider: could not load managed slides; using built-in images.", error);
+        console.warn(
+          "ROELIX hero slider: could not load managed slides; using built-in images.",
+          error,
+        );
       });
 
     return () => {
@@ -75,7 +86,11 @@ export function HeroSlider() {
         ))}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy/20 via-transparent to-white/10" />
       </div>
-      <div aria-label="Choose a featured image" className="mt-3 flex justify-center gap-1" role="group">
+      <div
+        aria-label="Choose a featured image"
+        className="mt-3 flex justify-center gap-1"
+        role="group"
+      >
         {slides.map((slide, index) => (
           <button
             key={slide.id}

@@ -119,14 +119,11 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
       toast.error(text.altRequired);
       return;
     }
-    void run(
-      async () => {
-        await createHeroSlide({ file: newFile, altText: newAltText, sortOrder: slides.length });
-        setNewFile(null);
-        setNewAltText("");
-      },
-      text.added,
-    );
+    void run(async () => {
+      await createHeroSlide({ file: newFile, altText: newAltText, sortOrder: slides.length });
+      setNewFile(null);
+      setNewAltText("");
+    }, text.added);
   }
 
   function moveSlide(index: number, offset: -1 | 1) {
@@ -181,7 +178,11 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
         </button>
       </div>
 
-      {loading && <p role="status" className="text-sm text-muted-foreground">{text.loading}</p>}
+      {loading && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {text.loading}
+        </p>
+      )}
       {!loading && slides.length === 0 && (
         <p className="border p-6 text-muted-foreground">{text.noSlides}</p>
       )}
@@ -215,7 +216,8 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
                   disabled={busy || !(altDrafts[slide.id] ?? "").trim()}
                   onClick={() =>
                     void run(
-                      () => updateHeroSlide(slide.id, { alt_text: altDrafts[slide.id]?.trim() ?? "" }),
+                      () =>
+                        updateHeroSlide(slide.id, { alt_text: altDrafts[slide.id]?.trim() ?? "" }),
                       text.saved,
                     )
                   }
@@ -236,7 +238,11 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
                   }
                   className="hover:text-gold disabled:opacity-50"
                 >
-                  {slide.is_active ? <Eye size={16} aria-hidden="true" /> : <EyeOff size={16} aria-hidden="true" />}
+                  {slide.is_active ? (
+                    <Eye size={16} aria-hidden="true" />
+                  ) : (
+                    <EyeOff size={16} aria-hidden="true" />
+                  )}
                 </button>
                 <button
                   type="button"
@@ -279,7 +285,8 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
                   title={text.remove}
                   disabled={busy}
                   onClick={() => {
-                    if (confirm(text.confirmDelete)) void run(() => deleteHeroSlide(slide), text.deleted);
+                    if (confirm(text.confirmDelete))
+                      void run(() => deleteHeroSlide(slide), text.deleted);
                   }}
                   className="text-muted-foreground hover:text-destructive disabled:opacity-50"
                 >
