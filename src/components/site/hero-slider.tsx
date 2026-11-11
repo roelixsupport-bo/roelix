@@ -4,28 +4,55 @@ import bedroomImage from "@/assets/hero.jpg";
 import beddingImage from "@/assets/p_pedding.jpg";
 import pillowImage from "@/assets/p_pillow.jpg";
 import towelImage from "@/assets/p_towel.jpg";
+import { fetchHeroSlides } from "@/lib/hero-slides";
 
 const SLIDE_INTERVAL_MS = 4_500;
 
-const slides = [
-  { src: bedroomImage, alt: "An elegant bedroom styled with luxurious ROELIX bedding" },
-  { src: beddingImage, alt: "Soft, premium bedding in a refined navy and ivory palette" },
-  { src: pillowImage, alt: "A plush pillow crafted for a restful night's sleep" },
-  { src: towelImage, alt: "Hotel-quality towels in timeless neutral colors" },
+const FALLBACK_SLIDES = [
+  { id: "bedroom", src: bedroomImage, alt: "An elegant bedroom styled with luxurious ROELIX bedding" },
+  { id: "bedding", src: beddingImage, alt: "Soft, premium bedding in a refined navy and ivory palette" },
+  { id: "pillow", src: pillowImage, alt: "A plush pillow crafted for a restful night's sleep" },
+  { id: "towel", src: towelImage, alt: "Hotel-quality towels in timeless neutral colors" },
 ];
 
 export function HeroSlider() {
+  const [slides, setSlides] = useState(FALLBACK_SLIDES);
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let active = true;
+    void fetchHeroSlides()
+      .then((rows) => {
+        if (!active || rows.length === 0) return;
+        setSlides(
+          rows
+            .filter((slide) => slide.is_active)
+            .map((slide) => ({
+            id: slide.id,
+            src: slide.image_url,
+            alt: slide.alt_text,
+            })),
+        );
+        setActiveIndex(0);
+      })
+      .catch((error) => {
+        console.warn("ROELIX hero slider: could not load managed slides; using built-in images.", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (slides.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const timer = window.setInterval(() => {
       setActiveIndex((index) => (index + 1) % slides.length);
     }, SLIDE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
   return (
     <div className="w-full">
@@ -37,7 +64,7 @@ export function HeroSlider() {
       >
         {slides.map((slide, index) => (
           <img
-            key={slide.src}
+            key={slide.id}
             src={slide.src}
             alt={slide.alt}
             aria-hidden={index !== activeIndex}
@@ -51,7 +78,7 @@ export function HeroSlider() {
       <div aria-label="Choose a featured image" className="mt-3 flex justify-center gap-1" role="group">
         {slides.map((slide, index) => (
           <button
-            key={slide.src}
+            key={slide.id}
             type="button"
             aria-label={`Show image ${index + 1}: ${slide.alt}`}
             aria-pressed={index === activeIndex}

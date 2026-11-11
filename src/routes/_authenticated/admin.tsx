@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { BarChart3, Plus, Search, Settings2, UsersRound, X } from "lucide-react";
+import { BarChart3, Image, Plus, Search, Settings2, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   clearLocalAnalyticsEvents,
@@ -31,6 +31,7 @@ import { supabase } from "@/lib/supabase";
 import { BOSTA_SHIPPING_RATES, type EgyptGovernorate } from "@/lib/shipping";
 import { productFromCloud, productToCloud } from "@/lib/cloud-catalog";
 import { CustomersPanel } from "@/components/admin/customers-panel";
+import { HeroSlidesPanel } from "@/components/admin/hero-slides-panel";
 import { OrderLineRestock } from "@/components/admin/order-line-restock";
 import { ProductActions } from "@/components/admin/product-actions";
 import { ReviewsPanel } from "@/components/admin/reviews-panel";
@@ -72,6 +73,7 @@ const ADMIN_COPY = {
     orders: "Orders",
     customers: "Customers",
     products: "Products",
+    hero: "Hero slider",
     reviews: "Customer reviews",
     subscribers: "Email opt-ins",
     analytics: "Analytics & AI Insights",
@@ -185,6 +187,7 @@ const ADMIN_COPY = {
     orders: "الطلبات",
     customers: "العملاء",
     products: "المنتجات",
+    hero: "سلايدر الواجهة",
     reviews: "تقييمات العملاء",
     subscribers: "اشتراكات البريد",
     analytics: "تحليلات الذكاء الاصطناعي وسلوك العملاء",
@@ -302,6 +305,7 @@ const blank = (): Product => ({
 
 type AdminTab =
   | "products"
+  | "hero"
   | "orders"
   | "customers"
   | "reviews"
@@ -596,7 +600,7 @@ function Admin() {
 
   const visibleTabs: AdminTab[] =
     role === "admin"
-      ? ["products", "orders", "customers", "reviews", "subscribers", "analytics", "settings"]
+      ? ["products", "hero", "orders", "customers", "reviews", "subscribers", "analytics", "settings"]
       : ["orders"];
   const activeTab: AdminTab = role === "staff" ? "orders" : tab;
 
@@ -781,6 +785,7 @@ function Admin() {
             {t === "customers" && <UsersRound size={16} aria-hidden="true" />}
             {t === "analytics" && <BarChart3 size={16} aria-hidden="true" />}
             {t === "settings" && <Settings2 size={16} aria-hidden="true" />}
+            {t === "hero" && <Image size={16} aria-hidden="true" />}
             {text[t]}
           </button>
         ))}
@@ -1005,6 +1010,8 @@ function Admin() {
             </div>
           ))}
         </div>
+      ) : activeTab === "hero" ? (
+        <HeroSlidesPanel isArabic={isArabic} />
       ) : activeTab === "subscribers" ? (
         <div className="mt-6 space-y-4">
           {loading && (
