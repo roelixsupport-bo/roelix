@@ -44,28 +44,18 @@ function Home() {
   const list = s.products.filter((p) => p.isPublished && (cat === "All" || p.category === cat));
   return (
     <>
-      <section className="overflow-hidden border-b border-gold/20 bg-gradient-to-br from-secondary via-background to-accent/30">
-        <div className="mx-auto grid max-w-7xl items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:min-h-[30rem] lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:py-20">
-          <div className="max-w-3xl animate-rise">
-            <h1 className="mt-5 max-w-2xl font-serif text-[clamp(2rem,5vw,3.75rem)] leading-[1.08] text-foreground">
-              Refined Elegance for Your Home
-            </h1>
-            <div className="mt-7 flex flex-col items-start gap-3 sm:mt-9 sm:flex-row sm:flex-wrap">
-              <Link to="/shop" className="btn-lux">
-                Explore The Collection
-              </Link>
-              {bundleEnabled && (
-                <Link
-                  to="/custom-bundle"
-                  className="inline-flex items-center justify-center border border-navy/35 px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-foreground transition-colors hover:border-gold hover:bg-gold/10"
-                >
-                  {s.lang === "ar" ? "أنشئ طقمك الفاخر" : "Build a Custom Set"}
-                </Link>
-              )}
-            </div>
-          </div>
-          <HeroSlider />
+      {bundleEnabled && (
+        <div className="mx-auto max-w-7xl px-4 py-4 text-center sm:px-6 sm:py-5">
+          <Link
+            to="/custom-bundle"
+            className="font-serif text-xl text-foreground underline decoration-gold decoration-1 underline-offset-4 transition-colors hover:text-gold sm:text-2xl"
+          >
+            {s.lang === "ar" ? "أنشئ طقمك الفاخر" : "Build a Custom Set"}
+          </Link>
         </div>
+      )}
+      <section aria-label="Featured collection">
+        <HeroSlider />
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20 lg:py-24">

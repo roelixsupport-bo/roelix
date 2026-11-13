@@ -1,7 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { BarChart3, CreditCard, Image, Plus, Search, Settings2, UsersRound, X } from "lucide-react";
+import {
+  BarChart3,
+  CreditCard,
+  Image,
+  Megaphone,
+  Plus,
+  Search,
+  Settings2,
+  UsersRound,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   clearLocalAnalyticsEvents,
@@ -35,6 +45,7 @@ import { HeroSlidesPanel } from "@/components/admin/hero-slides-panel";
 import { PaymentSettingsPanel } from "@/components/admin/payment-settings-panel";
 import { PaymentReceiptLink } from "@/components/admin/payment-receipt-link";
 import { SiteBrandingSettings } from "@/components/admin/site-branding-settings";
+import { PromoSlidesPanel } from "@/components/admin/promo-slides-panel";
 import { OrderLineRestock } from "@/components/admin/order-line-restock";
 import { ProductActions } from "@/components/admin/product-actions";
 import { ReviewsPanel } from "@/components/admin/reviews-panel";
@@ -77,6 +88,7 @@ const ADMIN_COPY = {
     customers: "Customers",
     products: "Products",
     hero: "Hero slider",
+    promotions: "Promotions",
     payments: "Payment methods",
     reviews: "Customer reviews",
     subscribers: "Email opt-ins",
@@ -194,6 +206,7 @@ const ADMIN_COPY = {
     customers: "العملاء",
     products: "المنتجات",
     hero: "سلايدر الواجهة",
+    promotions: "العروض الترويجية",
     payments: "طرق الدفع",
     reviews: "تقييمات العملاء",
     subscribers: "اشتراكات البريد",
@@ -315,6 +328,7 @@ const blank = (): Product => ({
 type AdminTab =
   | "products"
   | "hero"
+  | "promotions"
   | "payments"
   | "orders"
   | "customers"
@@ -623,6 +637,7 @@ function Admin() {
       ? [
           "products",
           "hero",
+          "promotions",
           "payments",
           "orders",
           "customers",
@@ -816,6 +831,7 @@ function Admin() {
             {t === "analytics" && <BarChart3 size={16} aria-hidden="true" />}
             {t === "settings" && <Settings2 size={16} aria-hidden="true" />}
             {t === "hero" && <Image size={16} aria-hidden="true" />}
+            {t === "promotions" && <Megaphone size={16} aria-hidden="true" />}
             {t === "payments" && <CreditCard size={16} aria-hidden="true" />}
             {text[t]}
           </button>
@@ -1057,6 +1073,8 @@ function Admin() {
         </div>
       ) : activeTab === "hero" ? (
         <HeroSlidesPanel isArabic={isArabic} />
+      ) : activeTab === "promotions" ? (
+        <PromoSlidesPanel isArabic={isArabic} />
       ) : activeTab === "payments" ? (
         <PaymentSettingsPanel isArabic={isArabic} />
       ) : activeTab === "subscribers" ? (

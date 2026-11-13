@@ -4,8 +4,25 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { HeroSlider } from "@/components/site/hero-slider";
 import { fetchHeroSlides } from "@/lib/hero-slides";
 
+const mocks = vi.hoisted(() => ({
+  settings: null as {
+    cta_enabled: boolean;
+    cta_label_en: string;
+    cta_label_ar: string;
+    cta_url: string;
+  } | null,
+}));
+
 vi.mock("@/lib/hero-slides", () => ({
   fetchHeroSlides: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/site-settings", () => ({
+  useSiteSettings: vi.fn(() => ({ settings: mocks.settings })),
+}));
+
+vi.mock("@/lib/store", () => ({
+  useStore: vi.fn(() => ({ lang: "en" })),
 }));
 
 describe("hero image slider", () => {
@@ -17,6 +34,7 @@ describe("hero image slider", () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
+    mocks.settings = null;
   });
 
   it("fades to the next image every four and a half seconds", async () => {
@@ -67,5 +85,21 @@ describe("hero image slider", () => {
       "https://example.supabase.co/storage/hero.jpg",
     );
     expect(screen.getAllByRole("img")).toHaveLength(1);
+  });
+
+  it("shows a configured hero call-to-action only when enabled", () => {
+    mocks.settings = {
+      cta_enabled: true,
+      cta_label_en: "Build a set",
+      cta_label_ar: "صمم طقماً",
+      cta_url: "/custom-set",
+    };
+
+    render(<HeroSlider />);
+
+    expect(screen.getByRole("link", { name: "Build a set" })).toHaveAttribute(
+      "href",
+      "/custom-set",
+    );
   });
 });

@@ -5,6 +5,9 @@ import beddingImage from "@/assets/p_pedding.jpg";
 import pillowImage from "@/assets/p_pillow.jpg";
 import towelImage from "@/assets/p_towel.jpg";
 import { fetchHeroSlides } from "@/lib/hero-slides";
+import { isAllowedPromoUrl } from "@/lib/promo-slides";
+import { useSiteSettings } from "@/lib/site-settings";
+import { useStore } from "@/lib/store";
 
 const SLIDE_INTERVAL_MS = 4_500;
 
@@ -24,6 +27,8 @@ const FALLBACK_SLIDES = [
 ];
 
 export function HeroSlider() {
+  const { settings } = useSiteSettings();
+  const { lang } = useStore();
   const [slides, setSlides] = useState(FALLBACK_SLIDES);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -70,7 +75,7 @@ export function HeroSlider() {
       <div
         aria-label="Featured ROELIX home collection"
         aria-roledescription="carousel"
-        className="hero-slider relative h-52 w-full overflow-hidden rounded-sm bg-secondary shadow-lux sm:h-72 lg:h-[22rem]"
+        className="hero-slider relative h-[clamp(15rem,48vw,42rem)] w-full overflow-hidden bg-secondary"
         role="region"
       >
         {slides.map((slide, index) => (
@@ -85,6 +90,17 @@ export function HeroSlider() {
           />
         ))}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy/20 via-transparent to-white/10" />
+        {settings?.cta_enabled &&
+          settings.cta_label_en.trim() &&
+          settings.cta_label_ar.trim() &&
+          isAllowedPromoUrl(settings.cta_url) && (
+            <a
+              href={settings.cta_url}
+              className="btn-lux absolute bottom-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap px-5 py-3 text-center text-[0.62rem] sm:bottom-12 sm:px-8 sm:py-4 sm:text-xs"
+            >
+              {lang === "ar" ? settings.cta_label_ar : settings.cta_label_en}
+            </a>
+          )}
       </div>
       <div
         aria-label="Choose a featured image"

@@ -176,6 +176,27 @@
   }
 }
 
+@keyframes promo-banner-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.promo-banner-message {
+  animation: promo-banner-enter 450ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promo-banner-message {
+    animation: none;
+  }
+}
+
 @utility btn-ghost-lux {
   display: inline-flex;
   align-items: center;
