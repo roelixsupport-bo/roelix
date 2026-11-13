@@ -142,7 +142,10 @@ export function readOrders(): Order[] {
           typeof order["subtotal"] === "number" &&
           typeof order["shipping"] === "number" &&
           typeof order["total"] === "number" &&
-          (order["payment"] === "card" || order["payment"] === "cod") &&
+          (order["payment"] === "card" ||
+            order["payment"] === "cod" ||
+            order["payment"] === "vodafone_cash" ||
+            order["payment"] === "instapay") &&
           ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"].includes(
             String(order["status"]),
           ),

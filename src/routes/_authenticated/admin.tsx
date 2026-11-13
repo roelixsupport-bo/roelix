@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { BarChart3, Image, Plus, Search, Settings2, UsersRound, X } from "lucide-react";
+import { BarChart3, CreditCard, Image, Plus, Search, Settings2, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   clearLocalAnalyticsEvents,
@@ -32,6 +32,8 @@ import { BOSTA_SHIPPING_RATES, type EgyptGovernorate } from "@/lib/shipping";
 import { productFromCloud, productToCloud } from "@/lib/cloud-catalog";
 import { CustomersPanel } from "@/components/admin/customers-panel";
 import { HeroSlidesPanel } from "@/components/admin/hero-slides-panel";
+import { PaymentSettingsPanel } from "@/components/admin/payment-settings-panel";
+import { PaymentReceiptLink } from "@/components/admin/payment-receipt-link";
 import { OrderLineRestock } from "@/components/admin/order-line-restock";
 import { ProductActions } from "@/components/admin/product-actions";
 import { ReviewsPanel } from "@/components/admin/reviews-panel";
@@ -74,6 +76,7 @@ const ADMIN_COPY = {
     customers: "Customers",
     products: "Products",
     hero: "Hero slider",
+    payments: "Payment methods",
     reviews: "Customer reviews",
     subscribers: "Email opt-ins",
     analytics: "Analytics & AI Insights",
@@ -126,6 +129,8 @@ const ADMIN_COPY = {
     items: "Items",
     cashOnDelivery: "Cash on delivery",
     card: "Card",
+    vodafoneCash: "Vodafone Cash",
+    instapay: "InstaPay",
     editProduct: "Edit product",
     newProduct: "New product",
     name: "Name",
@@ -188,6 +193,7 @@ const ADMIN_COPY = {
     customers: "العملاء",
     products: "المنتجات",
     hero: "سلايدر الواجهة",
+    payments: "طرق الدفع",
     reviews: "تقييمات العملاء",
     subscribers: "اشتراكات البريد",
     analytics: "تحليلات الذكاء الاصطناعي وسلوك العملاء",
@@ -239,6 +245,8 @@ const ADMIN_COPY = {
     items: "المنتجات",
     cashOnDelivery: "الدفع عند الاستلام",
     card: "بطاقة",
+    vodafoneCash: "فودافون كاش",
+    instapay: "إنستاباي",
     editProduct: "تعديل المنتج",
     newProduct: "منتج جديد",
     name: "الاسم",
@@ -306,6 +314,7 @@ const blank = (): Product => ({
 type AdminTab =
   | "products"
   | "hero"
+  | "payments"
   | "orders"
   | "customers"
   | "reviews"
@@ -335,6 +344,7 @@ function mapCloudOrder(value: unknown): Order | null {
   const id = String(row["id"] ?? "unknown");
   const customerName = String(row["customer_name"] ?? "Guest");
   const phone = String(row["phone"] ?? "");
+  const paymentMethod = row["payment_method"];
   const address = String(row["address"] ?? "No address provided");
   const items = Array.isArray(row["items"]) ? row["items"] : [];
 
@@ -368,6 +378,15 @@ function mapCloudOrder(value: unknown): Order | null {
     subtotal: Number(row["subtotal"] ?? 0),
     shipping: Number(row["shipping_cost"] ?? 0),
     total: Number(row["total_amount"] ?? 0),
+    ...(paymentMethod === "card" ||
+    paymentMethod === "cod" ||
+    paymentMethod === "vodafone_cash" ||
+    paymentMethod === "instapay"
+      ? { payment: paymentMethod }
+      : {}),
+    ...(typeof row["payment_receipt_path"] === "string"
+      ? { paymentReceiptPath: row["payment_receipt_path"] }
+      : {}),
     status: statuses[status] || "Pending",
     ...(typeof row["restocked_at"] === "string" ? { restockedAt: row["restocked_at"] } : {}),
     ...(typeof row["inventory_applied_at"] === "string"
@@ -603,6 +622,7 @@ function Admin() {
       ? [
           "products",
           "hero",
+          "payments",
           "orders",
           "customers",
           "reviews",
@@ -795,6 +815,7 @@ function Admin() {
             {t === "analytics" && <BarChart3 size={16} aria-hidden="true" />}
             {t === "settings" && <Settings2 size={16} aria-hidden="true" />}
             {t === "hero" && <Image size={16} aria-hidden="true" />}
+            {t === "payments" && <CreditCard size={16} aria-hidden="true" />}
             {text[t]}
           </button>
         ))}
@@ -930,7 +951,16 @@ function Admin() {
                   <p className="font-serif text-2xl">{o.id}</p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(o.createdAt).toLocaleString(isArabic ? "ar-EG" : undefined)}
-                    {o.payment && ` · ${o.payment === "cod" ? text.cashOnDelivery : text.card}`}
+                    {o.payment &&
+                      ` · ${
+                        o.payment === "cod"
+                          ? text.cashOnDelivery
+                          : o.payment === "vodafone_cash"
+                            ? text.vodafoneCash
+                            : o.payment === "instapay"
+                              ? text.instapay
+                              : text.card
+                      }`}
                   </p>
                   {(o.restockedAt || o.items.some((item) => (item.restockedQuantity ?? 0) > 0)) && (
                     <p className="mt-1 inline-block border border-emerald/40 px-2 py-0.5 text-[0.6rem] uppercase tracking-[0.12em] text-emerald">
@@ -980,6 +1010,11 @@ function Admin() {
                       الشحن عبر شركة بوستا (Bosta): {s.fmtEgp(o.shipping)}
                     </p>
                   )}
+                  {o.paymentReceiptPath && (
+                    <div className="mt-2">
+                      <PaymentReceiptLink path={o.paymentReceiptPath} isArabic={isArabic} />
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-3">
                   <p className="eyebrow mb-1 text-muted-foreground">{text.items}</p>
@@ -1021,6 +1056,8 @@ function Admin() {
         </div>
       ) : activeTab === "hero" ? (
         <HeroSlidesPanel isArabic={isArabic} />
+      ) : activeTab === "payments" ? (
+        <PaymentSettingsPanel isArabic={isArabic} />
       ) : activeTab === "subscribers" ? (
         <div className="mt-6 space-y-4">
           {loading && (

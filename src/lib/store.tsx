@@ -104,7 +104,8 @@ export type Order = {
   subtotal: number;
   shipping: number;
   total: number;
-  payment?: "card" | "cod";
+  payment?: "card" | "cod" | "vodafone_cash" | "instapay";
+  paymentReceiptPath?: string;
   status: "Pending" | "Processing" | "Shipped" | "Delivered" | "Cancelled";
   /** Set by the database when a cancellation returned the items to stock. */
   restockedAt?: string;

@@ -62,6 +62,35 @@ describe("standalone local store", () => {
     expect(product.stock).toBe(STATIC_PRODUCTS[0]!.stock);
   });
 
+  it("persists manual payment details and receipt paths locally", () => {
+    const product = STATIC_PRODUCTS[0]!;
+    const id = placeLocalOrder(
+      {
+        customer: {
+          name: "Transfer Customer",
+          email: "transfer@example.test",
+          phone: "01012345678",
+          address: "1 Local Street",
+          city: "Giza",
+          governorate: "الجيزة",
+          country: "Egypt",
+        },
+        items: [{ id: product.id, qty: 1, size: "Queen", color: "Ivory" }],
+        payment: "vodafone_cash",
+        paymentReceiptPath: "0f2d879a-c45a-4aae-aacd-102c4407f2ce.png",
+      },
+      STATIC_PRODUCTS,
+      shippingFor,
+      EGP_PER_USD,
+    );
+
+    expect(findLocalOrder(id)).toMatchObject({
+      payment: "vodafone_cash",
+      paymentReceiptPath: "0f2d879a-c45a-4aae-aacd-102c4407f2ce.png",
+      customer: { phone: "01012345678" },
+    });
+  });
+
   it("preserves the custom bundle discount in a placed order", () => {
     const product = STATIC_PRODUCTS[0]!;
     const id = placeLocalOrder(
