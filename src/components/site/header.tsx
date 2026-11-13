@@ -5,9 +5,11 @@ import { AccountMenu } from "@/components/site/account-menu";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { recordProductInteraction, recordSearchQuery } from "@/lib/local-data";
 import { CATEGORIES, useStore, type Product } from "@/lib/store";
+import { useSiteSettings } from "@/lib/site-settings";
 
 export function Header() {
   const s = useStore();
+  const { settings } = useSiteSettings();
   const pathname = useLocation({ select: (location) => location.pathname });
   const nav = useNavigate();
   const [q, setQ] = useState("");
@@ -76,7 +78,15 @@ export function Header() {
             aria-label="ROELIX home"
             className="col-start-2 row-start-1 whitespace-nowrap text-center font-serif text-[clamp(1.25rem,5vw,1.8rem)] font-bold tracking-[0.13em] text-foreground transition-colors hover:text-gold md:col-start-1 md:text-left md:text-[clamp(1.5rem,2.4vw,2rem)] md:tracking-[0.16em]"
           >
-            ROELIX
+            {settings?.logo_url ? (
+              <img
+                src={settings.logo_url}
+                alt="ROELIX"
+                className="mx-auto max-h-12 max-w-36 object-contain md:mx-0"
+              />
+            ) : (
+              "ROELIX"
+            )}
           </Link>
 
           <SearchField

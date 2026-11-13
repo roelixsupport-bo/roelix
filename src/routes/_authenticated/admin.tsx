@@ -34,6 +34,7 @@ import { CustomersPanel } from "@/components/admin/customers-panel";
 import { HeroSlidesPanel } from "@/components/admin/hero-slides-panel";
 import { PaymentSettingsPanel } from "@/components/admin/payment-settings-panel";
 import { PaymentReceiptLink } from "@/components/admin/payment-receipt-link";
+import { SiteBrandingSettings } from "@/components/admin/site-branding-settings";
 import { OrderLineRestock } from "@/components/admin/order-line-restock";
 import { ProductActions } from "@/components/admin/product-actions";
 import { ReviewsPanel } from "@/components/admin/reviews-panel";
@@ -1173,6 +1174,7 @@ function Admin() {
         </section>
       ) : (
         <section className="mt-6 max-w-2xl space-y-5 border p-6" aria-label={text.settings}>
+          <SiteBrandingSettings isArabic={isArabic} />
           <div className="space-y-5 border-t pt-6">
             <div>
               <h3 className="font-serif text-2xl">{text.bundleSettingsTitle}</h3>

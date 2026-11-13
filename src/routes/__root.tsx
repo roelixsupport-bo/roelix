@@ -21,6 +21,7 @@ import { CartDrawer } from "@/components/site/cartdrawer";
 import { Concierge } from "@/components/site/concierge";
 import { Toaster } from "@/components/ui/sonner";
 import { initMetaPixel } from "@/utils/metaPixel";
+import { SiteSettingsProvider } from "@/lib/site-settings";
 
 function NotFoundComponent() {
   return (
@@ -93,12 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.svg?v=4", type: "image/svg+xml" },
-      { rel: "alternate icon", href: "/favicon.png?v=4", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/favicon.png?v=4" },
-    ],
+    links: [{ rel: "stylesheet", href: appCss }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -160,18 +156,20 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AccountProvider>
-        <StoreProvider>
-          <AuthDialogProvider>
-            <Header />
-            <main className="min-h-[60vh]">{routerReady ? <Outlet /> : <RouteSkeleton />}</main>
-            <Footer />
-            <CartDrawer />
-            <Concierge />
-            <Toaster />
-          </AuthDialogProvider>
-        </StoreProvider>
-      </AccountProvider>
+      <SiteSettingsProvider>
+        <AccountProvider>
+          <StoreProvider>
+            <AuthDialogProvider>
+              <Header />
+              <main className="min-h-[60vh]">{routerReady ? <Outlet /> : <RouteSkeleton />}</main>
+              <Footer />
+              <CartDrawer />
+              <Concierge />
+              <Toaster />
+            </AuthDialogProvider>
+          </StoreProvider>
+        </AccountProvider>
+      </SiteSettingsProvider>
     </QueryClientProvider>
   );
 }

@@ -3,8 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { saveLocalEmailPreferences } from "@/lib/local-data";
 import { STORE_SUPPORT_EMAIL } from "@/lib/store";
+import { useSiteSettings } from "@/lib/site-settings";
 
 export function Footer() {
+  const { settings } = useSiteSettings();
   const [email, setEmail] = useState("");
 
   function subscribe(event: FormEvent<HTMLFormElement>) {
@@ -28,7 +30,17 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl gap-8 sm:gap-12 px-5 sm:px-6 py-12 sm:py-20 grid-cols-1 md:grid-cols-6">
         {/* الوصف وشعار الماركة */}
         <div className="md:col-span-2">
-          <p className="font-serif text-2xl sm:text-3xl tracking-[0.35em] font-bold text-white">ROELIX</p>
+          {settings?.logo_url ? (
+            <img
+              src={settings.logo_url}
+              alt="ROELIX"
+              className="max-h-14 max-w-48 object-contain"
+            />
+          ) : (
+            <p className="font-serif text-2xl font-bold tracking-[0.35em] text-white sm:text-3xl">
+              ROELIX
+            </p>
+          )}
           <p className="mt-3 max-w-sm text-xs sm:text-sm text-navy-foreground/80 leading-relaxed font-light">
             Hotel-grade bedding and linens, woven from the world’s finest fibres for those who
             consider sleep an art.
@@ -38,7 +50,10 @@ export function Footer() {
         {/* المجموعات */}
         <div className="space-y-2.5 text-xs sm:text-sm">
           <p className="eyebrow text-gold font-bold mb-3 sm:mb-4">Maison</p>
-          <Link to="/shop" className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium">
+          <Link
+            to="/shop"
+            className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium"
+          >
             Collections
           </Link>
         </div>
@@ -46,7 +61,10 @@ export function Footer() {
         {/* خدمة العملاء */}
         <div className="space-y-2.5 text-xs sm:text-sm">
           <p className="eyebrow text-gold font-bold mb-3 sm:mb-4">Client Care</p>
-          <a href={`mailto:${STORE_SUPPORT_EMAIL}`} className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium truncate">
+          <a
+            href={`mailto:${STORE_SUPPORT_EMAIL}`}
+            className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium truncate"
+          >
             {STORE_SUPPORT_EMAIL}
           </a>
           <p className="text-navy-foreground/80">ROELIX Personal Concierge</p>
@@ -59,24 +77,40 @@ export function Footer() {
           dir="rtl"
           className="space-y-2.5 text-right text-xs sm:text-sm"
         >
-          <p className="mb-3 sm:mb-4 font-serif text-base sm:text-lg text-gold font-bold">معلومات المتجر</p>
-          <Link to="/privacy" className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium">
+          <p className="mb-3 sm:mb-4 font-serif text-base sm:text-lg text-gold font-bold">
+            معلومات المتجر
+          </p>
+          <Link
+            to="/privacy"
+            className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium"
+          >
             سياسة الخصوصية
           </Link>
-          <Link to="/shipping" className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium">
+          <Link
+            to="/shipping"
+            className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium"
+          >
             الشحن والتوصيل
           </Link>
-          <Link to="/refunds" className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium">
+          <Link
+            to="/refunds"
+            className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium"
+          >
             الاستبدال والاسترجاع
           </Link>
-          <Link to="/terms" className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium">
+          <Link
+            to="/terms"
+            className="block text-navy-foreground/90 hover:text-gold transition-colors font-medium"
+          >
             الشروط والأحكام
           </Link>
         </nav>
 
         {/* النشرة البريدية */}
         <div dir="rtl" className="text-right">
-          <p className="mb-3 sm:mb-4 font-serif text-base sm:text-lg text-gold font-bold">نشرة ROELIX البريدية</p>
+          <p className="mb-3 sm:mb-4 font-serif text-base sm:text-lg text-gold font-bold">
+            نشرة ROELIX البريدية
+          </p>
           <p className="mb-3 text-xs sm:text-sm leading-6 text-navy-foreground/80">
             الاشتراك اختياري ليصلك جديد تشكيلات المفروشات الفاخرة والعروض.
           </p>
