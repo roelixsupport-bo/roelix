@@ -7,7 +7,6 @@ import {
   useSiteSettings,
   validateBrandingImage,
 } from "@/lib/site-settings";
-import { isAllowedPromoUrl } from "@/lib/promo-slides";
 
 const COPY = {
   en: {
@@ -22,13 +21,6 @@ const COPY = {
     loadError: "Could not load current branding.",
     error: "Could not save store branding.",
     preview: "Current preview",
-    ctaTitle: "Hero call to action",
-    ctaEnabled: "Show a call-to-action button over the hero slider",
-    ctaEnglish: "Button label (English)",
-    ctaArabic: "Button label (Arabic)",
-    ctaUrl: "Button destination URL",
-    ctaRequired: "Add the button label in both languages and a destination URL.",
-    ctaInvalidUrl: "Use a secure https:// URL or a local path beginning with /.",
   },
   ar: {
     title: "شعار المتجر وأيقونة الموقع",
@@ -42,13 +34,6 @@ const COPY = {
     loadError: "تعذّر تحميل الهوية البصرية الحالية.",
     error: "تعذّر حفظ هوية المتجر.",
     preview: "معاينة حالية",
-    ctaTitle: "زر الدعوة لاتخاذ إجراء في السلايدر",
-    ctaEnabled: "إظهار زر فوق السلايدر الرئيسي",
-    ctaEnglish: "نص الزر بالإنجليزية",
-    ctaArabic: "نص الزر بالعربية",
-    ctaUrl: "رابط الزر",
-    ctaRequired: "أدخلي نص الزر باللغتين ورابط الوجهة.",
-    ctaInvalidUrl: "استخدمي رابطًا آمنًا يبدأ بـ https:// أو مسارًا محليًا يبدأ بـ /.",
   },
 } as const;
 
@@ -63,18 +48,6 @@ export function SiteBrandingSettings({ isArabic }: SiteBrandingSettingsProps) {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [ctaEnabled, setCtaEnabled] = useState(false);
-  const [ctaLabelEn, setCtaLabelEn] = useState("");
-  const [ctaLabelAr, setCtaLabelAr] = useState("");
-  const [ctaUrl, setCtaUrl] = useState("");
-
-  useEffect(() => {
-    if (!settings) return;
-    setCtaEnabled(settings.cta_enabled);
-    setCtaLabelEn(settings.cta_label_en);
-    setCtaLabelAr(settings.cta_label_ar);
-    setCtaUrl(settings.cta_url);
-  }, [settings]);
 
   useEffect(() => {
     return () => {
@@ -107,17 +80,6 @@ export function SiteBrandingSettings({ isArabic }: SiteBrandingSettingsProps) {
       toast.error(text.loadError);
       return;
     }
-    if (
-      ctaEnabled &&
-      (!ctaLabelEn.trim() || !ctaLabelAr.trim() || !ctaUrl.trim())
-    ) {
-      toast.error(text.ctaRequired);
-      return;
-    }
-    if (ctaEnabled && !isAllowedPromoUrl(ctaUrl)) {
-      toast.error(text.ctaInvalidUrl);
-      return;
-    }
     setSaving(true);
     try {
       const [logoUrl, faviconUrl] = await Promise.all([
@@ -127,10 +89,6 @@ export function SiteBrandingSettings({ isArabic }: SiteBrandingSettingsProps) {
       await saveSiteSettings({
         logo_url: logoUrl,
         favicon_url: faviconUrl,
-        cta_enabled: ctaEnabled,
-        cta_label_en: ctaLabelEn.trim(),
-        cta_label_ar: ctaLabelAr.trim(),
-        cta_url: ctaUrl.trim(),
       });
       await reload();
       setLogoFile(null);
@@ -181,53 +139,6 @@ export function SiteBrandingSettings({ isArabic }: SiteBrandingSettingsProps) {
               chooseText={text.choose}
               isArabic={isArabic}
             />
-          </div>
-          <div className="space-y-4 border-t pt-5">
-            <h4 className="font-serif text-xl">{text.ctaTitle}</h4>
-            <label className="flex items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={ctaEnabled}
-                onChange={(event) => setCtaEnabled(event.target.checked)}
-                className="accent-[var(--gold)]"
-              />
-              {text.ctaEnabled}
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block space-y-2 text-sm">
-                <span className="eyebrow">{text.ctaEnglish}</span>
-                <input
-                  value={ctaLabelEn}
-                  onChange={(event) => setCtaLabelEn(event.target.value)}
-                  maxLength={80}
-                  disabled={!ctaEnabled}
-                  className="w-full border bg-background px-3 py-2"
-                />
-              </label>
-              <label className="block space-y-2 text-sm">
-                <span className="eyebrow">{text.ctaArabic}</span>
-                <input
-                  dir="rtl"
-                  value={ctaLabelAr}
-                  onChange={(event) => setCtaLabelAr(event.target.value)}
-                  maxLength={80}
-                  disabled={!ctaEnabled}
-                  className="w-full border bg-background px-3 py-2"
-                />
-              </label>
-              <label className="block space-y-2 text-sm sm:col-span-2">
-                <span className="eyebrow">{text.ctaUrl}</span>
-                <input
-                  dir="ltr"
-                  type="url"
-                  value={ctaUrl}
-                  onChange={(event) => setCtaUrl(event.target.value)}
-                  maxLength={2048}
-                  disabled={!ctaEnabled}
-                  className="w-full border bg-background px-3 py-2"
-                />
-              </label>
-            </div>
           </div>
           <button type="button" className="btn-lux" disabled={saving} onClick={() => void save()}>
             {saving ? text.saving : text.save}

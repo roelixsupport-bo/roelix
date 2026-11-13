@@ -6,28 +6,71 @@ import pillowImage from "@/assets/p_pillow.jpg";
 import towelImage from "@/assets/p_towel.jpg";
 import { fetchHeroSlides } from "@/lib/hero-slides";
 import { isAllowedPromoUrl } from "@/lib/promo-slides";
-import { useSiteSettings } from "@/lib/site-settings";
 import { useStore } from "@/lib/store";
 
 const SLIDE_INTERVAL_MS = 4_500;
 
-const FALLBACK_SLIDES = [
+type DisplaySlide = {
+  id: string;
+  src: string;
+  alt: string;
+  showButton: boolean;
+  buttonTextAr: string;
+  buttonTextEn: string;
+  buttonUrl: string;
+  buttonPosition: "bottom-left" | "bottom-center" | "bottom-right";
+};
+
+const FALLBACK_SLIDES: DisplaySlide[] = [
   {
     id: "bedroom",
     src: bedroomImage,
     alt: "An elegant bedroom styled with luxurious ROELIX bedding",
+    showButton: false,
+    buttonTextAr: "",
+    buttonTextEn: "",
+    buttonUrl: "",
+    buttonPosition: "bottom-center",
   },
   {
     id: "bedding",
     src: beddingImage,
     alt: "Soft, premium bedding in a refined navy and ivory palette",
+    showButton: false,
+    buttonTextAr: "",
+    buttonTextEn: "",
+    buttonUrl: "",
+    buttonPosition: "bottom-center",
   },
-  { id: "pillow", src: pillowImage, alt: "A plush pillow crafted for a restful night's sleep" },
-  { id: "towel", src: towelImage, alt: "Hotel-quality towels in timeless neutral colors" },
+  {
+    id: "pillow",
+    src: pillowImage,
+    alt: "A plush pillow crafted for a restful night's sleep",
+    showButton: false,
+    buttonTextAr: "",
+    buttonTextEn: "",
+    buttonUrl: "",
+    buttonPosition: "bottom-center",
+  },
+  {
+    id: "towel",
+    src: towelImage,
+    alt: "Hotel-quality towels in timeless neutral colors",
+    showButton: false,
+    buttonTextAr: "",
+    buttonTextEn: "",
+    buttonUrl: "",
+    buttonPosition: "bottom-center",
+  },
 ];
 
+const BUTTON_POSITION_CLASSES = {
+  "bottom-left": "left-4 sm:left-8",
+  "bottom-center": "left-1/2 -translate-x-1/2",
+  "bottom-right": "right-4 sm:right-8",
+} as const;
+
 export function HeroSlider() {
-  const { settings } = useSiteSettings();
   const { lang } = useStore();
   const [slides, setSlides] = useState(FALLBACK_SLIDES);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -44,6 +87,11 @@ export function HeroSlider() {
               id: slide.id,
               src: slide.image_url,
               alt: slide.alt_text,
+              showButton: slide.show_button,
+              buttonTextAr: slide.button_text_ar,
+              buttonTextEn: slide.button_text_en,
+              buttonUrl: slide.button_url,
+              buttonPosition: slide.button_position,
             })),
         );
         setActiveIndex(0);
@@ -90,15 +138,17 @@ export function HeroSlider() {
           />
         ))}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy/20 via-transparent to-white/10" />
-        {settings?.cta_enabled &&
-          settings.cta_label_en.trim() &&
-          settings.cta_label_ar.trim() &&
-          isAllowedPromoUrl(settings.cta_url) && (
+        {slides[activeIndex]?.showButton &&
+          slides[activeIndex].buttonTextEn.trim() &&
+          slides[activeIndex].buttonTextAr.trim() &&
+          isAllowedPromoUrl(slides[activeIndex].buttonUrl) && (
             <a
-              href={settings.cta_url}
-              className="btn-lux absolute bottom-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap px-5 py-3 text-center text-[0.62rem] sm:bottom-12 sm:px-8 sm:py-4 sm:text-xs"
+              href={slides[activeIndex].buttonUrl}
+              className={`btn-lux absolute bottom-8 z-10 max-w-[calc(100%-2rem)] whitespace-nowrap px-5 py-3 text-center text-[0.62rem] sm:bottom-12 sm:px-8 sm:py-4 sm:text-xs ${BUTTON_POSITION_CLASSES[slides[activeIndex].buttonPosition]}`}
             >
-              {lang === "ar" ? settings.cta_label_ar : settings.cta_label_en}
+              {lang === "ar"
+                ? slides[activeIndex].buttonTextAr
+                : slides[activeIndex].buttonTextEn}
             </a>
           )}
       </div>

@@ -56,6 +56,12 @@ describe("hero slides admin panel", () => {
     const file = new File(["image"], "hero.webp", { type: "image/webp" });
     const fileInput = container.querySelector('input[type="file"]');
     const altInput = container.querySelector('input[type="text"]');
+    const showButtonInput = Array.from(container.querySelectorAll('input[type="checkbox"]')).find(
+      (input) => (input as HTMLInputElement).parentElement?.textContent?.includes("Show button"),
+    );
+    const textInputs = Array.from(container.querySelectorAll('input[type="text"]'));
+    const buttonUrlInput = container.querySelector('input[type="url"]');
+    const positionInput = container.querySelector("select");
     const addButton = Array.from(container.querySelectorAll("button")).find((button) =>
       button.textContent?.includes("Add slide"),
     );
@@ -67,6 +73,11 @@ describe("hero slides admin panel", () => {
     await act(async () => {
       fireEvent.change(fileInput!, { target: { files: [file] } });
       fireEvent.change(altInput!, { target: { value: "A hero image" } });
+      fireEvent.click(showButtonInput!);
+      fireEvent.change(textInputs[1]!, { target: { value: "Shop now" } });
+      fireEvent.change(textInputs[2]!, { target: { value: "تسوقي الآن" } });
+      fireEvent.change(buttonUrlInput!, { target: { value: "/shop" } });
+      fireEvent.change(positionInput!, { target: { value: "bottom-right" } });
     });
 
     await act(async () => {
@@ -77,6 +88,13 @@ describe("hero slides admin panel", () => {
       file,
       altText: "A hero image",
       sortOrder: 0,
+      button: {
+        show_button: true,
+        button_text_en: "Shop now",
+        button_text_ar: "تسوقي الآن",
+        button_url: "/shop",
+        button_position: "bottom-right",
+      },
     });
   });
 });

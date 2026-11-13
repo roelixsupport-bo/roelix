@@ -7,6 +7,16 @@ export const HERO_SLIDE_IMAGE_TYPES = [
   "image/avif",
 ] as const;
 
+export type HeroSlideButtonPosition = "bottom-left" | "bottom-center" | "bottom-right";
+
+export type HeroSlideButtonSettings = {
+  show_button: boolean;
+  button_text_ar: string;
+  button_text_en: string;
+  button_url: string;
+  button_position: HeroSlideButtonPosition;
+};
+
 export type HeroSlide = {
   id: string;
   image_url: string;
@@ -14,7 +24,7 @@ export type HeroSlide = {
   alt_text: string;
   sort_order: number;
   is_active: boolean;
-};
+} & HeroSlideButtonSettings;
 
 const EXTENSION_BY_TYPE: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -39,7 +49,9 @@ export async function fetchHeroSlides(): Promise<HeroSlide[]> {
   const supabase = await getSupabase();
   const query = supabase
     .from("hero_slides")
-    .select("id, image_url, storage_path, alt_text, sort_order, is_active");
+    .select(
+      "id, image_url, storage_path, alt_text, sort_order, is_active, show_button, button_text_ar, button_text_en, button_url, button_position",
+    );
 
   const { data, error } = await query
     .order("sort_order", { ascending: true })
@@ -88,6 +100,7 @@ export async function createHeroSlide(input: {
   file: File;
   altText: string;
   sortOrder: number;
+  button: HeroSlideButtonSettings;
 }): Promise<void> {
   const supabase = await getSupabase();
   const { imageUrl, path } = await uploadHeroSlideImage(input.file);
@@ -97,6 +110,7 @@ export async function createHeroSlide(input: {
     alt_text: input.altText.trim(),
     sort_order: input.sortOrder,
     is_active: true,
+    ...input.button,
   });
 
   if (!error) return;
@@ -111,7 +125,19 @@ export async function createHeroSlide(input: {
 
 export async function updateHeroSlide(
   id: string,
-  changes: Partial<Pick<HeroSlide, "alt_text" | "sort_order" | "is_active">>,
+  changes: Partial<
+    Pick<
+      HeroSlide,
+      | "alt_text"
+      | "sort_order"
+      | "is_active"
+      | "show_button"
+      | "button_text_ar"
+      | "button_text_en"
+      | "button_url"
+      | "button_position"
+    >
+  >,
 ): Promise<void> {
   const supabase = await getSupabase();
   const { error } = await supabase.from("hero_slides").update(changes).eq("id", id);

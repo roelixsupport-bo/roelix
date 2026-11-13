@@ -9,7 +9,10 @@ import {
   replaceHeroSlideImage,
   updateHeroSlide,
   type HeroSlide,
+  type HeroSlideButtonSettings,
+  type HeroSlideButtonPosition,
 } from "@/lib/hero-slides";
+import { isAllowedPromoUrl } from "@/lib/promo-slides";
 
 const COPY = {
   en: {
@@ -19,7 +22,17 @@ const COPY = {
     chooseImage: "Choose an image",
     altText: "Image description",
     altPlaceholder: "Describe this image",
-    save: "Save description",
+    save: "Save slide",
+    showButton: "Show button on this slide",
+    buttonTextEn: "Button text (English)",
+    buttonTextAr: "Button text (Arabic)",
+    buttonUrl: "Button destination URL",
+    buttonPosition: "Button position",
+    bottomLeft: "Bottom left",
+    bottomCenter: "Bottom center",
+    bottomRight: "Bottom right",
+    buttonRequired: "Add the button text in both languages and a destination URL.",
+    buttonInvalidUrl: "Use a secure https:// URL or a local path beginning with /.",
     moveUp: "Move slide up",
     moveDown: "Move slide down",
     show: "Show on homepage",
@@ -45,7 +58,17 @@ const COPY = {
     chooseImage: "اختر صورة",
     altText: "وصف الصورة",
     altPlaceholder: "اكتب وصفًا للصورة",
-    save: "حفظ الوصف",
+    save: "حفظ الشريحة",
+    showButton: "إظهار الزر على هذه الشريحة",
+    buttonTextEn: "نص الزر بالإنجليزية",
+    buttonTextAr: "نص الزر بالعربية",
+    buttonUrl: "رابط الزر",
+    buttonPosition: "موضع الزر",
+    bottomLeft: "أسفل اليسار",
+    bottomCenter: "أسفل المنتصف",
+    bottomRight: "أسفل اليمين",
+    buttonRequired: "أدخلي نص الزر باللغتين ورابط الوجهة.",
+    buttonInvalidUrl: "استخدمي رابطًا آمنًا يبدأ بـ https:// أو مسارًا محليًا يبدأ بـ /.",
     moveUp: "تحريك الشريحة للأعلى",
     moveDown: "تحريك الشريحة للأسفل",
     show: "إظهار في الصفحة الرئيسية",
@@ -67,14 +90,26 @@ const COPY = {
 } as const;
 
 type HeroSlidesPanelProps = { isArabic: boolean };
+type HeroSlideDraft = Pick<
+  HeroSlide,
+  "alt_text" | keyof HeroSlideButtonSettings
+>;
+const EMPTY_BUTTON: HeroSlideButtonSettings = {
+  show_button: false,
+  button_text_ar: "",
+  button_text_en: "",
+  button_url: "",
+  button_position: "bottom-center",
+};
 
 export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
   const text = COPY[isArabic ? "ar" : "en"];
   const [hydrated, setHydrated] = useState(false);
   const [slides, setSlides] = useState<HeroSlide[]>([]);
-  const [altDrafts, setAltDrafts] = useState<Record<string, string>>({});
+  const [drafts, setDrafts] = useState<Record<string, HeroSlideDraft>>({});
   const [newFile, setNewFile] = useState<File | null>(null);
   const [newAltText, setNewAltText] = useState("");
+  const [newButton, setNewButton] = useState<HeroSlideButtonSettings>(EMPTY_BUTTON);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -83,7 +118,21 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
     try {
       const next = await fetchHeroSlides();
       setSlides(next);
-      setAltDrafts(Object.fromEntries(next.map((slide) => [slide.id, slide.alt_text])));
+      setDrafts(
+        Object.fromEntries(
+          next.map((slide) => [
+            slide.id,
+            {
+              alt_text: slide.alt_text,
+              show_button: slide.show_button,
+              button_text_ar: slide.button_text_ar,
+              button_text_en: slide.button_text_en,
+              button_url: slide.button_url,
+              button_position: slide.button_position,
+            },
+          ]),
+        ),
+      );
     } catch (error) {
       console.error("Could not load hero slides", error);
       toast.error(error instanceof Error ? error.message : text.loadError);
@@ -121,11 +170,40 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
       toast.error(text.altRequired);
       return;
     }
+    if (!validateButton(newButton)) return;
     void run(async () => {
-      await createHeroSlide({ file: newFile, altText: newAltText, sortOrder: slides.length });
+      await createHeroSlide({
+        file: newFile,
+        altText: newAltText,
+        sortOrder: slides.length,
+        button: newButton,
+      });
       setNewFile(null);
       setNewAltText("");
+      setNewButton(EMPTY_BUTTON);
     }, text.added);
+  }
+
+  function validateButton(button: HeroSlideButtonSettings): boolean {
+    if (!button.show_button) return true;
+    if (!button.button_text_ar.trim() || !button.button_text_en.trim() || !button.button_url.trim()) {
+      toast.error(text.buttonRequired);
+      return false;
+    }
+    if (!isAllowedPromoUrl(button.button_url)) {
+      toast.error(text.buttonInvalidUrl);
+      return false;
+    }
+    return true;
+  }
+
+  function updateDraft(id: string, changes: Partial<HeroSlideDraft>) {
+    const slide = slides.find((item) => item.id === id);
+    if (!slide) return;
+    setDrafts((current) => ({
+      ...current,
+      [id]: { ...slide, ...current[id], ...changes },
+    }));
   }
 
   function moveSlide(index: number, offset: -1 | 1) {
@@ -159,7 +237,7 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
         <p className="mt-2 text-sm text-muted-foreground">{text.description}</p>
       </header>
 
-      <div className="grid gap-3 border p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+      <div className="grid gap-3 border p-4 sm:grid-cols-2 sm:items-end">
         <label className="block space-y-2 text-sm">
           <span className="eyebrow">{text.chooseImage}</span>
           <input
@@ -182,11 +260,17 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
             className="w-full border bg-background px-3 py-2"
           />
         </label>
+        <HeroButtonFields
+          value={newButton}
+          text={text}
+          disabled={busy}
+          onChange={setNewButton}
+        />
         <button
           type="button"
           onClick={addSlide}
           disabled={busy}
-          className="inline-flex items-center justify-center gap-2 bg-navy px-4 py-2 text-sm text-navy-foreground disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 bg-navy px-4 py-2 text-sm text-navy-foreground disabled:opacity-50 sm:col-span-2"
         >
           <ImagePlus size={16} aria-hidden="true" />
           {text.add}
@@ -206,7 +290,7 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
           <li key={slide.id} className="flex min-w-0 gap-4 border p-4">
             <img
               src={slide.image_url}
-              alt={altDrafts[slide.id] ?? slide.alt_text}
+              alt={drafts[slide.id]?.alt_text ?? slide.alt_text}
               className="h-28 w-36 shrink-0 object-cover"
             />
             <div className="min-w-0 flex-1 space-y-3">
@@ -214,27 +298,44 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
                 <span className="eyebrow">{text.altText}</span>
                 <input
                   type="text"
-                  value={altDrafts[slide.id] ?? ""}
-                  onChange={(event) =>
-                    setAltDrafts((drafts) => ({ ...drafts, [slide.id]: event.target.value }))
-                  }
+                  value={drafts[slide.id]?.alt_text ?? slide.alt_text}
+                  onChange={(event) => updateDraft(slide.id, { alt_text: event.target.value })}
                   maxLength={240}
                   disabled={busy}
                   className="w-full border bg-background px-3 py-2"
                 />
               </label>
+              <HeroButtonFields
+                value={drafts[slide.id] ?? slide}
+                text={text}
+                disabled={busy}
+                onChange={(value) => updateDraft(slide.id, value)}
+              />
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
                 <button
                   type="button"
                   aria-label={text.save}
                   title={text.save}
-                  disabled={busy || !(altDrafts[slide.id] ?? "").trim()}
+                  disabled={
+                    busy ||
+                    !(drafts[slide.id]?.alt_text ?? slide.alt_text).trim()
+                  }
                   onClick={() =>
-                    void run(
-                      () =>
-                        updateHeroSlide(slide.id, { alt_text: altDrafts[slide.id]?.trim() ?? "" }),
-                      text.saved,
-                    )
+                    (() => {
+                      const draft = drafts[slide.id] ?? slide;
+                      if (!validateButton(draft)) return;
+                      void run(
+                        () =>
+                          updateHeroSlide(slide.id, {
+                            ...draft,
+                            alt_text: draft.alt_text.trim(),
+                            button_text_ar: draft.button_text_ar.trim(),
+                            button_text_en: draft.button_text_en.trim(),
+                            button_url: draft.button_url.trim(),
+                          }),
+                        text.saved,
+                      );
+                    })()
                   }
                   className="hover:text-gold disabled:opacity-50"
                 >
@@ -314,4 +415,89 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
       </ol>
     </section>
   );
+}
+
+function HeroButtonFields({
+  value,
+  text,
+  disabled,
+  onChange,
+}: {
+  value: HeroSlideButtonSettings;
+  text: (typeof COPY)["en"] | (typeof COPY)["ar"];
+  disabled: boolean;
+  onChange: (value: HeroSlideButtonSettings) => void;
+}) {
+  return (
+    <div className="space-y-3 border-t pt-3 sm:col-span-2">
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={value.show_button}
+          onChange={(event) => onChange({ ...value, show_button: event.target.checked })}
+          disabled={disabled}
+          className="accent-[var(--gold)]"
+        />
+        {text.showButton}
+      </label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block space-y-1 text-sm">
+          <span className="eyebrow">{text.buttonTextEn}</span>
+          <input
+            type="text"
+            value={value.button_text_en}
+            onChange={(event) => onChange({ ...value, button_text_en: event.target.value })}
+            maxLength={80}
+            disabled={disabled || !value.show_button}
+            className="w-full border bg-background px-3 py-2"
+          />
+        </label>
+        <label className="block space-y-1 text-sm">
+          <span className="eyebrow">{text.buttonTextAr}</span>
+          <input
+            type="text"
+            dir="rtl"
+            value={value.button_text_ar}
+            onChange={(event) => onChange({ ...value, button_text_ar: event.target.value })}
+            maxLength={80}
+            disabled={disabled || !value.show_button}
+            className="w-full border bg-background px-3 py-2"
+          />
+        </label>
+        <label className="block space-y-1 text-sm sm:col-span-2">
+          <span className="eyebrow">{text.buttonUrl}</span>
+          <input
+            dir="ltr"
+            type="url"
+            value={value.button_url}
+            onChange={(event) => onChange({ ...value, button_url: event.target.value })}
+            maxLength={2048}
+            disabled={disabled || !value.show_button}
+            className="w-full border bg-background px-3 py-2"
+          />
+        </label>
+        <label className="block space-y-1 text-sm sm:col-span-2">
+          <span className="eyebrow">{text.buttonPosition}</span>
+          <select
+            value={value.button_position}
+            onChange={(event) => {
+              const position = event.target.value;
+              if (isHeroSlideButtonPosition(position))
+                onChange({ ...value, button_position: position });
+            }}
+            disabled={disabled || !value.show_button}
+            className="w-full border bg-background px-3 py-2"
+          >
+            <option value="bottom-left">{text.bottomLeft}</option>
+            <option value="bottom-center">{text.bottomCenter}</option>
+            <option value="bottom-right">{text.bottomRight}</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function isHeroSlideButtonPosition(value: string): value is HeroSlideButtonPosition {
+  return value === "bottom-left" || value === "bottom-center" || value === "bottom-right";
 }

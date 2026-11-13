@@ -22,6 +22,11 @@ describe("hero slide database binding", () => {
         alt_text: "Hero image",
         sort_order: 0,
         is_active: true,
+        show_button: false,
+        button_text_ar: "",
+        button_text_en: "",
+        button_url: "",
+        button_position: "bottom-center",
       },
     ];
     const order = vi.fn();
@@ -43,5 +48,8 @@ describe("hero slide database binding", () => {
       ["created_at", { ascending: true }],
       ["id", { ascending: true }],
     ]);
+    expect(from.mock.results[0]?.value.select).toHaveBeenCalledWith(
+      "id, image_url, storage_path, alt_text, sort_order, is_active, show_button, button_text_ar, button_text_en, button_url, button_position",
+    );
   });
 });

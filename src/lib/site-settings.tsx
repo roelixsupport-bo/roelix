@@ -9,10 +9,6 @@ export const SITE_SETTINGS_CHANGED_EVENT = "roelix-site-settings-changed";
 export type SiteSettings = {
   logo_url: string | null;
   favicon_url: string | null;
-  cta_enabled: boolean;
-  cta_label_en: string;
-  cta_label_ar: string;
-  cta_url: string;
   updated_at: string;
 };
 
@@ -29,7 +25,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(async () => {
     const { data, error } = await supabase
       .from("site_settings")
-      .select("logo_url, favicon_url, cta_enabled, cta_label_en, cta_label_ar, cta_url, updated_at")
+      .select("logo_url, favicon_url, updated_at")
       .eq("id", 1)
       .maybeSingle();
     if (error) throw error;
@@ -38,10 +34,6 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       ? {
           logo_url: data.logo_url,
           favicon_url: data.favicon_url,
-          cta_enabled: data.cta_enabled,
-          cta_label_en: data.cta_label_en,
-          cta_label_ar: data.cta_label_ar,
-          cta_url: data.cta_url,
           updated_at: data.updated_at,
         }
       : null;
@@ -149,10 +141,6 @@ export async function uploadBrandingImage(file: File, kind: "logo" | "favicon"):
 export async function saveSiteSettings(settings: {
   logo_url: string | null;
   favicon_url: string | null;
-  cta_enabled: boolean;
-  cta_label_en: string;
-  cta_label_ar: string;
-  cta_url: string;
 }): Promise<void> {
   const { error } = await supabase
     .from("site_settings")
