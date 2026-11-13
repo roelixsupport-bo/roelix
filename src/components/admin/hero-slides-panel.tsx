@@ -70,6 +70,7 @@ type HeroSlidesPanelProps = { isArabic: boolean };
 
 export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
   const text = COPY[isArabic ? "ar" : "en"];
+  const [hydrated, setHydrated] = useState(false);
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [altDrafts, setAltDrafts] = useState<Record<string, string>>({});
   const [newFile, setNewFile] = useState<File | null>(null);
@@ -92,6 +93,7 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
   }, [text.loadError]);
 
   useEffect(() => {
+    setHydrated(true);
     void load();
   }, [load]);
 
@@ -135,6 +137,19 @@ export function HeroSlidesPanel({ isArabic }: HeroSlidesPanelProps) {
       await updateHeroSlide(current.id, { sort_order: target.sort_order });
       await updateHeroSlide(target.id, { sort_order: current.sort_order });
     }, text.saved);
+  }
+
+  if (!hydrated) {
+    return (
+      <section className="mt-6 space-y-6" aria-busy="true">
+        <p role="status" aria-label="Loading hero slides" className="sr-only">
+          Loading hero slides
+        </p>
+        <div className="h-9 w-48 animate-pulse bg-secondary" />
+        <div className="h-24 animate-pulse border bg-secondary" />
+        <div className="h-40 animate-pulse border bg-secondary" />
+      </section>
+    );
   }
 
   return (

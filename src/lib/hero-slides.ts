@@ -41,7 +41,10 @@ export async function fetchHeroSlides(): Promise<HeroSlide[]> {
     .from("hero_slides")
     .select("id, image_url, storage_path, alt_text, sort_order, is_active");
 
-  const { data, error } = await query.order("sort_order", { ascending: true });
+  const { data, error } = await query
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }
