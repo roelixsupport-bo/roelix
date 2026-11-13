@@ -151,9 +151,14 @@
   background: var(--navy);
   color: var(--navy-foreground);
   border: 1px solid var(--navy);
-  border-radius: 0.125rem;
-  box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 9999px;
+  box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.12);
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -163,10 +168,11 @@
     border-color: var(--gold);
     color: var(--gold-foreground);
     box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
   }
 
   &:active {
-    transform: scale(0.97);
+    transform: translateY(0) scale(0.97);
     box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.1);
   }
 
@@ -211,8 +217,13 @@
   backdrop-filter: blur(4px);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.85);
-  border-radius: 0.125rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 9999px;
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -222,10 +233,11 @@
     border-color: var(--gold);
     color: var(--gold-foreground);
     box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
   }
 
   &:active {
-    transform: scale(0.97);
+    transform: translateY(0) scale(0.97);
     background: rgba(255, 255, 255, 0.2);
   }
 }

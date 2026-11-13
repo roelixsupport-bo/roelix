@@ -434,7 +434,7 @@ function Checkout() {
             <button
               type="button"
               onClick={handleContinueToPayment}
-              className="bg-black hover:bg-zinc-800 text-white font-bold py-4 px-6 rounded text-sm uppercase tracking-wider transition shadow-md w-full sm:col-span-2 mt-4 cursor-pointer text-center"
+              className="w-full cursor-pointer rounded-xl bg-navy px-6 py-4 text-center text-sm font-bold uppercase tracking-wider text-navy-foreground shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-navy/90 hover:shadow-lg active:scale-[0.98] sm:col-span-2 mt-4"
             >
               Continue to Payment
             </button>
@@ -514,7 +514,7 @@ function Checkout() {
                               toast.error("تعذّر نسخ بيانات الدفع.");
                             });
                         }}
-                        className="inline-flex items-center gap-2 border bg-background px-3 py-2 text-sm"
+                        className="inline-flex items-center gap-2 rounded-full border bg-background px-4 py-2.5 text-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-navy hover:bg-muted hover:shadow-md active:scale-95"
                       >
                         <Copy size={16} aria-hidden="true" />
                         نسخ الرقم
@@ -558,13 +558,13 @@ function Checkout() {
             <div className="flex gap-3 pt-4">
               <button
                 onClick={() => setStep(1)}
-                className="border border-gray-300 px-6 py-3 rounded text-sm hover:bg-gray-50"
+                className="rounded-xl border border-input bg-background px-6 py-3 text-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-muted hover:shadow-md active:scale-95"
               >
                 Back
               </button>
               <button
                 onClick={continueToReview}
-                className="bg-black text-white font-bold py-3.5 px-6 rounded text-sm flex-1 uppercase tracking-wider hover:bg-zinc-800 transition"
+                className="flex-1 rounded-xl bg-navy px-6 py-3.5 text-sm font-bold uppercase tracking-wider text-navy-foreground shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-navy/90 hover:shadow-md active:scale-[0.98]"
               >
                 Review Order
               </button>
@@ -605,14 +605,14 @@ function Checkout() {
             <div className="flex gap-3">
               <button
                 onClick={() => setStep(2)}
-                className="border border-gray-300 px-6 py-3 rounded text-sm hover:bg-gray-50"
+                className="rounded-xl border border-input bg-background px-6 py-3 text-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-muted hover:shadow-md active:scale-95"
               >
                 Back
               </button>
               <button
                 disabled={placing}
                 onClick={place}
-                className="bg-black hover:bg-zinc-800 text-white font-bold py-4 px-6 rounded text-sm uppercase tracking-wider flex-1 transition shadow-md disabled:opacity-50 cursor-pointer text-center"
+                className="flex-1 cursor-pointer rounded-xl bg-navy px-6 py-4 text-center text-sm font-bold uppercase tracking-wider text-navy-foreground shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-navy/90 hover:shadow-lg active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
               >
                 {placing ? "Processing..." : `Place Order · ${s.fmtEgp(total)}`}
               </button>

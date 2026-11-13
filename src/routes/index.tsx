@@ -68,7 +68,7 @@ function Home() {
             <button
               key={c}
               onClick={() => setCat(c)}
-              className={`eyebrow border px-2.5 py-2 text-[0.58rem] transition sm:px-4 sm:text-[0.7rem] ${cat === c ? "border-navy bg-navy text-navy-foreground" : "hover:border-gold"}`}
+              className={`eyebrow rounded-full border px-3 py-2 text-[0.58rem] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-sm active:scale-95 sm:px-4 sm:text-[0.7rem] ${cat === c ? "border-navy bg-navy text-navy-foreground shadow-sm" : "hover:border-gold hover:bg-muted"}`}
             >
               {c}
             </button>

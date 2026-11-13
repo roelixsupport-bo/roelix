@@ -64,7 +64,7 @@ export function Header() {
         >
           <button
             type="button"
-            className="col-start-1 row-start-1 grid size-9 place-items-center text-foreground transition-colors hover:text-gold md:hidden"
+            className="col-start-1 row-start-1 grid size-9 place-items-center rounded-full text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-muted hover:text-gold hover:shadow-sm active:scale-95 md:hidden"
             onClick={() => setMobile(!mobile)}
             aria-label={mobile ? (s.lang === "ar" ? "إغلاق القائمة" : "Close menu") : s.t.menu}
             aria-expanded={mobile}
@@ -104,7 +104,7 @@ export function Header() {
               search={{ wish: true }}
               aria-label={s.t.wishlist}
               title={s.t.wishlist}
-              className="relative grid size-9 place-items-center text-foreground transition-colors hover:text-gold"
+              className="relative grid size-9 place-items-center rounded-full text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-muted hover:text-gold hover:shadow-sm active:scale-95"
             >
               <Heart size={19} strokeWidth={1.6} />
               {s.wishlist.length > 0 && <Badge n={s.wishlist.length} />}
@@ -115,7 +115,7 @@ export function Header() {
               onClick={() => s.setCartOpen(true)}
               aria-label={s.t.cart}
               title={s.t.cart}
-              className="relative grid size-9 place-items-center text-foreground transition-colors hover:text-gold"
+              className="relative grid size-9 place-items-center rounded-full text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-muted hover:text-gold hover:shadow-sm active:scale-95"
             >
               <ShoppingBag size={19} strokeWidth={1.6} />
               {s.count > 0 && <Badge n={s.count} />}
