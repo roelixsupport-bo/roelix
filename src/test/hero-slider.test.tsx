@@ -52,14 +52,20 @@ describe("hero image slider", () => {
     ).toHaveAttribute("aria-hidden", "false");
   });
 
-  it("uses active images managed from the dashboard", async () => {
+  it("uses active slides managed from the dashboard", async () => {
     vi.useRealTimers();
     vi.mocked(fetchHeroSlides).mockResolvedValue([
       {
         id: "managed-slide",
+        media_type: "image",
         image_url: "https://example.supabase.co/storage/hero.jpg",
+        video_url: null,
         storage_path: "hero.jpg",
         alt_text: "A managed hero image",
+        title_ar: "صورة مميزة",
+        title_en: "Featured image",
+        description_ar: "وصف الصورة",
+        description_en: "Image description",
         sort_order: 0,
         is_active: true,
         show_button: true,
@@ -76,10 +82,12 @@ describe("hero image slider", () => {
       "src",
       "https://example.supabase.co/storage/hero.jpg",
     );
+    expect(screen.getByRole("heading", { name: "Featured image" })).toBeInTheDocument();
+    expect(screen.getByText("Image description")).toBeInTheDocument();
     expect(screen.getAllByRole("img")).toHaveLength(1);
     const button = screen.getByRole("link", { name: "Shop this collection" });
     expect(button).toHaveAttribute("href", "/shop");
-    expect(button).toHaveClass("luxury-rounded", "rounded-none");
+    expect(button).toHaveClass("luxury-rounded", "rounded-full");
   });
 
   it("shows the button only for the currently selected slide", async () => {
@@ -87,9 +95,15 @@ describe("hero image slider", () => {
     vi.mocked(fetchHeroSlides).mockResolvedValue([
       {
         id: "with-button",
+        media_type: "image",
         image_url: "https://example.supabase.co/storage/hero-one.jpg",
+        video_url: null,
         storage_path: "hero-one.jpg",
         alt_text: "Slide with a button",
+        title_ar: "",
+        title_en: "",
+        description_ar: "",
+        description_en: "",
         sort_order: 0,
         is_active: true,
         show_button: true,
@@ -100,9 +114,15 @@ describe("hero image slider", () => {
       },
       {
         id: "without-button",
+        media_type: "image",
         image_url: "https://example.supabase.co/storage/hero-two.jpg",
+        video_url: null,
         storage_path: "hero-two.jpg",
         alt_text: "Slide without a button",
+        title_ar: "",
+        title_en: "",
+        description_ar: "",
+        description_en: "",
         sort_order: 1,
         is_active: true,
         show_button: false,
@@ -118,6 +138,48 @@ describe("hero image slider", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Show image 2: Slide without a button" }));
     expect(screen.queryByRole("link", { name: "Shop now" })).not.toBeInTheDocument();
+  });
+
+  it("autoplays a managed video with its own bilingual copy and CTA", async () => {
+    vi.useRealTimers();
+    vi.mocked(fetchHeroSlides).mockResolvedValue([
+      {
+        id: "video-slide",
+        media_type: "video",
+        image_url: null,
+        video_url: "https://example.supabase.co/storage/hero.mp4",
+        storage_path: "hero.mp4",
+        alt_text: "Video preview",
+        title_ar: "راحة متحركة",
+        title_en: "Comfort in motion",
+        description_ar: "فيديو تعريفي",
+        description_en: "A short introduction",
+        sort_order: 0,
+        is_active: true,
+        show_button: true,
+        button_text_ar: "تسوق الآن",
+        button_text_en: "Shop now",
+        button_url: "/collections/bedding",
+        button_position: "bottom-center",
+      },
+    ]);
+
+    const { container } = render(<HeroSlider />);
+
+    const video = await screen.findByLabelText("Video preview");
+    expect(video.tagName).toBe("VIDEO");
+    expect(video).toHaveAttribute("src", "https://example.supabase.co/storage/hero.mp4");
+    expect(video).toHaveAttribute("autoplay");
+    expect(video).toHaveAttribute("loop");
+    expect((video as HTMLVideoElement).muted).toBe(true);
+    expect(video).toHaveAttribute("playsinline");
+    expect(screen.getByRole("heading", { name: "Comfort in motion" })).toBeInTheDocument();
+    expect(screen.getByText("A short introduction")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Shop now" })).toHaveAttribute(
+      "href",
+      "/collections/bedding",
+    );
+    expect(container.querySelector(".hero-slide-active")).toBe(video);
   });
 
   it("uses the editable storefront heading and button on built-in slides", () => {

@@ -11,7 +11,8 @@ vi.mock("@/lib/hero-slides", () => ({
   createHeroSlide: vi.fn().mockResolvedValue(undefined),
   deleteHeroSlide: vi.fn().mockResolvedValue(undefined),
   fetchHeroSlides: vi.fn().mockResolvedValue([]),
-  replaceHeroSlideImage: vi.fn().mockResolvedValue(undefined),
+  replaceHeroSlideMedia: vi.fn().mockResolvedValue(undefined),
+  setHeroSlideVideoUrl: vi.fn().mockResolvedValue(undefined),
   updateHeroSlide: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -56,12 +57,23 @@ describe("hero slides admin panel", () => {
     const file = new File(["image"], "hero.webp", { type: "image/webp" });
     const fileInput = container.querySelector('input[type="file"]');
     const altInput = container.querySelector('input[type="text"]');
-    const showButtonInput = Array.from(container.querySelectorAll('input[type="checkbox"]')).find(
-      (input) => (input as HTMLInputElement).parentElement?.textContent?.includes("Show button"),
+    const showButtonInput = getLabeledInput(container, "Show button", 'input[type="checkbox"]');
+    const buttonTextEnInput = getLabeledInput(
+      container,
+      "Button text (English)",
+      'input[type="text"]',
     );
-    const textInputs = Array.from(container.querySelectorAll('input[type="text"]'));
-    const buttonUrlInput = container.querySelector('input[type="url"]');
-    const positionInput = container.querySelector("select");
+    const buttonTextArInput = getLabeledInput(
+      container,
+      "Button text (Arabic)",
+      'input[type="text"]',
+    );
+    const buttonUrlInput = getLabeledInput(
+      container,
+      "Button destination URL",
+      'input[type="url"]',
+    );
+    const positionInput = getLabeledInput(container, "Button position", "select");
     const addButton = Array.from(container.querySelectorAll("button")).find((button) =>
       button.textContent?.includes("Add slide"),
     );
@@ -74,8 +86,8 @@ describe("hero slides admin panel", () => {
       fireEvent.change(fileInput!, { target: { files: [file] } });
       fireEvent.change(altInput!, { target: { value: "A hero image" } });
       fireEvent.click(showButtonInput!);
-      fireEvent.change(textInputs[1]!, { target: { value: "Shop now" } });
-      fireEvent.change(textInputs[2]!, { target: { value: "تسوقي الآن" } });
+      fireEvent.change(buttonTextEnInput, { target: { value: "Shop now" } });
+      fireEvent.change(buttonTextArInput, { target: { value: "تسوقي الآن" } });
       fireEvent.change(buttonUrlInput!, { target: { value: "/shop" } });
       fireEvent.change(positionInput!, { target: { value: "bottom-right" } });
     });
@@ -85,8 +97,14 @@ describe("hero slides admin panel", () => {
     });
 
     expect(createHeroSlide).toHaveBeenCalledWith({
+      mediaType: "image",
       file,
+      videoUrl: "",
       altText: "A hero image",
+      titleAr: "",
+      titleEn: "",
+      descriptionAr: "",
+      descriptionEn: "",
       sortOrder: 0,
       button: {
         show_button: true,
@@ -97,4 +115,93 @@ describe("hero slides admin panel", () => {
       },
     });
   });
+
+  it("adds a video slide from an MP4 URL with independent text and CTA", async () => {
+    vi.mocked(fetchHeroSlides).mockResolvedValue([]);
+    container = document.createElement("div");
+    container.innerHTML = renderToString(<HeroSlidesPanel isArabic={false} />);
+    document.body.append(container);
+    root = hydrateRoot(container, <HeroSlidesPanel isArabic={false} />);
+
+    await act(async () => {});
+
+    const mediaTypeInput = getLabeledInput(container, "Slide media", "select");
+    await act(async () => {
+      fireEvent.change(mediaTypeInput, { target: { value: "video" } });
+    });
+
+    const videoUrlInput = getLabeledInput(container, "Video URL (HTTPS)", 'input[type="url"]');
+    const altInput = getLabeledInput(container, "Image description", 'input[type="text"]');
+    const titleEnInput = getLabeledInput(container, "Title (English)", 'input[type="text"]');
+    const titleArInput = getLabeledInput(container, "Title (Arabic)", 'input[type="text"]');
+    const descriptionEnInput = getLabeledInput(container, "Description (English)", "textarea");
+    const descriptionArInput = getLabeledInput(container, "Description (Arabic)", "textarea");
+    const buttonTextEnInput = getLabeledInput(
+      container,
+      "Button text (English)",
+      'input[type="text"]',
+    );
+    const buttonTextArInput = getLabeledInput(
+      container,
+      "Button text (Arabic)",
+      'input[type="text"]',
+    );
+    const buttonUrlInput = getLabeledInput(
+      container,
+      "Button destination URL",
+      'input[type="url"]',
+    );
+    const showButtonInput = getLabeledInput(container, "Show button", 'input[type="checkbox"]');
+    const addButton = Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Add slide"),
+    );
+
+    await act(async () => {
+      fireEvent.change(videoUrlInput, {
+        target: { value: "https://cdn.example.com/hero.mp4" },
+      });
+      fireEvent.change(altInput, { target: { value: "A short hero video" } });
+      fireEvent.change(titleEnInput, { target: { value: "Sleep better" } });
+      fireEvent.change(titleArInput, { target: { value: "نوم أفضل" } });
+      fireEvent.change(descriptionEnInput, { target: { value: "Discover our collection" } });
+      fireEvent.change(descriptionArInput, { target: { value: "اكتشف مجموعتنا" } });
+      fireEvent.click(showButtonInput);
+      fireEvent.change(buttonTextEnInput, { target: { value: "Shop now" } });
+      fireEvent.change(buttonTextArInput, { target: { value: "تسوق الآن" } });
+      fireEvent.change(buttonUrlInput, { target: { value: "/collections/bedding" } });
+      addButton?.click();
+    });
+
+    expect(createHeroSlide).toHaveBeenCalledWith({
+      mediaType: "video",
+      file: null,
+      videoUrl: "https://cdn.example.com/hero.mp4",
+      altText: "A short hero video",
+      titleAr: "نوم أفضل",
+      titleEn: "Sleep better",
+      descriptionAr: "اكتشف مجموعتنا",
+      descriptionEn: "Discover our collection",
+      sortOrder: 0,
+      button: {
+        show_button: true,
+        button_text_ar: "تسوق الآن",
+        button_text_en: "Shop now",
+        button_url: "/collections/bedding",
+        button_position: "bottom-center",
+      },
+    });
+  });
 });
+
+function getLabeledInput(
+  root: HTMLElement,
+  labelText: string,
+  selector: string,
+): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement {
+  const label = Array.from(root.querySelectorAll("label")).find((item) =>
+    item.textContent?.includes(labelText),
+  );
+  const field = label?.querySelector(selector);
+  if (!field) throw new Error(`Could not find ${labelText} field`);
+  return field as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+}

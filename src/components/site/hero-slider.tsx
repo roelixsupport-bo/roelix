@@ -13,8 +13,13 @@ const SLIDE_INTERVAL_MS = 4_500;
 
 type DisplaySlide = {
   id: string;
-  src: string;
+  mediaType: "image" | "video";
+  mediaUrl: string;
   alt: string;
+  titleAr: string;
+  titleEn: string;
+  descriptionAr: string;
+  descriptionEn: string;
   showButton: boolean;
   buttonTextAr: string;
   buttonTextEn: string;
@@ -24,8 +29,13 @@ type DisplaySlide = {
 const FALLBACK_SLIDES: DisplaySlide[] = [
   {
     id: "bedroom",
-    src: bedroomImage,
+    mediaType: "image",
+    mediaUrl: bedroomImage,
     alt: "An elegant bedroom styled with luxurious ROELIX bedding",
+    titleAr: "",
+    titleEn: "",
+    descriptionAr: "",
+    descriptionEn: "",
     showButton: false,
     buttonTextAr: "",
     buttonTextEn: "",
@@ -33,8 +43,13 @@ const FALLBACK_SLIDES: DisplaySlide[] = [
   },
   {
     id: "bedding",
-    src: beddingImage,
+    mediaType: "image",
+    mediaUrl: beddingImage,
     alt: "Soft, premium bedding in a refined navy and ivory palette",
+    titleAr: "",
+    titleEn: "",
+    descriptionAr: "",
+    descriptionEn: "",
     showButton: false,
     buttonTextAr: "",
     buttonTextEn: "",
@@ -42,8 +57,13 @@ const FALLBACK_SLIDES: DisplaySlide[] = [
   },
   {
     id: "pillow",
-    src: pillowImage,
+    mediaType: "image",
+    mediaUrl: pillowImage,
     alt: "A plush pillow crafted for a restful night's sleep",
+    titleAr: "",
+    titleEn: "",
+    descriptionAr: "",
+    descriptionEn: "",
     showButton: false,
     buttonTextAr: "",
     buttonTextEn: "",
@@ -51,8 +71,13 @@ const FALLBACK_SLIDES: DisplaySlide[] = [
   },
   {
     id: "towel",
-    src: towelImage,
+    mediaType: "image",
+    mediaUrl: towelImage,
     alt: "Hotel-quality towels in timeless neutral colors",
+    titleAr: "",
+    titleEn: "",
+    descriptionAr: "",
+    descriptionEn: "",
     showButton: false,
     buttonTextAr: "",
     buttonTextEn: "",
@@ -78,8 +103,14 @@ export function HeroSlider({
           .filter((slide) => slide.is_active)
           .map((slide) => ({
             id: slide.id,
-            src: slide.image_url,
+            mediaType: slide.media_type,
+            mediaUrl:
+              slide.media_type === "video" ? (slide.video_url ?? "") : (slide.image_url ?? ""),
             alt: slide.alt_text,
+            titleAr: slide.title_ar,
+            titleEn: slide.title_en,
+            descriptionAr: slide.description_ar,
+            descriptionEn: slide.description_en,
             showButton: slide.show_button,
             buttonTextAr: slide.button_text_ar,
             buttonTextEn: slide.button_text_en,
@@ -130,6 +161,14 @@ export function HeroSlider({
     : isManagedSlide
       ? ""
       : content.cta_url;
+  const title =
+    lang === "ar"
+      ? activeSlide?.titleAr.trim() || content.title_ar
+      : activeSlide?.titleEn.trim() || content.title_en;
+  const description =
+    lang === "ar"
+      ? activeSlide?.descriptionAr.trim() || content.description_ar
+      : activeSlide?.descriptionEn.trim() || content.description_en;
 
   return (
     <div className="w-full">
@@ -139,24 +178,40 @@ export function HeroSlider({
         className="hero-slider relative h-[clamp(28rem,58vw,46rem)] w-full overflow-hidden bg-secondary"
         role="region"
       >
-        {slides.map((slide, index) => (
-          <img
-            key={slide.id}
-            src={slide.src}
-            alt={slide.alt}
-            aria-hidden={index !== activeIndex}
-            className={`hero-slide absolute inset-0 h-full w-full object-cover ${
-              index === activeIndex ? "hero-slide-active" : ""
-            }`}
-          />
-        ))}
+        {slides.map((slide, index) =>
+          slide.mediaType === "video" ? (
+            index === activeIndex ? (
+              <video
+                key={slide.id}
+                src={slide.mediaUrl}
+                aria-label={slide.alt}
+                aria-hidden="false"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="hero-slide hero-slide-active absolute inset-0 h-full w-full object-cover"
+              />
+            ) : null
+          ) : (
+            <img
+              key={slide.id}
+              src={slide.mediaUrl}
+              alt={slide.alt}
+              aria-hidden={index !== activeIndex}
+              className={`hero-slide absolute inset-0 h-full w-full object-cover ${
+                index === activeIndex ? "hero-slide-active" : ""
+              }`}
+            />
+          ),
+        )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-black/10" />
         <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center text-white">
           <h1 className="max-w-4xl font-serif text-4xl font-semibold leading-tight drop-shadow-md sm:text-6xl lg:text-7xl">
-            {lang === "ar" ? content.title_ar : content.title_en}
+            {title}
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/95 drop-shadow sm:text-lg">
-            {lang === "ar" ? content.description_ar : content.description_en}
+            {description}
           </p>
           {buttonText?.trim() &&
             isAllowedPromoUrl(buttonUrl) &&
@@ -164,7 +219,7 @@ export function HeroSlider({
               (activeSlide.buttonTextEn.trim() && activeSlide.buttonTextAr.trim())) && (
               <a
                 href={buttonUrl}
-                className="luxury-rounded mt-7 inline-flex min-h-12 items-center justify-center rounded-none bg-white px-9 py-3 text-sm font-semibold text-navy shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-background hover:shadow-xl active:scale-95"
+                className="luxury-rounded mt-7 inline-flex min-h-12 items-center justify-center rounded-full bg-white px-9 py-3 text-sm font-semibold text-navy shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-background hover:shadow-xl active:scale-95"
               >
                 {buttonText}
               </a>
@@ -172,7 +227,7 @@ export function HeroSlider({
         </div>
       </div>
       <div
-        aria-label="Choose a featured image"
+        aria-label="Choose a featured slide"
         className="mt-3 flex justify-center gap-1"
         role="group"
       >
@@ -180,7 +235,7 @@ export function HeroSlider({
           <button
             key={slide.id}
             type="button"
-            aria-label={`Show image ${index + 1}: ${slide.alt}`}
+            aria-label={`Show ${slide.mediaType} ${index + 1}: ${slide.alt}`}
             aria-pressed={index === activeIndex}
             className="flex h-8 w-8 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
             onClick={() => setActiveIndex(index)}

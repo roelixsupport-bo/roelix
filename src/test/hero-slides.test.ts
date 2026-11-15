@@ -17,9 +17,15 @@ describe("hero slide database binding", () => {
     const rows = [
       {
         id: "slide-1",
+        media_type: "image",
         image_url: "https://example.supabase.co/hero.jpg",
+        video_url: null,
         storage_path: "hero.jpg",
         alt_text: "Hero image",
+        title_ar: "",
+        title_en: "",
+        description_ar: "",
+        description_en: "",
         sort_order: 0,
         is_active: true,
         show_button: false,
@@ -49,7 +55,7 @@ describe("hero slide database binding", () => {
       ["id", { ascending: true }],
     ]);
     expect(from.mock.results[0]?.value.select).toHaveBeenCalledWith(
-      "id, image_url, storage_path, alt_text, sort_order, is_active, show_button, button_text_ar, button_text_en, button_url, button_position",
+      "id, media_type, image_url, video_url, storage_path, alt_text, title_ar, title_en, description_ar, description_en, sort_order, is_active, show_button, button_text_ar, button_text_en, button_url, button_position",
     );
   });
 });
