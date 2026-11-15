@@ -777,7 +777,7 @@ function Admin() {
     >
       <p className="eyebrow text-gold">{text.atelier}</p>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 sm:items-end">
-        <h1 className="font-serif text-3xl leading-tight sm:text-5xl">{text.dashboard}</h1>
+        <h1 className="font-serif text-3xl leading-tight sm:text-5xl">ROELIX</h1>
         <button onClick={signOut} className="eyebrow text-muted-foreground hover:text-gold">
           {text.signOut}
         </button>

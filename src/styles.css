@@ -153,6 +153,8 @@
   border: 1px solid var(--navy);
   border-radius: 9999px;
   box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.12);
+  position: relative;
+  overflow: hidden;
   transition:
     transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
@@ -162,6 +164,26 @@
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      120deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent
+    );
+    transition: all 0.6s;
+  }
+
+  &:hover::before {
+    left: 100%;
+  }
 
   &:hover {
     background: var(--gold);
@@ -182,27 +204,6 @@
   }
 }
 
-@keyframes promo-banner-enter {
-  from {
-    opacity: 0;
-    transform: translateY(0.35rem);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.promo-banner-message {
-  animation: promo-banner-enter 450ms ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .promo-banner-message {
-    animation: none;
-  }
-}
-
 @utility btn-ghost-lux {
   display: inline-flex;
   align-items: center;
@@ -218,6 +219,8 @@
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 9999px;
+  position: relative;
+  overflow: hidden;
   transition:
     transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
@@ -227,6 +230,26 @@
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      120deg,
+      transparent,
+      rgba(255, 255, 255, 0.4),
+      transparent
+    );
+    transition: all 0.6s;
+  }
+
+  &:hover::before {
+    left: 100%;
+  }
 
   &:hover {
     background: var(--gold);
