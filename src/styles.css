@@ -63,41 +63,40 @@
 
 :root {
   --radius: 0.125rem;
-  --background: oklch(0.99 0.008 85);
-  --foreground: oklch(0.18 0.03 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.03 250);
-  --popover: oklch(0.99 0.008 85);
-  --popover-foreground: oklch(0.18 0.03 250);
+  --background: #fbf8f2;
+  --foreground: #17212d;
+  --card: #fffdfa;
+  --card-foreground: #17212d;
+  --popover: #fffdfa;
+  --popover-foreground: #17212d;
 
-  /* لون كحلي فاخر ومفتّح بوضوح ليعطي حيوية للهيدر والفوتر والأزرار */
-  --navy: oklch(0.35 0.05 250);
-  --navy-foreground: oklch(0.98 0.008 85);
-  --primary: oklch(0.35 0.05 250);
-  --primary-foreground: oklch(0.98 0.008 85);
+  --navy: #263d55;
+  --navy-foreground: #fbf8f2;
+  --primary: #263d55;
+  --primary-foreground: #fbf8f2;
 
-  --gold: oklch(0.65 0.13 82);
-  --gold-foreground: oklch(0.18 0.03 245);
+  --gold: #b18a32;
+  --gold-foreground: #17212d;
   --emerald: oklch(0.5 0.1 165);
-  --secondary: oklch(0.95 0.015 85);
-  --secondary-foreground: oklch(0.26 0.03 245);
-  --muted: oklch(0.95 0.012 85);
-  --muted-foreground: oklch(0.42 0.02 250);
-  --accent: oklch(0.94 0.03 88);
-  --accent-foreground: oklch(0.26 0.03 245);
+  --secondary: #f1eee5;
+  --secondary-foreground: #263d55;
+  --muted: #f1eee8;
+  --muted-foreground: #676a6a;
+  --accent: #f2ead8;
+  --accent-foreground: #263d55;
   --destructive: oklch(0.55 0.2 27);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.85 0.02 85);
-  --input: oklch(0.85 0.02 85);
-  --ring: oklch(0.65 0.13 82);
-  --shadow-lux: 0 30px 60px -30px oklch(0.35 0.05 250 / 0.35);
+  --destructive-foreground: #fffdfa;
+  --border: #ded8cb;
+  --input: #ded8cb;
+  --ring: #b18a32;
+  --shadow-lux: 0 30px 60px -30px rgb(38 61 85 / 35%);
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
   }
-  
+
   html, body {
     max-width: 100vw;
     overflow-x: hidden !important;
@@ -148,6 +147,7 @@
   letter-spacing: 0.22em;
   text-transform: uppercase;
   font-weight: 600;
+  min-height: 2.75rem;
   background: var(--navy);
   color: var(--navy-foreground);
   border: 1px solid var(--navy);
@@ -201,6 +201,15 @@
   &:disabled {
     opacity: 0.5;
     pointer-events: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .btn-lux {
+    min-height: 2.75rem;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
   }
 }
 
@@ -311,7 +320,7 @@
   color: var(--navy-foreground);
   font-family: var(--font-serif);
   line-height: 1;
-  box-shadow: inset 0 0 0 1px oklch(0.65 0.13 82 / 0.5);
+  box-shadow: inset 0 0 0 1px rgb(177 138 50 / 50%);
 }
 
 @keyframes rise {

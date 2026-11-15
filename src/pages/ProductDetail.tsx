@@ -744,7 +744,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                 type="button"
                 onClick={() => handleAdd("bag")}
                 disabled={!canBuy}
-                className="h-12 basis-full rounded-none bg-foreground text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-background hover:bg-foreground/90 sm:order-2 sm:basis-0 sm:flex-1 sm:text-[0.72rem] sm:tracking-[0.22em]"
+                className="h-12 basis-full rounded-none bg-navy text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-navy-foreground hover:bg-navy/90 sm:order-2 sm:basis-0 sm:flex-1 sm:text-[0.72rem] sm:tracking-[0.22em]"
               >
                 {copy.addToBag}
               </Button>
@@ -753,7 +753,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                 onClick={() => handleAdd("checkout")}
                 disabled={!canBuy}
                 variant="outline"
-                className="h-12 basis-full rounded-none border-foreground/25 text-[0.7rem] font-semibold uppercase tracking-[0.18em] hover:border-gold hover:bg-transparent hover:text-gold sm:order-3 sm:basis-0 sm:flex-1 sm:text-[0.72rem] sm:tracking-[0.22em]"
+                className="h-12 basis-full rounded-none border-navy/25 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-navy hover:border-gold hover:bg-transparent hover:text-gold sm:order-3 sm:basis-0 sm:flex-1 sm:text-[0.72rem] sm:tracking-[0.22em]"
               >
                 {copy.buyNow}
               </Button>
@@ -915,7 +915,7 @@ export function ProductDetail({ productId }: { productId: string }) {
           type="button"
           onClick={() => handleAdd("bag")}
           disabled={!canBuy}
-          className="ms-auto h-11 shrink-0 rounded-none bg-foreground px-5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-background hover:bg-foreground/90"
+          className="ms-auto h-11 shrink-0 rounded-none bg-navy px-5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-navy-foreground hover:bg-navy/90"
         >
           {copy.addToBag}
         </Button>
