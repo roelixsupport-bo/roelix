@@ -49,7 +49,7 @@ export function PromoBanner({ visible = true }: { visible?: boolean }) {
 
   return (
     <div
-      className="relative flex min-h-9 items-center justify-center gap-2 bg-[#1e293b] px-12 py-1 text-center text-[0.62rem] tracking-[0.08em] text-white sm:min-h-10 sm:px-16 sm:text-xs"
+      className="relative flex min-h-9 items-center justify-center gap-3 bg-[#1e293b] px-2 py-1 text-center text-[0.62rem] tracking-[0.08em] text-white sm:min-h-10 sm:gap-4 sm:px-3 sm:text-xs"
       aria-label={lang === "ar" ? "العروض والإعلانات" : "Promotions and announcements"}
       aria-live="polite"
     >
@@ -58,7 +58,7 @@ export function PromoBanner({ visible = true }: { visible?: boolean }) {
           type="button"
           onClick={previous}
           aria-label={lang === "ar" ? "الإعلان السابق" : "Previous announcement"}
-          className="absolute start-12 grid size-7 place-items-center rounded-full text-white/90 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+          className="grid size-7 shrink-0 place-items-center rounded-full text-white/90 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
@@ -66,7 +66,7 @@ export function PromoBanner({ visible = true }: { visible?: boolean }) {
       {slide ? (
         <a
           href={slide.target_url}
-          className="max-w-full truncate underline-offset-2 hover:underline"
+          className="min-w-0 max-w-[calc(100vw-7rem)] truncate underline-offset-2 hover:underline sm:max-w-[min(70vw,48rem)]"
         >
           <span key={slide.id} className="promo-banner-message">
             {message}
@@ -82,7 +82,7 @@ export function PromoBanner({ visible = true }: { visible?: boolean }) {
           type="button"
           onClick={next}
           aria-label={lang === "ar" ? "الإعلان التالي" : "Next announcement"}
-          className="absolute end-12 grid size-7 place-items-center rounded-full text-white/90 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+          className="grid size-7 shrink-0 place-items-center rounded-full text-white/90 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>

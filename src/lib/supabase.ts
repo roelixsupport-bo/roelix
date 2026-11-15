@@ -14,7 +14,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       const requestUrl =
         typeof input === "string" || input instanceof URL ? input.toString() : input.url;
       const isStorageRequest = new URL(requestUrl).pathname.includes("/storage/v1/object/");
-      const timeout = isStorageRequest ? 65_000 : 15_000;
+      const requestHeaders = new Headers(init?.headers);
+      const isVideoUpload =
+        isStorageRequest &&
+        ["POST", "PUT"].includes((init?.method ?? "GET").toUpperCase()) &&
+        (requestHeaders.get("content-type") === "video/mp4" ||
+          (init?.body instanceof Blob && init.body.type === "video/mp4"));
+      const timeout = isVideoUpload ? 10 * 60_000 : isStorageRequest ? 65_000 : 15_000;
       return fetch(input, {
         ...init,
         signal: init?.signal ?? AbortSignal.timeout(timeout),

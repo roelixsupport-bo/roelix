@@ -66,6 +66,35 @@ describe("promotional slides", () => {
     expect(fetchPromoSlides).toHaveBeenCalledWith(true);
   });
 
+  it("keeps navigation arrows beside the announcement text", async () => {
+    const originalRows = mocks.rows;
+    mocks.lang = "en";
+    mocks.rows = [
+      ...originalRows,
+      {
+        ...originalRows[0]!,
+        id: "promo-2",
+        message_en: "Second promotion",
+        message_ar: "الإعلان الثاني",
+        sort_order: 1,
+      },
+    ];
+    render(<PromoBanner />);
+
+    const previous = await screen.findByRole("button", { name: "Previous announcement" });
+    const promotion = screen.getByRole("link", { name: "Free delivery this week" });
+    const next = screen.getByRole("button", { name: "Next announcement" });
+
+    expect(previous.parentElement).toBe(promotion.parentElement);
+    expect(next.parentElement).toBe(promotion.parentElement);
+    expect(previous.nextElementSibling).toBe(promotion);
+    expect(promotion.nextElementSibling).toBe(next);
+    expect(previous).not.toHaveClass("absolute");
+    expect(next).not.toHaveClass("absolute");
+
+    mocks.rows = originalRows;
+  });
+
   it("creates and edits promotions through the admin panel", async () => {
     mocks.lang = "en";
     vi.mocked(fetchPromoSlides).mockResolvedValue([]);
