@@ -38,6 +38,16 @@ const COPY = {
     loadError: "Could not load homepage content.",
     duplicate: "A collection with this title already exists.",
     empty: "Enter a collection title first.",
+    productSections: "Homepage product lists",
+    productSectionsDescription: "Create titled product lists linked to a collection.",
+    productSectionTitleEn: "List title (English)",
+    productSectionTitleAr: "List title (Arabic)",
+    productSectionCategory: "Product collection",
+    addProductSection: "Add product list",
+    moveUp: "Move up",
+    moveDown: "Move down",
+    removeSection: "Remove list",
+    sectionRequired: "Enter both titles and choose a collection.",
   },
   ar: {
     title: "عناوين الصفحة الرئيسية والأقسام",
@@ -67,6 +77,16 @@ const COPY = {
     loadError: "تعذر تحميل محتوى الصفحة الرئيسية.",
     duplicate: "يوجد قسم بهذا العنوان بالفعل.",
     empty: "أدخل عنوان القسم أولاً.",
+    productSections: "قوائم منتجات الصفحة الرئيسية",
+    productSectionsDescription: "أنشئ قوائم بعناوين مخصصة واربط كل قائمة بتصنيف منتجات.",
+    productSectionTitleEn: "عنوان القائمة (بالإنجليزية)",
+    productSectionTitleAr: "عنوان القائمة (بالعربية)",
+    productSectionCategory: "تصنيف المنتجات",
+    addProductSection: "إضافة قائمة منتجات",
+    moveUp: "تحريك لأعلى",
+    moveDown: "تحريك لأسفل",
+    removeSection: "حذف القائمة",
+    sectionRequired: "أدخل العنوانين واختر تصنيفًا.",
   },
 } as const;
 
@@ -76,6 +96,9 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
   const [draft, setDraft] = useState<StorefrontContent>(DEFAULT_STOREFRONT_CONTENT);
   const [newTitle, setNewTitle] = useState("");
   const [parentId, setParentId] = useState("");
+  const [newSectionTitleEn, setNewSectionTitleEn] = useState("");
+  const [newSectionTitleAr, setNewSectionTitleAr] = useState("");
+  const [newSectionCategoryId, setNewSectionCategoryId] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -145,6 +168,43 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
     if (parentId === id) setParentId("");
   }
 
+  function addProductSection() {
+    const titleEn = newSectionTitleEn.trim();
+    const titleAr = newSectionTitleAr.trim();
+    if (!titleEn || !titleAr || !newSectionCategoryId) {
+      toast.error(text.sectionRequired);
+      return;
+    }
+
+    update({
+      productSections: [
+        ...draft.productSections,
+        {
+          id: crypto.randomUUID(),
+          title_en: titleEn,
+          title_ar: titleAr,
+          categoryId: newSectionCategoryId,
+          visible: true,
+        },
+      ],
+    });
+    setNewSectionTitleEn("");
+    setNewSectionTitleAr("");
+  }
+
+  function moveProductSection(id: string, direction: -1 | 1) {
+    const index = draft.productSections.findIndex((section) => section.id === id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= draft.productSections.length) return;
+
+    const productSections = [...draft.productSections];
+    [productSections[index], productSections[nextIndex]] = [
+      productSections[nextIndex],
+      productSections[index],
+    ];
+    update({ productSections });
+  }
+
   async function save() {
     if (!settings) {
       toast.error(text.loadError);
@@ -210,6 +270,147 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
               value={draft.customBundle.title}
               onChange={(title) => update({ customBundle: { ...draft.customBundle, title } })}
             />
+          </div>
+
+          <div className="space-y-4 border-t pt-5">
+            <div>
+              <h4 className="font-serif text-xl">{text.productSections}</h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {text.productSectionsDescription}
+              </p>
+            </div>
+            <div className="space-y-3">
+              {draft.productSections.map((section, index) => (
+                <div key={section.id} className="space-y-3 border p-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <TextField
+                      label={text.productSectionTitleEn}
+                      value={section.title_en}
+                      onChange={(title_en) =>
+                        update({
+                          productSections: draft.productSections.map((item) =>
+                            item.id === section.id ? { ...item, title_en } : item,
+                          ),
+                        })
+                      }
+                    />
+                    <TextField
+                      label={text.productSectionTitleAr}
+                      value={section.title_ar}
+                      onChange={(title_ar) =>
+                        update({
+                          productSections: draft.productSections.map((item) =>
+                            item.id === section.id ? { ...item, title_ar } : item,
+                          ),
+                        })
+                      }
+                    />
+                    <label className="block space-y-2 text-sm sm:col-span-2">
+                      <span>{text.productSectionCategory}</span>
+                      <select
+                        aria-label={`${text.productSectionCategory}: ${section.title_en}`}
+                        value={section.categoryId}
+                        onChange={(event) =>
+                          update({
+                            productSections: draft.productSections.map((item) =>
+                              item.id === section.id
+                                ? { ...item, categoryId: event.target.value }
+                                : item,
+                            ),
+                          })
+                        }
+                        className="w-full border bg-background px-3 py-2"
+                      >
+                        {draft.categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <CheckField
+                      label={text.show}
+                      checked={section.visible}
+                      onChange={(visible) =>
+                        update({
+                          productSections: draft.productSections.map((item) =>
+                            item.id === section.id ? { ...item, visible } : item,
+                          ),
+                        })
+                      }
+                    />
+                    <button
+                      type="button"
+                      aria-label={`${text.moveUp}: ${section.title_en}`}
+                      disabled={index === 0}
+                      onClick={() => moveProductSection(section.id, -1)}
+                      className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-40"
+                    >
+                      {text.moveUp}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`${text.moveDown}: ${section.title_en}`}
+                      disabled={index === draft.productSections.length - 1}
+                      onClick={() => moveProductSection(section.id, 1)}
+                      className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-40"
+                    >
+                      {text.moveDown}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`${text.removeSection}: ${section.title_en}`}
+                      onClick={() =>
+                        update({
+                          productSections: draft.productSections.filter(
+                            (item) => item.id !== section.id,
+                          ),
+                        })
+                      }
+                      className="text-sm text-destructive hover:underline"
+                    >
+                      {text.removeSection}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {draft.categories.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <input
+                  aria-label={text.productSectionTitleEn}
+                  value={newSectionTitleEn}
+                  onChange={(event) => setNewSectionTitleEn(event.target.value)}
+                  placeholder={text.productSectionTitleEn}
+                  className="border bg-background px-3 py-2 text-sm"
+                />
+                <input
+                  aria-label={text.productSectionTitleAr}
+                  value={newSectionTitleAr}
+                  onChange={(event) => setNewSectionTitleAr(event.target.value)}
+                  placeholder={text.productSectionTitleAr}
+                  className="border bg-background px-3 py-2 text-sm"
+                />
+                <select
+                  aria-label={text.productSectionCategory}
+                  value={newSectionCategoryId}
+                  onChange={(event) => setNewSectionCategoryId(event.target.value)}
+                  className="border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">{text.productSectionCategory}</option>
+                  {draft.categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={addProductSection} className="btn-lux sm:col-span-3">
+                  {text.addProductSection}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4 border-t pt-5">

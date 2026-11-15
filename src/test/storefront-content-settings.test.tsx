@@ -95,4 +95,31 @@ describe("storefront content settings", () => {
     expect(saved!.categories.some((category) => category.name === "Luxury Towels")).toBe(false);
     expect(saved!.deletedCategoryNames).toContain("Luxury Towels");
   });
+
+  it("adds a bilingual homepage product list linked to a collection", async () => {
+    render(<StorefrontContentSettings isArabic={false} />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "List title (English)" }), {
+      target: { value: "Bedding Bestsellers" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "List title (Arabic)" }), {
+      target: { value: "الأكثر مبيعًا من أغطية السرير" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Product collection" }), {
+      target: { value: "bedding-sets" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add product list" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save homepage content" }));
+
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+    const saved: StorefrontContent | undefined = mocks.save.mock.calls[0]?.[0];
+    expect(saved?.productSections).toContainEqual(
+      expect.objectContaining({
+        title_en: "Bedding Bestsellers",
+        title_ar: "الأكثر مبيعًا من أغطية السرير",
+        categoryId: "bedding-sets",
+        visible: true,
+      }),
+    );
+  });
 });

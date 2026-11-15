@@ -15,6 +15,14 @@ export type StorefrontCategory = {
   visible: boolean;
 };
 
+export type StorefrontProductSection = {
+  id: string;
+  title_en: string;
+  title_ar: string;
+  categoryId: string;
+  visible: boolean;
+};
+
 export type StorefrontContent = {
   navVisible: boolean;
   customBundle: { visible: boolean; title: string };
@@ -28,6 +36,7 @@ export type StorefrontContent = {
   };
   deletedCategoryNames: string[];
   categories: StorefrontCategory[];
+  productSections: StorefrontProductSection[];
 };
 
 export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
@@ -42,6 +51,7 @@ export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
     showAllFilter: true,
   },
   deletedCategoryNames: [],
+  productSections: [],
   categories: CATEGORIES.map((name) => ({
     id: name
       .toLowerCase()
@@ -233,6 +243,16 @@ function normalizeStorefrontContent(value: unknown): StorefrontContent {
         )
         .map((category) => ({ ...category, label: category.label ?? category.name }))
     : DEFAULT_STOREFRONT_CONTENT.categories;
+  const productSections = Array.isArray(content.productSections)
+    ? content.productSections.filter(
+        (section): section is StorefrontProductSection =>
+          typeof section?.id === "string" &&
+          typeof section.title_en === "string" &&
+          typeof section.title_ar === "string" &&
+          typeof section.categoryId === "string" &&
+          typeof section.visible === "boolean",
+      )
+    : DEFAULT_STOREFRONT_CONTENT.productSections;
 
   return {
     navVisible: typeof content.navVisible === "boolean" ? content.navVisible : true,
@@ -260,5 +280,6 @@ function normalizeStorefrontContent(value: unknown): StorefrontContent {
     },
     deletedCategoryNames,
     categories,
+    productSections,
   };
 }

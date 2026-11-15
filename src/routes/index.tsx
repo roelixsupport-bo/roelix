@@ -122,6 +122,47 @@ function Home() {
         </section>
       )}
 
+      {storefront.productSections.map((section) => {
+        if (!section.visible) return null;
+        const category = categories.find((item) => item.id === section.categoryId);
+        if (!category) return null;
+
+        const categoryNames = [
+          category.name,
+          ...categories.filter((item) => item.parentId === category.id).map((item) => item.name),
+        ];
+        const products = s.products
+          .filter((product) => product.isPublished && categoryNames.includes(product.category))
+          .slice(0, 4);
+        if (products.length === 0) return null;
+
+        return (
+          <section
+            key={section.id}
+            className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16"
+            aria-label={s.lang === "ar" ? section.title_ar : section.title_en}
+          >
+            <div className="flex items-end justify-between gap-4 border-b border-border/70 pb-4">
+              <h2 className="font-serif text-[clamp(1.5rem,3vw,2.4rem)]">
+                {s.lang === "ar" ? section.title_ar : section.title_en}
+              </h2>
+              <Link
+                to="/shop"
+                search={{ c: category.name }}
+                className="shrink-0 text-xs font-medium text-foreground underline decoration-gold underline-offset-4 transition-colors hover:text-gold sm:text-sm"
+              >
+                {s.lang === "ar" ? "عرض الكل" : "Shop all"}
+              </Link>
+            </div>
+            <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-8 sm:mt-8 sm:gap-x-6 lg:grid-cols-4">
+              {products.map((product) => (
+                <ProductCard key={product.id} p={product} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+
       <section className="bg-secondary">
         <div className="mx-auto grid max-w-7xl gap-12 px-6 py-24 text-center md:grid-cols-3">
           {[
