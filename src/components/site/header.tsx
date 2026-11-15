@@ -5,12 +5,20 @@ import { AccountMenu } from "@/components/site/account-menu";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { PromoBanner } from "@/components/site/promo-banner";
 import { recordProductInteraction, recordSearchQuery } from "@/lib/local-data";
-import { CATEGORIES, useStore, type Product } from "@/lib/store";
-import { useSiteSettings } from "@/lib/site-settings";
+import { useStore, type Product } from "@/lib/store";
+import { DEFAULT_STOREFRONT_CONTENT, useSiteSettings } from "@/lib/site-settings";
 
 export function Header() {
   const s = useStore();
   const { settings } = useSiteSettings();
+  const storefront = settings?.storefront_content ?? DEFAULT_STOREFRONT_CONTENT;
+  const visibleCategories = storefront.categories.filter(
+    (category) =>
+      category.visible &&
+      (!category.parentId ||
+        storefront.categories.some((parent) => parent.id === category.parentId && parent.visible)),
+  );
+  const rootCategories = visibleCategories.filter((category) => category.parentId === null);
   const pathname = useLocation({ select: (location) => location.pathname });
   const nav = useNavigate();
   const [q, setQ] = useState("");
@@ -66,7 +74,7 @@ export function Header() {
             type="button"
             className="col-start-1 row-start-1 grid size-9 place-items-center rounded-full text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-muted hover:text-gold hover:shadow-sm active:scale-95 md:hidden"
             onClick={() => setMobile(!mobile)}
-            aria-label={mobile ? (s.lang === "ar" ? "إغلاق القائمة" : "Close menu") : s.t.menu}
+            aria-label={mobile ? (s.lang === "ar" ? "إغلاق القائمة" : "Close menu") : "Menu"}
             aria-expanded={mobile}
           >
             {mobile ? <X size={21} /> : <Menu size={21} />}
@@ -123,98 +131,138 @@ export function Header() {
           </div>
         </div>
 
-        <nav
-          aria-label={s.lang === "ar" ? "تسوق حسب المجموعة" : "Shop by collection"}
-          dir="ltr"
-          className="border-t border-border/70"
-        >
-          <ul className="mx-auto flex max-w-7xl items-center gap-6 overflow-x-auto px-4 py-2.5 text-[0.68rem] font-medium uppercase tracking-[0.08em] sm:gap-8 sm:px-6 sm:text-xs md:justify-center md:gap-9 md:overflow-visible">
-            {CATEGORIES.map((category, index) => {
-              const products = s.products
-                .filter((product) => product.isPublished && product.category === category)
-                .slice(0, 5);
+        {storefront.navVisible && (
+          <nav
+            aria-label={s.lang === "ar" ? "تسوق حسب المجموعة" : "Shop by collection"}
+            dir="ltr"
+            className="border-t border-border/70"
+          >
+            <ul className="mx-auto flex max-w-7xl items-center gap-6 overflow-x-auto px-4 py-2.5 text-[0.68rem] font-medium uppercase tracking-[0.08em] sm:gap-8 sm:px-6 sm:text-xs md:justify-center md:gap-9 md:overflow-visible">
+              {rootCategories.map((category, index) => {
+                const children = visibleCategories.filter((item) => item.parentId === category.id);
+                const categoryNames = [category.name, ...children.map((child) => child.name)];
+                const products = s.products
+                  .filter(
+                    (product) => product.isPublished && categoryNames.includes(product.category),
+                  )
+                  .slice(0, 5);
 
-              return (
-                <li key={category} className="group relative shrink-0">
-                  <Link
-                    to="/shop"
-                    search={{ c: category }}
-                    onClick={() => setMobile(false)}
-                    dir="auto"
-                    className="block border-b border-transparent py-1 text-foreground/85 transition-colors hover:border-gold hover:text-gold"
-                  >
-                    {category}
-                  </Link>
-                  <div
-                    className={`absolute top-full z-50 hidden w-[min(22rem,calc(100vw-2rem))] border border-border bg-background p-3 text-start normal-case tracking-normal shadow-lux group-hover:block group-focus-within:block ${
-                      index === CATEGORIES.length - 1 ? "right-0" : "left-0"
-                    }`}
-                  >
-                    <ul className="divide-y divide-border/70">
-                      {products.map((product) => (
-                        <li key={product.id}>
-                          <Link
-                            to="/product/$id"
-                            params={{ id: product.id }}
-                            onClick={() => {
-                              if (pathname !== "/admin") {
-                                recordProductInteraction("product_click", product.id, product.name);
-                              }
-                            }}
-                            dir="auto"
-                            className="flex items-center gap-3 py-2 transition-colors hover:text-gold"
-                          >
-                            <img
-                              src={product.images[0]}
-                              alt=""
-                              className="size-12 shrink-0 rounded-sm object-cover"
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate font-serif text-sm font-semibold text-foreground">
-                                {s.lang === "ar" ? product.nameAr : product.name}
-                              </span>
-                              <span className="mt-0.5 block text-xs text-gold">
-                                {s.fmt(product.price)}
-                              </span>
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
+                return (
+                  <li key={category.id} className="group relative shrink-0">
                     <Link
                       to="/shop"
-                      search={{ c: category }}
-                      className="mt-2 block border-t border-border pt-3 text-xs font-semibold uppercase tracking-wider text-foreground transition-colors hover:text-gold"
+                      search={{ c: category.name }}
+                      onClick={() => setMobile(false)}
+                      dir="auto"
+                      className="block border-b border-transparent py-1 text-foreground/85 transition-colors hover:border-gold hover:text-gold"
                     >
-                      {s.lang === "ar" ? "عرض كل المنتجات" : "View all products"}
+                      {category.label}
                     </Link>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+                    <div
+                      className={`absolute top-full z-50 hidden w-[min(22rem,calc(100vw-2rem))] border border-border bg-background p-3 text-start normal-case tracking-normal shadow-lux group-hover:block group-focus-within:block ${
+                        index === rootCategories.length - 1 ? "right-0" : "left-0"
+                      }`}
+                    >
+                      {children.length > 0 && (
+                        <ul className="mb-2 flex flex-wrap gap-2 border-b pb-3 text-xs">
+                          {children.map((child) => (
+                            <li key={child.id}>
+                              <Link
+                                to="/shop"
+                                search={{ c: child.name }}
+                                className="text-foreground hover:text-gold"
+                              >
+                                {child.label}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <ul className="divide-y divide-border/70">
+                        {products.map((product) => (
+                          <li key={product.id}>
+                            <Link
+                              to="/product/$id"
+                              params={{ id: product.id }}
+                              onClick={() => {
+                                if (pathname !== "/admin") {
+                                  recordProductInteraction(
+                                    "product_click",
+                                    product.id,
+                                    product.name,
+                                  );
+                                }
+                              }}
+                              dir="auto"
+                              className="flex items-center gap-3 py-2 transition-colors hover:text-gold"
+                            >
+                              <img
+                                src={product.images[0]}
+                                alt=""
+                                className="size-12 shrink-0 rounded-sm object-cover"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate font-serif text-sm font-semibold text-foreground">
+                                  {s.lang === "ar" ? product.nameAr : product.name}
+                                </span>
+                                <span className="mt-0.5 block text-xs text-gold">
+                                  {s.fmt(product.price)}
+                                </span>
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                      <Link
+                        to="/shop"
+                        search={{ c: category.name }}
+                        className="mt-2 block border-t border-border pt-3 text-xs font-semibold uppercase tracking-wider text-foreground transition-colors hover:text-gold"
+                      >
+                        {s.lang === "ar" ? "عرض كل المنتجات" : "View all products"}
+                      </Link>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        )}
 
         {mobile && (
           <div className="border-t bg-background shadow-xl">
             <div className="mx-auto grid max-w-7xl gap-6 px-5 py-5 sm:grid-cols-2 md:grid-cols-4 md:px-6">
-              <div>
-                <p className="eyebrow mb-3 font-bold text-gold">The Collections</p>
-                <ul className="space-y-2 font-serif text-base">
-                  {CATEGORIES.map((category) => (
-                    <li key={category}>
-                      <Link
-                        to="/shop"
-                        search={{ c: category }}
-                        onClick={() => setMobile(false)}
-                        className="block text-foreground transition-colors hover:text-gold"
-                      >
-                        {category}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {storefront.navVisible && (
+                <div>
+                  <p className="eyebrow mb-3 font-bold text-gold">The Collections</p>
+                  <ul className="space-y-2 font-serif text-base">
+                    {rootCategories.map((category) => (
+                      <li key={category.id}>
+                        <Link
+                          to="/shop"
+                          search={{ c: category.name }}
+                          onClick={() => setMobile(false)}
+                          className="block text-foreground transition-colors hover:text-gold"
+                        >
+                          {category.label}
+                        </Link>
+                        {visibleCategories
+                          .filter((item) => item.parentId === category.id)
+                          .map((child) => (
+                            <Link
+                              key={child.id}
+                              to="/shop"
+                              search={{ c: child.name }}
+                              onClick={() => setMobile(false)}
+                              className="ms-4 mt-1 block text-sm text-muted-foreground transition-colors hover:text-gold"
+                            >
+                              {child.label}
+                            </Link>
+                          ))}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p className="eyebrow mb-3 font-bold text-foreground">By Fabric</p>
                 <p>Egyptian Giza Cotton</p>

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { CATEGORIES } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 
 export const SITE_BRANDING_BUCKET = "site-branding";
@@ -6,9 +7,55 @@ export const SITE_BRANDING_MAX_BYTES = 5 * 1024 * 1024;
 export const SITE_BRANDING_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const SITE_SETTINGS_CHANGED_EVENT = "roelix-site-settings-changed";
 
+export type StorefrontCategory = {
+  id: string;
+  name: string;
+  label: string;
+  parentId: string | null;
+  visible: boolean;
+};
+
+export type StorefrontContent = {
+  navVisible: boolean;
+  customBundle: { visible: boolean; title: string };
+  featured: {
+    visible: boolean;
+    eyebrowVisible: boolean;
+    eyebrow: string;
+    titleVisible: boolean;
+    title: string;
+    showAllFilter: boolean;
+  };
+  categories: StorefrontCategory[];
+};
+
+export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
+  navVisible: true,
+  customBundle: { visible: true, title: "Build a Custom Set" },
+  featured: {
+    visible: true,
+    eyebrowVisible: true,
+    eyebrow: "Curated",
+    titleVisible: true,
+    title: "Featured Collections",
+    showAllFilter: true,
+  },
+  categories: CATEGORIES.map((name) => ({
+    id: name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, ""),
+    name,
+    label: name,
+    parentId: null,
+    visible: true,
+  })),
+};
+
 export type SiteSettings = {
   logo_url: string | null;
   favicon_url: string | null;
+  storefront_content: StorefrontContent;
   updated_at: string;
 };
 
@@ -25,7 +72,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(async () => {
     const { data, error } = await supabase
       .from("site_settings")
-      .select("logo_url, favicon_url, updated_at")
+      .select("logo_url, favicon_url, storefront_content, updated_at")
       .eq("id", 1)
       .maybeSingle();
     if (error) throw error;
@@ -34,6 +81,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       ? {
           logo_url: data.logo_url,
           favicon_url: data.favicon_url,
+          storefront_content: normalizeStorefrontContent(data.storefront_content),
           updated_at: data.updated_at,
         }
       : null;
@@ -147,4 +195,64 @@ export async function saveSiteSettings(settings: {
     .upsert({ id: 1, ...settings, updated_at: new Date().toISOString() }, { onConflict: "id" });
   if (error) throw error;
   window.dispatchEvent(new Event(SITE_SETTINGS_CHANGED_EVENT));
+}
+
+export async function saveStorefrontContent(content: StorefrontContent): Promise<void> {
+  const { error } = await supabase
+    .from("site_settings")
+    .upsert(
+      { id: 1, storefront_content: content, updated_at: new Date().toISOString() },
+      { onConflict: "id" },
+    );
+  if (error) throw error;
+  window.dispatchEvent(new Event(SITE_SETTINGS_CHANGED_EVENT));
+}
+
+function normalizeStorefrontContent(value: unknown): StorefrontContent {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return DEFAULT_STOREFRONT_CONTENT;
+  }
+
+  const content = value as Partial<StorefrontContent>;
+  const featured = content.featured;
+  const customBundle = content.customBundle;
+  const categories = Array.isArray(content.categories)
+    ? content.categories
+        .filter(
+          (category): category is StorefrontCategory =>
+            typeof category?.id === "string" &&
+            typeof category.name === "string" &&
+            (typeof category.label === "string" || category.label === undefined) &&
+            (category.parentId === null || typeof category.parentId === "string") &&
+            typeof category.visible === "boolean",
+        )
+        .map((category) => ({ ...category, label: category.label ?? category.name }))
+    : DEFAULT_STOREFRONT_CONTENT.categories;
+
+  return {
+    navVisible: typeof content.navVisible === "boolean" ? content.navVisible : true,
+    customBundle: {
+      visible: typeof customBundle?.visible === "boolean" ? customBundle.visible : true,
+      title:
+        typeof customBundle?.title === "string"
+          ? customBundle.title
+          : DEFAULT_STOREFRONT_CONTENT.customBundle.title,
+    },
+    featured: {
+      visible: typeof featured?.visible === "boolean" ? featured.visible : true,
+      eyebrowVisible:
+        typeof featured?.eyebrowVisible === "boolean" ? featured.eyebrowVisible : true,
+      eyebrow:
+        typeof featured?.eyebrow === "string"
+          ? featured.eyebrow
+          : DEFAULT_STOREFRONT_CONTENT.featured.eyebrow,
+      titleVisible: typeof featured?.titleVisible === "boolean" ? featured.titleVisible : true,
+      title:
+        typeof featured?.title === "string"
+          ? featured.title
+          : DEFAULT_STOREFRONT_CONTENT.featured.title,
+      showAllFilter: typeof featured?.showAllFilter === "boolean" ? featured.showAllFilter : true,
+    },
+    categories,
+  };
 }

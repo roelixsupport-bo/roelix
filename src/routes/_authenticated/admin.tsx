@@ -38,6 +38,7 @@ import {
   type Product,
 } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
+import { useSiteSettings } from "@/lib/site-settings";
 import { BOSTA_SHIPPING_RATES, type EgyptGovernorate } from "@/lib/shipping";
 import { productFromCloud, productToCloud } from "@/lib/cloud-catalog";
 import { CustomersPanel } from "@/components/admin/customers-panel";
@@ -45,6 +46,7 @@ import { HeroSlidesPanel } from "@/components/admin/hero-slides-panel";
 import { PaymentSettingsPanel } from "@/components/admin/payment-settings-panel";
 import { PaymentReceiptLink } from "@/components/admin/payment-receipt-link";
 import { SiteBrandingSettings } from "@/components/admin/site-branding-settings";
+import { StorefrontContentSettings } from "@/components/admin/storefront-content-settings";
 import { PromoSlidesPanel } from "@/components/admin/promo-slides-panel";
 import { OrderLineRestock } from "@/components/admin/order-line-restock";
 import { ProductActions } from "@/components/admin/product-actions";
@@ -412,6 +414,7 @@ function mapCloudOrder(value: unknown): Order | null {
 
 function Admin() {
   const s = useStore();
+  const { settings: siteSettings } = useSiteSettings();
   const reloadProducts = s.reloadProducts;
   const [tab, setTab] = useState<AdminTab>("products");
   const [editing, setEditing] = useState<Product | null>(null);
@@ -1192,6 +1195,7 @@ function Admin() {
         </section>
       ) : (
         <section className="mt-6 max-w-2xl space-y-5 border p-6" aria-label={text.settings}>
+          <StorefrontContentSettings isArabic={isArabic} />
           <SiteBrandingSettings isArabic={isArabic} />
           <div className="space-y-5 border-t pt-6">
             <div>
@@ -1250,7 +1254,14 @@ function Admin() {
       {editing && (
         <Editor
           initial={editing}
-          categories={[...new Set([...CATEGORIES, ...all.map((product) => product.category)])]}
+          categories={[
+            ...new Set([
+              ...CATEGORIES,
+              ...(siteSettings?.storefront_content.categories.map((category) => category.name) ??
+                []),
+              ...all.map((product) => product.category),
+            ]),
+          ]}
           products={all}
           isArabic={isArabic}
           error={saveError}
