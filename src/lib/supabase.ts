@@ -19,7 +19,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         isStorageRequest &&
         ["POST", "PUT"].includes((init?.method ?? "GET").toUpperCase()) &&
         requestPath.endsWith(".mp4");
-      const timeout = isVideoUpload ? 10 * 60_000 : isStorageRequest ? 65_000 : 15_000;
+      const timeout = isVideoUpload ? 10 * 60_000 : isStorageRequest ? 65_000 : 60_000;
       return fetch(input, {
         ...init,
         signal: init?.signal ?? AbortSignal.timeout(timeout),
