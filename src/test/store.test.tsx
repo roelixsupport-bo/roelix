@@ -1,5 +1,6 @@
 import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { createRoot, hydrateRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   EGP_PER_USD,
@@ -173,6 +174,37 @@ describe("store currency and locale", () => {
     expect(container.querySelector("output")?.textContent).toBe("480 ج.م");
     expect(document.documentElement.dir).toBe("rtl");
     expect(document.documentElement.lang).toBe("ar");
+  });
+
+  it("hydrates consistently before restoring browser language and cart", async () => {
+    const markup = renderToString(
+      <StoreProvider>
+        <StoreProbe />
+      </StoreProvider>,
+    );
+    container.innerHTML = markup;
+    document.body.append(container);
+    localStorage.setItem("roelix_language", JSON.stringify("ar"));
+    localStorage.setItem(
+      "roelix_cart",
+      JSON.stringify([{ id: "aurelia-sateen", size: "Queen", color: "Ivory", qty: 2 }]),
+    );
+    const recoverableErrors: unknown[] = [];
+
+    await act(async () => {
+      root = hydrateRoot(
+        container,
+        <StoreProvider>
+          <StoreProbe />
+        </StoreProvider>,
+        { onRecoverableError: (error) => recoverableErrors.push(error) },
+      );
+    });
+
+    expect(recoverableErrors).toEqual([]);
+    expect(container.querySelector("output")?.textContent).toBe("480 ج.م");
+    expect(container.querySelector('[data-testid="cart-quantity"]')?.textContent).toBe("2");
+    expect(document.documentElement.dir).toBe("rtl");
   });
 
   it("returns the Bosta rate for each Egyptian governorate", () => {

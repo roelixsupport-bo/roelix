@@ -393,16 +393,13 @@ async function fetchCloudCatalog(supabase: SupabaseClient): Promise<unknown[]> {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState(() => readProducts(STATIC_PRODUCTS));
+  const [products, setProducts] = useState(STATIC_PRODUCTS);
   const [productsLoaded, setProductsLoaded] = useState(false);
-  const [cart, setCart] = useState(() => readStorage(CART_KEY, [] as SavedCartLine[], isSavedCart));
-  const [wishlist, setWishlist] = useState(() =>
-    readStorage(WISHLIST_KEY, [] as string[], isStringArray),
-  );
-  const [lang, setLang] = useState<Language>(() =>
-    readStorage(LANGUAGE_KEY, "en" as Language, isLanguage),
-  );
+  const [cart, setCart] = useState<SavedCartLine[]>([]);
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [lang, setLang] = useState<Language>("en");
   const [cartOpen, setCartOpen] = useState(false);
+  const [storageLoaded, setStorageLoaded] = useState(false);
 
   // Until the first successful cloud read, the cached catalogue is used so the
   // shop can paint immediately. After that, Supabase owns the truth.
@@ -521,6 +518,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, [reloadProducts]);
   useEffect(() => {
+    setCart(readStorage(CART_KEY, [] as SavedCartLine[], isSavedCart));
+    setWishlist(readStorage(WISHLIST_KEY, [] as string[], isStringArray));
+    setLang(readStorage(LANGUAGE_KEY, "en" as Language, isLanguage));
+    setStorageLoaded(true);
+  }, []);
+  useEffect(() => {
     setCart((current) => {
       const totals = new Map<string, number>();
       let changed = false;
@@ -539,8 +542,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return changed ? normalized : current;
     });
   }, [products]);
-  useEffect(() => writeStorage(CART_KEY, cart), [cart]);
-  useEffect(() => writeStorage(WISHLIST_KEY, wishlist), [wishlist]);
+  useEffect(() => {
+    if (storageLoaded) writeStorage(CART_KEY, cart);
+  }, [cart, storageLoaded]);
+  useEffect(() => {
+    if (storageLoaded) writeStorage(WISHLIST_KEY, wishlist);
+  }, [wishlist, storageLoaded]);
 
   /**
    * Keeps two open tabs in agreement: a deletion or quantity change made in one
@@ -558,9 +565,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", syncCart);
   }, []);
   useEffect(() => {
+    if (!storageLoaded) return;
     writeStorage(LANGUAGE_KEY, lang);
     applyLanguageToDocument(lang);
-  }, [lang]);
+  }, [lang, storageLoaded]);
 
   const find = useCallback(
     (id: string) => products.find((product) => product.id === id),
