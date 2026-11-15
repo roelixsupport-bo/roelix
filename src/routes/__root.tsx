@@ -21,7 +21,7 @@ import { CartDrawer } from "@/components/site/cartdrawer";
 import { Concierge } from "@/components/site/concierge";
 import { Toaster } from "@/components/ui/sonner";
 import { initMetaPixel } from "@/utils/metaPixel";
-import { SiteSettingsProvider } from "@/lib/site-settings";
+import { SiteSettingsProvider, useSiteSettings } from "@/lib/site-settings";
 
 function NotFoundComponent() {
   return (
@@ -148,16 +148,27 @@ function RootComponent() {
         <AccountProvider>
           <StoreProvider>
             <AuthDialogProvider>
-              <Header />
-              <main className="min-h-[60vh]">{routerReady ? <Outlet /> : <RouteSkeleton />}</main>
-              <Footer />
-              <CartDrawer />
-              <Concierge />
-              <Toaster />
+              <StorefrontLayout routerReady={routerReady} />
             </AuthDialogProvider>
           </StoreProvider>
         </AccountProvider>
       </SiteSettingsProvider>
     </QueryClientProvider>
+  );
+}
+
+function StorefrontLayout({ routerReady }: { routerReady: boolean }) {
+  const { settings } = useSiteSettings();
+  const content = settings?.storefront_content;
+
+  return (
+    <div className={content?.luxuryDesignEnabled ? "luxury-storefront" : undefined}>
+      <Header />
+      <main className="min-h-[60vh]">{routerReady ? <Outlet /> : <RouteSkeleton />}</main>
+      {content?.footerVisible !== false && <Footer />}
+      <CartDrawer />
+      <Concierge />
+      <Toaster />
+    </div>
   );
 }

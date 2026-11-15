@@ -53,7 +53,7 @@ export function Header() {
   return (
     <header className="relative z-40 w-full overflow-x-clip border-b bg-background">
       <div className="relative">
-        <PromoBanner />
+        <PromoBanner visible={storefront.promoBannerVisible} />
         <div className="absolute start-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5 sm:start-6 sm:gap-2">
           <span className="hidden text-[0.62rem] font-semibold text-gold sm:inline">
             {s.lang === "ar" ? "ج.م" : "EGP"}
@@ -135,7 +135,7 @@ export function Header() {
           <nav
             aria-label={s.lang === "ar" ? "تسوق حسب المجموعة" : "Shop by collection"}
             dir="ltr"
-            className="border-t border-border/70"
+            className="border-t border-border/70 bg-background"
           >
             <ul className="mx-auto flex max-w-7xl items-center gap-6 overflow-x-auto px-4 py-2.5 text-[0.68rem] font-medium uppercase tracking-[0.08em] sm:gap-8 sm:px-6 sm:text-xs md:justify-center md:gap-9 md:overflow-visible">
               {rootCategories.map((category, index) => {

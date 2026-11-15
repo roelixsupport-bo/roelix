@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Heart, Minus, Plus, RotateCcw, Truck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, Minus, Plus, RotateCcw, Truck } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -454,7 +454,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                       aria-label={`${displayName}, image ${index + 1}`}
                       aria-current={imageIndex === index}
                       className={cn(
-                        "h-20 w-16 shrink-0 overflow-hidden border bg-muted transition sm:h-24 sm:w-20",
+                        "luxury-rounded h-20 w-16 shrink-0 overflow-hidden rounded-none border bg-muted transition sm:h-24 sm:w-20",
                         imageIndex === index
                           ? "border-gold"
                           : "border-transparent hover:border-border",
@@ -473,7 +473,7 @@ export function ProductDetail({ productId }: { productId: string }) {
               </ul>
             )}
 
-            <div className="relative min-w-0 flex-1 overflow-hidden bg-muted">
+            <div className="luxury-rounded relative min-w-0 flex-1 overflow-hidden rounded-none bg-muted">
               <div
                 className={cn(
                   "relative aspect-[4/5] w-full overflow-hidden",
@@ -522,10 +522,30 @@ export function ProductDetail({ productId }: { productId: string }) {
               </div>
 
               {images.length > 1 && (
-                <p className="pointer-events-none absolute bottom-3 start-3 bg-background/85 px-2 py-1 text-[0.62rem] tracking-[0.2em]">
-                  {String(imageIndex + 1).padStart(2, "0")} /{" "}
-                  {String(images.length).padStart(2, "0")}
-                </p>
+                <>
+                  <button
+                    type="button"
+                    aria-label={s.lang === "ar" ? "الصورة السابقة" : "Previous image"}
+                    onClick={() =>
+                      setImageIndex((index) => (index - 1 + images.length) % images.length)
+                    }
+                    className="absolute start-3 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/95 text-slate-900 shadow-md transition hover:bg-white"
+                  >
+                    <ChevronLeft size={20} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={s.lang === "ar" ? "الصورة التالية" : "Next image"}
+                    onClick={() => setImageIndex((index) => (index + 1) % images.length)}
+                    className="absolute end-3 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/95 text-slate-900 shadow-md transition hover:bg-white"
+                  >
+                    <ChevronRight size={20} aria-hidden="true" />
+                  </button>
+                  <p className="pointer-events-none absolute bottom-3 start-3 rounded-full bg-background/90 px-3 py-1 text-[0.62rem] tracking-[0.16em]">
+                    {String(imageIndex + 1).padStart(2, "0")} /{" "}
+                    {String(images.length).padStart(2, "0")}
+                  </p>
+                </>
               )}
               <p className="pointer-events-none absolute bottom-3 end-3 hidden bg-background/85 px-2 py-1 text-[0.62rem] tracking-[0.2em] sm:block">
                 {copy.zoomHint}
@@ -690,7 +710,7 @@ export function ProductDetail({ productId }: { productId: string }) {
           <div className="mt-7 border-t pt-6">
             <p className="eyebrow text-xs">{copy.quantity}</p>
             <div className="mt-3 flex flex-wrap items-stretch gap-2 sm:flex-nowrap sm:gap-3">
-              <div className="flex h-12 items-stretch border border-border">
+              <div className="luxury-rounded flex h-12 items-stretch overflow-hidden rounded-none border border-border">
                 <Button
                   type="button"
                   variant="ghost"
@@ -698,7 +718,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                   aria-label="Decrease quantity"
                   onClick={() => changeQuantity(quantity - 1)}
                   disabled={quantity <= 1 || !canBuy}
-                  className="h-full w-11 rounded-none"
+                  className="luxury-rounded h-full w-11 rounded-none"
                 >
                   <Minus size={14} />
                 </Button>
@@ -719,7 +739,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                   aria-label="Increase quantity"
                   onClick={() => changeQuantity(quantity + 1)}
                   disabled={!canBuy || quantity >= maxAddable}
-                  className="h-full w-11 rounded-none"
+                  className="luxury-rounded h-full w-11 rounded-none"
                 >
                   <Plus size={14} />
                 </Button>
@@ -732,7 +752,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                 onClick={() => s.toggleWish(product.id)}
                 aria-label="Wishlist"
                 aria-pressed={s.wishlist.includes(product.id)}
-                className="ms-auto h-12 w-12 shrink-0 rounded-none border-border sm:order-last sm:ms-0"
+                className="luxury-rounded ms-auto h-12 w-12 shrink-0 rounded-none border-border sm:order-last sm:ms-0"
               >
                 <Heart
                   size={16}
@@ -744,7 +764,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                 type="button"
                 onClick={() => handleAdd("bag")}
                 disabled={!canBuy}
-                className="h-12 basis-full rounded-none bg-navy text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-navy-foreground hover:bg-navy/90 sm:order-2 sm:basis-0 sm:flex-1 sm:text-[0.72rem] sm:tracking-[0.22em]"
+                className="luxury-rounded h-12 basis-full rounded-none bg-navy text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-navy-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-navy/90 hover:shadow-lg active:scale-95 sm:order-2 sm:basis-0 sm:flex-1 sm:text-[0.72rem] sm:tracking-[0.22em]"
               >
                 {copy.addToBag}
               </Button>
@@ -753,7 +773,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                 onClick={() => handleAdd("checkout")}
                 disabled={!canBuy}
                 variant="outline"
-                className="h-12 basis-full rounded-none border-navy/25 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-navy hover:border-gold hover:bg-transparent hover:text-gold sm:order-3 sm:basis-0 sm:flex-1 sm:text-[0.72rem] sm:tracking-[0.22em]"
+                className="luxury-rounded h-12 basis-full rounded-none border-navy/25 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-navy transition-all duration-300 hover:-translate-y-0.5 hover:border-gold hover:bg-transparent hover:text-gold hover:shadow-lg active:scale-95 sm:order-3 sm:basis-0 sm:flex-1 sm:text-[0.72rem] sm:tracking-[0.22em]"
               >
                 {copy.buyNow}
               </Button>
@@ -871,7 +891,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                 type="button"
                 onClick={addSetToBag}
                 variant="outline"
-                className="h-12 rounded-none px-6 text-[0.7rem] font-semibold uppercase tracking-[0.2em] hover:border-gold hover:text-gold"
+                className="luxury-rounded h-12 rounded-none px-6 text-[0.7rem] font-semibold uppercase tracking-[0.2em] transition-all duration-300 hover:-translate-y-0.5 hover:border-gold hover:text-gold hover:shadow-lg active:scale-95"
               >
                 {copy.addSet}
               </Button>
@@ -915,7 +935,7 @@ export function ProductDetail({ productId }: { productId: string }) {
           type="button"
           onClick={() => handleAdd("bag")}
           disabled={!canBuy}
-          className="ms-auto h-11 shrink-0 rounded-none bg-navy px-5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-navy-foreground hover:bg-navy/90"
+          className="luxury-rounded ms-auto h-11 shrink-0 rounded-none bg-navy px-5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-navy-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-navy/90 hover:shadow-lg active:scale-95"
         >
           {copy.addToBag}
         </Button>

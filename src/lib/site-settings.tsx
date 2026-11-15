@@ -13,6 +13,7 @@ export type StorefrontCategory = {
   label: string;
   parentId: string | null;
   visible: boolean;
+  imageUrl?: string;
 };
 
 export type StorefrontProductSection = {
@@ -23,8 +24,45 @@ export type StorefrontProductSection = {
   visible: boolean;
 };
 
+export type StorefrontHeroContent = {
+  visible: boolean;
+  title_en: string;
+  title_ar: string;
+  description_en: string;
+  description_ar: string;
+  cta_text_en: string;
+  cta_text_ar: string;
+  cta_url: string;
+};
+
+export type StorefrontBundleBanner = {
+  visible: boolean;
+  title_en: string;
+  title_ar: string;
+  description_en: string;
+  description_ar: string;
+  cta_text_en: string;
+  cta_text_ar: string;
+  cta_url: string;
+};
+
 export type StorefrontContent = {
   navVisible: boolean;
+  promoBannerVisible: boolean;
+  luxuryDesignEnabled: boolean;
+  footerVisible: boolean;
+  hero: StorefrontHeroContent;
+  bundleBanner: StorefrontBundleBanner;
+  categoryShowcase: {
+    visible: boolean;
+    title_en: string;
+    title_ar: string;
+  };
+  socialLinks: {
+    instagram: string;
+    facebook: string;
+    x: string;
+  };
   customBundle: { visible: boolean; title: string };
   featured: {
     visible: boolean;
@@ -41,6 +79,35 @@ export type StorefrontContent = {
 
 export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
   navVisible: true,
+  promoBannerVisible: true,
+  luxuryDesignEnabled: true,
+  footerVisible: true,
+  hero: {
+    visible: true,
+    title_en: "Rest, Refined",
+    title_ar: "راحة تليق بك",
+    description_en: "Thoughtfully crafted Egyptian cotton for the art of living well.",
+    description_ar: "قطن مصري فاخر صُمم بعناية لتجربة معيشة أكثر رقيًا.",
+    cta_text_en: "Shop now",
+    cta_text_ar: "تسوق الآن",
+    cta_url: "/shop",
+  },
+  bundleBanner: {
+    visible: true,
+    title_en: "Bundle & Save",
+    title_ar: "نسّق طقمك ووفر",
+    description_en: "Thoughtful bundles for a more beautiful bedroom.",
+    description_ar: "باقات منسقة بعناية لغرفة نوم أكثر جمالًا.",
+    cta_text_en: "Shop bundles",
+    cta_text_ar: "تسوق الأطقم",
+    cta_url: "/custom-bundle",
+  },
+  categoryShowcase: {
+    visible: true,
+    title_en: "Shop by category",
+    title_ar: "تسوق حسب القسم",
+  },
+  socialLinks: { instagram: "", facebook: "", x: "" },
   customBundle: { visible: true, title: "Build a Custom Set" },
   featured: {
     visible: true,
@@ -231,6 +298,19 @@ function normalizeStorefrontContent(value: unknown): StorefrontContent {
   const deletedCategoryNames = Array.isArray(content.deletedCategoryNames)
     ? content.deletedCategoryNames.filter((name): name is string => typeof name === "string")
     : [];
+  const hero = content.hero && typeof content.hero === "object" ? content.hero : undefined;
+  const bundleBanner =
+    content.bundleBanner && typeof content.bundleBanner === "object"
+      ? content.bundleBanner
+      : undefined;
+  const categoryShowcase =
+    content.categoryShowcase && typeof content.categoryShowcase === "object"
+      ? content.categoryShowcase
+      : undefined;
+  const socialLinks =
+    content.socialLinks && typeof content.socialLinks === "object"
+      ? content.socialLinks
+      : undefined;
   const categories = Array.isArray(content.categories)
     ? content.categories
         .filter(
@@ -241,7 +321,11 @@ function normalizeStorefrontContent(value: unknown): StorefrontContent {
             (category.parentId === null || typeof category.parentId === "string") &&
             typeof category.visible === "boolean",
         )
-        .map((category) => ({ ...category, label: category.label ?? category.name }))
+        .map((category) => ({
+          ...category,
+          label: category.label ?? category.name,
+          imageUrl: typeof category.imageUrl === "string" ? category.imageUrl : "",
+        }))
     : DEFAULT_STOREFRONT_CONTENT.categories;
   const productSections = Array.isArray(content.productSections)
     ? content.productSections.filter(
@@ -256,6 +340,74 @@ function normalizeStorefrontContent(value: unknown): StorefrontContent {
 
   return {
     navVisible: typeof content.navVisible === "boolean" ? content.navVisible : true,
+    promoBannerVisible:
+      typeof content.promoBannerVisible === "boolean" ? content.promoBannerVisible : true,
+    luxuryDesignEnabled:
+      typeof content.luxuryDesignEnabled === "boolean" ? content.luxuryDesignEnabled : true,
+    footerVisible: typeof content.footerVisible === "boolean" ? content.footerVisible : true,
+    hero: {
+      visible: typeof hero?.visible === "boolean" ? hero.visible : true,
+      title_en: textOrDefault(hero?.title_en, DEFAULT_STOREFRONT_CONTENT.hero.title_en),
+      title_ar: textOrDefault(hero?.title_ar, DEFAULT_STOREFRONT_CONTENT.hero.title_ar),
+      description_en: textOrDefault(
+        hero?.description_en,
+        DEFAULT_STOREFRONT_CONTENT.hero.description_en,
+      ),
+      description_ar: textOrDefault(
+        hero?.description_ar,
+        DEFAULT_STOREFRONT_CONTENT.hero.description_ar,
+      ),
+      cta_text_en: textOrDefault(hero?.cta_text_en, DEFAULT_STOREFRONT_CONTENT.hero.cta_text_en),
+      cta_text_ar: textOrDefault(hero?.cta_text_ar, DEFAULT_STOREFRONT_CONTENT.hero.cta_text_ar),
+      cta_url: textOrDefault(hero?.cta_url, DEFAULT_STOREFRONT_CONTENT.hero.cta_url),
+    },
+    bundleBanner: {
+      visible: typeof bundleBanner?.visible === "boolean" ? bundleBanner.visible : true,
+      title_en: textOrDefault(
+        bundleBanner?.title_en,
+        DEFAULT_STOREFRONT_CONTENT.bundleBanner.title_en,
+      ),
+      title_ar: textOrDefault(
+        bundleBanner?.title_ar,
+        DEFAULT_STOREFRONT_CONTENT.bundleBanner.title_ar,
+      ),
+      description_en: textOrDefault(
+        bundleBanner?.description_en,
+        DEFAULT_STOREFRONT_CONTENT.bundleBanner.description_en,
+      ),
+      description_ar: textOrDefault(
+        bundleBanner?.description_ar,
+        DEFAULT_STOREFRONT_CONTENT.bundleBanner.description_ar,
+      ),
+      cta_text_en: textOrDefault(
+        bundleBanner?.cta_text_en,
+        DEFAULT_STOREFRONT_CONTENT.bundleBanner.cta_text_en,
+      ),
+      cta_text_ar: textOrDefault(
+        bundleBanner?.cta_text_ar,
+        DEFAULT_STOREFRONT_CONTENT.bundleBanner.cta_text_ar,
+      ),
+      cta_url: textOrDefault(
+        bundleBanner?.cta_url,
+        DEFAULT_STOREFRONT_CONTENT.bundleBanner.cta_url,
+      ),
+    },
+    categoryShowcase: {
+      visible: typeof categoryShowcase?.visible === "boolean" ? categoryShowcase.visible : true,
+      title_en: textOrDefault(
+        categoryShowcase?.title_en,
+        DEFAULT_STOREFRONT_CONTENT.categoryShowcase.title_en,
+      ),
+      title_ar: textOrDefault(
+        categoryShowcase?.title_ar,
+        DEFAULT_STOREFRONT_CONTENT.categoryShowcase.title_ar,
+      ),
+    },
+    socialLinks: {
+      instagram: textOrDefault(socialLinks?.instagram, ""),
+      facebook: textOrDefault(socialLinks?.facebook, ""),
+      x: textOrDefault(socialLinks?.x, ""),
+    },
     customBundle: {
       visible: typeof customBundle?.visible === "boolean" ? customBundle.visible : true,
       title:
@@ -282,4 +434,8 @@ function normalizeStorefrontContent(value: unknown): StorefrontContent {
     categories,
     productSections,
   };
+}
+
+function textOrDefault(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
 }

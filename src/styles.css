@@ -92,6 +92,61 @@
   --shadow-lux: 0 30px 60px -30px rgb(38 61 85 / 35%);
 }
 
+.luxury-storefront {
+  --radius: 0.75rem;
+  --background: #ffffff;
+  --foreground: #1e293b;
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --popover: #ffffff;
+  --popover-foreground: #1e293b;
+  --navy: #1e293b;
+  --navy-foreground: #ffffff;
+  --primary: #1e293b;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f3f5;
+  --secondary-foreground: #1e293b;
+  --muted: #f5f5f4;
+  --muted-foreground: #5e6671;
+  --accent: #e8edf2;
+  --accent-foreground: #1e293b;
+  --border: #e2e5e9;
+  --input: #d3d8df;
+  --ring: #1e293b;
+  --shadow-lux: 0 30px 60px -30px rgb(30 41 59 / 30%);
+}
+
+.luxury-storefront p:not([class*="text-"]) {
+  color: #5e6671;
+}
+
+.luxury-storefront .luxury-rounded {
+  border-radius: 9999px !important;
+}
+
+.luxury-storefront button {
+  border-radius: 9999px !important;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.luxury-storefront button:hover:not(:disabled) {
+  box-shadow: 0 8px 20px rgb(30 41 59 / 12%);
+}
+
+.luxury-storefront button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.luxury-storefront input:not([type="checkbox"]),
+.luxury-storefront select,
+.luxury-storefront textarea {
+  border-radius: 0.75rem;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

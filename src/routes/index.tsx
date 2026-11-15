@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { readCustomBundleSettings } from "@/lib/local-data";
 import { useStore } from "@/lib/store";
 import { ProductCard } from "@/components/site/productcard";
 import { HeroSlider } from "@/components/site/hero-slider";
 import { DEFAULT_STOREFRONT_CONTENT, useSiteSettings } from "@/lib/site-settings";
+import { isAllowedPromoUrl } from "@/lib/promo-slides";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,6 +33,7 @@ function Home() {
   const storefront = settings?.storefront_content ?? DEFAULT_STOREFRONT_CONTENT;
   const [cat, setCat] = useState<string>("All");
   const [bundleEnabled, setBundleEnabled] = useState(true);
+  const categoryScroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const updateSettings = () => setBundleEnabled(readCustomBundleSettings().enabled);
     updateSettings();
@@ -62,19 +65,113 @@ function Home() {
   );
   return (
     <>
-      {bundleEnabled && storefront.customBundle.visible && (
-        <div className="mx-auto max-w-7xl px-4 py-4 text-center sm:px-6 sm:py-5">
-          <Link
-            to="/custom-bundle"
-            className="font-serif text-xl text-foreground underline decoration-gold decoration-1 underline-offset-4 transition-colors hover:text-gold sm:text-2xl"
-          >
-            {storefront.customBundle.title}
-          </Link>
-        </div>
+      {storefront.hero.visible && (
+        <section aria-label="Featured collection">
+          <HeroSlider content={storefront.hero} />
+        </section>
       )}
-      <section aria-label="Featured collection">
-        <HeroSlider />
-      </section>
+
+      {bundleEnabled &&
+        storefront.customBundle.visible &&
+        storefront.bundleBanner.visible &&
+        isAllowedPromoUrl(storefront.bundleBanner.cta_url) && (
+          <section className="bg-[#70212c] text-white">
+            <div className="mx-auto grid max-w-7xl items-center gap-4 px-5 py-7 text-center sm:px-6 md:grid-cols-[auto_1fr_auto] md:gap-10 md:py-8 md:text-start">
+              <h2 className="font-serif text-3xl font-semibold sm:text-4xl">
+                {s.lang === "ar"
+                  ? storefront.bundleBanner.title_ar
+                  : storefront.bundleBanner.title_en}
+              </h2>
+              <p className="text-sm leading-relaxed text-white/90 sm:text-base">
+                {s.lang === "ar"
+                  ? storefront.bundleBanner.description_ar
+                  : storefront.bundleBanner.description_en}
+              </p>
+              <a
+                href={storefront.bundleBanner.cta_url}
+                className="luxury-rounded inline-flex min-h-12 items-center justify-center rounded-none bg-white px-8 py-3 text-sm font-semibold text-navy transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
+              >
+                {s.lang === "ar"
+                  ? storefront.bundleBanner.cta_text_ar
+                  : storefront.bundleBanner.cta_text_en}
+              </a>
+            </div>
+          </section>
+        )}
+
+      {storefront.categoryShowcase.visible && (
+        <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <h2 className="font-serif text-2xl text-foreground sm:text-3xl">
+              {s.lang === "ar"
+                ? storefront.categoryShowcase.title_ar
+                : storefront.categoryShowcase.title_en}
+            </h2>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                aria-label={s.lang === "ar" ? "الأقسام السابقة" : "Previous categories"}
+                onClick={() =>
+                  categoryScroller.current?.scrollBy({ left: -320, behavior: "smooth" })
+                }
+                className="grid size-10 place-items-center rounded-full border border-border text-foreground transition hover:border-navy hover:bg-navy hover:text-white"
+              >
+                <ChevronLeft size={18} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label={s.lang === "ar" ? "الأقسام التالية" : "Next categories"}
+                onClick={() =>
+                  categoryScroller.current?.scrollBy({ left: 320, behavior: "smooth" })
+                }
+                className="grid size-10 place-items-center rounded-full border border-border text-foreground transition hover:border-navy hover:bg-navy hover:text-white"
+              >
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+          <div
+            ref={categoryScroller}
+            className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-3"
+          >
+            {categories
+              .filter((category) => category.parentId === null)
+              .map((category) => {
+                const categoryNames = [
+                  category.name,
+                  ...categories
+                    .filter((item) => item.parentId === category.id)
+                    .map((item) => item.name),
+                ];
+                const categoryProducts = s.products.filter(
+                  (product) => product.isPublished && categoryNames.includes(product.category),
+                );
+                const image = category.imageUrl || categoryProducts[0]?.images[0];
+                return (
+                  <Link
+                    key={category.id}
+                    to="/shop"
+                    search={{ c: category.name }}
+                    className="group relative aspect-[0.8] w-[68vw] max-w-64 shrink-0 snap-start overflow-hidden rounded-xl bg-secondary sm:w-56 md:w-60"
+                  >
+                    {image && (
+                      <img
+                        src={image}
+                        alt=""
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    )}
+                    <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                    <span className="absolute inset-x-4 bottom-4 text-sm font-semibold text-white underline underline-offset-4 sm:text-base">
+                      {category.label}
+                    </span>
+                  </Link>
+                );
+              })}
+          </div>
+        </section>
+      )}
 
       {storefront.featured.visible && (
         <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20 lg:py-24">

@@ -7,6 +7,7 @@ import {
   type StorefrontCategory,
   type StorefrontContent,
 } from "@/lib/site-settings";
+import { isAllowedPromoUrl } from "@/lib/promo-slides";
 
 const COPY = {
   en: {
@@ -38,6 +39,22 @@ const COPY = {
     loadError: "Could not load homepage content.",
     duplicate: "A collection with this title already exists.",
     empty: "Enter a collection title first.",
+    luxuryDesign: "Enable the luxury storefront design",
+    footer: "Show the storefront footer",
+    promoBanner: "Show the rotating announcement bar",
+    heroSettings: "Hero banner",
+    bundleBanner: "Bundle banner",
+    categoryShowcase: "Shop by category",
+    descriptionEn: "Description (English)",
+    descriptionAr: "Description (Arabic)",
+    ctaTextEn: "Button text (English)",
+    ctaTextAr: "Button text (Arabic)",
+    destination: "Destination URL",
+    categoryImage: "Category image URL",
+    socialLinks: "Social links",
+    instagram: "Instagram URL",
+    facebook: "Facebook URL",
+    x: "X URL",
     productSections: "Homepage product lists",
     productSectionsDescription: "Create titled product lists linked to a collection.",
     productSectionTitleEn: "List title (English)",
@@ -77,6 +94,22 @@ const COPY = {
     loadError: "تعذر تحميل محتوى الصفحة الرئيسية.",
     duplicate: "يوجد قسم بهذا العنوان بالفعل.",
     empty: "أدخل عنوان القسم أولاً.",
+    luxuryDesign: "تفعيل التصميم الفاخر للمتجر",
+    footer: "إظهار تذييل المتجر",
+    promoBanner: "إظهار شريط الإعلانات المتحرك",
+    heroSettings: "البانر الرئيسي",
+    bundleBanner: "شريط الباقات",
+    categoryShowcase: "تسوق حسب القسم",
+    descriptionEn: "الوصف (بالإنجليزية)",
+    descriptionAr: "الوصف (بالعربية)",
+    ctaTextEn: "نص الزر (بالإنجليزية)",
+    ctaTextAr: "نص الزر (بالعربية)",
+    destination: "رابط الوجهة",
+    categoryImage: "رابط صورة القسم",
+    socialLinks: "روابط التواصل الاجتماعي",
+    instagram: "رابط Instagram",
+    facebook: "رابط Facebook",
+    x: "رابط X",
     productSections: "قوائم منتجات الصفحة الرئيسية",
     productSectionsDescription: "أنشئ قوائم بعناوين مخصصة واربط كل قائمة بتصنيف منتجات.",
     productSectionTitleEn: "عنوان القائمة (بالإنجليزية)",
@@ -198,16 +231,45 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
     if (index < 0 || nextIndex < 0 || nextIndex >= draft.productSections.length) return;
 
     const productSections = [...draft.productSections];
-    [productSections[index], productSections[nextIndex]] = [
-      productSections[nextIndex],
-      productSections[index],
-    ];
+    const current = productSections[index];
+    const next = productSections[nextIndex];
+    if (!current || !next) return;
+    productSections[index] = next;
+    productSections[nextIndex] = current;
     update({ productSections });
   }
 
   async function save() {
     if (!settings) {
       toast.error(text.loadError);
+      return;
+    }
+    if (!isAllowedPromoUrl(draft.hero.cta_url) || !isAllowedPromoUrl(draft.bundleBanner.cta_url)) {
+      toast.error(
+        isArabic
+          ? "استخدمي رابطًا آمنًا يبدأ بـ https:// أو مسارًا محليًا."
+          : "Use a secure https:// URL or a local path beginning with /.",
+      );
+      return;
+    }
+    if (
+      draft.categories.some(
+        (category) => category.imageUrl && !isAllowedPromoUrl(category.imageUrl),
+      )
+    ) {
+      toast.error(
+        isArabic
+          ? "استخدمي رابط صورة آمنًا أو مسارًا محليًا يبدأ بـ /."
+          : "Use a secure image URL or a local path beginning with /.",
+      );
+      return;
+    }
+    if (Object.values(draft.socialLinks).some((url) => url && !isAllowedPromoUrl(url))) {
+      toast.error(
+        isArabic
+          ? "استخدمي روابط تواصل آمنة تبدأ بـ https://."
+          : "Use secure social links beginning with https://.",
+      );
       return;
     }
     setSaving(true);
@@ -250,6 +312,125 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
             />
             {text.navigation}
           </label>
+          <CheckField
+            label={text.promoBanner}
+            checked={draft.promoBannerVisible}
+            onChange={(promoBannerVisible) => update({ promoBannerVisible })}
+          />
+          <CheckField
+            label={text.luxuryDesign}
+            checked={draft.luxuryDesignEnabled}
+            onChange={(luxuryDesignEnabled) => update({ luxuryDesignEnabled })}
+          />
+          <CheckField
+            label={text.footer}
+            checked={draft.footerVisible}
+            onChange={(footerVisible) => update({ footerVisible })}
+          />
+
+          <div className="space-y-4 border-t pt-5">
+            <h4 className="font-serif text-xl">{text.heroSettings}</h4>
+            <CheckField
+              label={text.heroSettings}
+              checked={draft.hero.visible}
+              onChange={(visible) => update({ hero: { ...draft.hero, visible } })}
+            />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <TextField
+                label={text.featuredTitle}
+                value={draft.hero.title_en}
+                onChange={(title_en) => update({ hero: { ...draft.hero, title_en } })}
+              />
+              <TextField
+                label={`${text.featuredTitle} (العربية)`}
+                value={draft.hero.title_ar}
+                onChange={(title_ar) => update({ hero: { ...draft.hero, title_ar } })}
+              />
+              <TextField
+                label={text.descriptionEn}
+                value={draft.hero.description_en}
+                onChange={(description_en) => update({ hero: { ...draft.hero, description_en } })}
+              />
+              <TextField
+                label={text.descriptionAr}
+                value={draft.hero.description_ar}
+                onChange={(description_ar) => update({ hero: { ...draft.hero, description_ar } })}
+              />
+              <TextField
+                label={text.ctaTextEn}
+                value={draft.hero.cta_text_en}
+                onChange={(cta_text_en) => update({ hero: { ...draft.hero, cta_text_en } })}
+              />
+              <TextField
+                label={text.ctaTextAr}
+                value={draft.hero.cta_text_ar}
+                onChange={(cta_text_ar) => update({ hero: { ...draft.hero, cta_text_ar } })}
+              />
+              <TextField
+                label={text.destination}
+                value={draft.hero.cta_url}
+                onChange={(cta_url) => update({ hero: { ...draft.hero, cta_url } })}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4 border-t pt-5">
+            <h4 className="font-serif text-xl">{text.bundleBanner}</h4>
+            <CheckField
+              label={text.bundleBanner}
+              checked={draft.bundleBanner.visible}
+              onChange={(visible) => update({ bundleBanner: { ...draft.bundleBanner, visible } })}
+            />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <TextField
+                label={text.featuredTitle}
+                value={draft.bundleBanner.title_en}
+                onChange={(title_en) =>
+                  update({ bundleBanner: { ...draft.bundleBanner, title_en } })
+                }
+              />
+              <TextField
+                label={`${text.featuredTitle} (العربية)`}
+                value={draft.bundleBanner.title_ar}
+                onChange={(title_ar) =>
+                  update({ bundleBanner: { ...draft.bundleBanner, title_ar } })
+                }
+              />
+              <TextField
+                label={text.descriptionEn}
+                value={draft.bundleBanner.description_en}
+                onChange={(description_en) =>
+                  update({ bundleBanner: { ...draft.bundleBanner, description_en } })
+                }
+              />
+              <TextField
+                label={text.descriptionAr}
+                value={draft.bundleBanner.description_ar}
+                onChange={(description_ar) =>
+                  update({ bundleBanner: { ...draft.bundleBanner, description_ar } })
+                }
+              />
+              <TextField
+                label={text.ctaTextEn}
+                value={draft.bundleBanner.cta_text_en}
+                onChange={(cta_text_en) =>
+                  update({ bundleBanner: { ...draft.bundleBanner, cta_text_en } })
+                }
+              />
+              <TextField
+                label={text.ctaTextAr}
+                value={draft.bundleBanner.cta_text_ar}
+                onChange={(cta_text_ar) =>
+                  update({ bundleBanner: { ...draft.bundleBanner, cta_text_ar } })
+                }
+              />
+              <TextField
+                label={text.destination}
+                value={draft.bundleBanner.cta_url}
+                onChange={(cta_url) => update({ bundleBanner: { ...draft.bundleBanner, cta_url } })}
+              />
+            </div>
+          </div>
 
           <div className="grid gap-5 border-t pt-5 sm:grid-cols-2">
             <label className="flex items-center gap-3 text-sm sm:col-span-2">
@@ -464,7 +645,50 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
           </div>
 
           <div className="space-y-4 border-t pt-5">
-            <h4 className="font-serif text-xl">{text.categories}</h4>
+            <h4 className="font-serif text-xl">{text.categoryShowcase}</h4>
+            <CheckField
+              label={text.categoryShowcase}
+              checked={draft.categoryShowcase.visible}
+              onChange={(visible) =>
+                update({ categoryShowcase: { ...draft.categoryShowcase, visible } })
+              }
+            />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <TextField
+                label={text.featuredTitle}
+                value={draft.categoryShowcase.title_en}
+                onChange={(title_en) =>
+                  update({ categoryShowcase: { ...draft.categoryShowcase, title_en } })
+                }
+              />
+              <TextField
+                label={`${text.featuredTitle} (العربية)`}
+                value={draft.categoryShowcase.title_ar}
+                onChange={(title_ar) =>
+                  update({ categoryShowcase: { ...draft.categoryShowcase, title_ar } })
+                }
+              />
+            </div>
+            <h4 className="pt-3 font-serif text-xl">{text.categories}</h4>
+            <div className="grid gap-5 sm:grid-cols-3">
+              <TextField
+                label={text.instagram}
+                value={draft.socialLinks.instagram}
+                onChange={(instagram) =>
+                  update({ socialLinks: { ...draft.socialLinks, instagram } })
+                }
+              />
+              <TextField
+                label={text.facebook}
+                value={draft.socialLinks.facebook}
+                onChange={(facebook) => update({ socialLinks: { ...draft.socialLinks, facebook } })}
+              />
+              <TextField
+                label={text.x}
+                value={draft.socialLinks.x}
+                onChange={(x) => update({ socialLinks: { ...draft.socialLinks, x } })}
+              />
+            </div>
             <div className="space-y-3">
               {draft.categories.map((category) => (
                 <div key={category.id} className="flex flex-wrap items-center gap-3 border p-3">
@@ -472,6 +696,15 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
                     aria-label={`${text.categories}: ${category.label}`}
                     value={category.label}
                     onChange={(event) => updateCategory(category.id, { label: event.target.value })}
+                    className="min-w-40 flex-1 border bg-background px-3 py-2 text-sm"
+                  />
+                  <input
+                    aria-label={`${text.categoryImage}: ${category.label}`}
+                    value={category.imageUrl ?? ""}
+                    onChange={(event) =>
+                      updateCategory(category.id, { imageUrl: event.target.value })
+                    }
+                    placeholder={text.categoryImage}
                     className="min-w-40 flex-1 border bg-background px-3 py-2 text-sm"
                   />
                   {category.parentId && (

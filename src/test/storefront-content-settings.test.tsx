@@ -122,4 +122,25 @@ describe("storefront content settings", () => {
       }),
     );
   });
+
+  it("saves the storefront design and section visibility switches", async () => {
+    render(<StorefrontContentSettings isArabic={false} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enable the luxury storefront design" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show the rotating announcement bar" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Hero banner" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Bundle banner" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Shop by category" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save homepage content" }));
+
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+    const saved: StorefrontContent | undefined = mocks.save.mock.calls[0]?.[0];
+    expect(saved).toMatchObject({
+      luxuryDesignEnabled: false,
+      promoBannerVisible: false,
+      hero: { visible: false },
+      bundleBanner: { visible: false },
+      categoryShowcase: { visible: false },
+    });
+  });
 });

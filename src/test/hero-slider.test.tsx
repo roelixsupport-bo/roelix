@@ -9,6 +9,7 @@ vi.mock("@/lib/hero-slides", () => ({
 }));
 
 vi.mock("@/lib/store", () => ({
+  CATEGORIES: [],
   useStore: vi.fn(() => ({ lang: "en" })),
 }));
 
@@ -78,7 +79,7 @@ describe("hero image slider", () => {
     expect(screen.getAllByRole("img")).toHaveLength(1);
     const button = screen.getByRole("link", { name: "Shop this collection" });
     expect(button).toHaveAttribute("href", "/shop");
-    expect(button).toHaveClass("right-4", "sm:right-8");
+    expect(button).toHaveClass("luxury-rounded", "rounded-none");
   });
 
   it("shows the button only for the currently selected slide", async () => {
@@ -117,5 +118,26 @@ describe("hero image slider", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Show image 2: Slide without a button" }));
     expect(screen.queryByRole("link", { name: "Shop now" })).not.toBeInTheDocument();
+  });
+
+  it("uses the editable storefront heading and button on built-in slides", () => {
+    render(
+      <HeroSlider
+        content={{
+          visible: true,
+          title_en: "Rest, refined",
+          title_ar: "راحة راقية",
+          description_en: "A considered layer of comfort.",
+          description_ar: "راحة صُممت بعناية.",
+          cta_text_en: "Explore bedding",
+          cta_text_ar: "اكتشف المفروشات",
+          cta_url: "/shop",
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Rest, refined" })).toBeInTheDocument();
+    expect(screen.getByText("A considered layer of comfort.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Explore bedding" })).toHaveAttribute("href", "/shop");
   });
 });

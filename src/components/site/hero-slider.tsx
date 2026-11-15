@@ -7,6 +7,7 @@ import towelImage from "@/assets/p_towel.jpg";
 import { fetchHeroSlides } from "@/lib/hero-slides";
 import { isAllowedPromoUrl } from "@/lib/promo-slides";
 import { useStore } from "@/lib/store";
+import { DEFAULT_STOREFRONT_CONTENT, type StorefrontHeroContent } from "@/lib/site-settings";
 
 const SLIDE_INTERVAL_MS = 4_500;
 
@@ -18,7 +19,6 @@ type DisplaySlide = {
   buttonTextAr: string;
   buttonTextEn: string;
   buttonUrl: string;
-  buttonPosition: "bottom-left" | "bottom-center" | "bottom-right";
 };
 
 const FALLBACK_SLIDES: DisplaySlide[] = [
@@ -30,7 +30,6 @@ const FALLBACK_SLIDES: DisplaySlide[] = [
     buttonTextAr: "",
     buttonTextEn: "",
     buttonUrl: "",
-    buttonPosition: "bottom-center",
   },
   {
     id: "bedding",
@@ -40,7 +39,6 @@ const FALLBACK_SLIDES: DisplaySlide[] = [
     buttonTextAr: "",
     buttonTextEn: "",
     buttonUrl: "",
-    buttonPosition: "bottom-center",
   },
   {
     id: "pillow",
@@ -50,7 +48,6 @@ const FALLBACK_SLIDES: DisplaySlide[] = [
     buttonTextAr: "",
     buttonTextEn: "",
     buttonUrl: "",
-    buttonPosition: "bottom-center",
   },
   {
     id: "towel",
@@ -60,17 +57,14 @@ const FALLBACK_SLIDES: DisplaySlide[] = [
     buttonTextAr: "",
     buttonTextEn: "",
     buttonUrl: "",
-    buttonPosition: "bottom-center",
   },
 ];
 
-const BUTTON_POSITION_CLASSES = {
-  "bottom-left": "left-4 sm:left-8",
-  "bottom-center": "left-1/2 -translate-x-1/2",
-  "bottom-right": "right-4 sm:right-8",
-} as const;
-
-export function HeroSlider() {
+export function HeroSlider({
+  content = DEFAULT_STOREFRONT_CONTENT.hero,
+}: {
+  content?: StorefrontHeroContent;
+}) {
   const { lang } = useStore();
   const [slides, setSlides] = useState(FALLBACK_SLIDES);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -79,21 +73,20 @@ export function HeroSlider() {
     let active = true;
     void fetchHeroSlides()
       .then((rows) => {
-        if (!active || rows.length === 0) return;
-        setSlides(
-          rows
-            .filter((slide) => slide.is_active)
-            .map((slide) => ({
-              id: slide.id,
-              src: slide.image_url,
-              alt: slide.alt_text,
-              showButton: slide.show_button,
-              buttonTextAr: slide.button_text_ar,
-              buttonTextEn: slide.button_text_en,
-              buttonUrl: slide.button_url,
-              buttonPosition: slide.button_position,
-            })),
-        );
+        if (!active) return;
+        const managedSlides = rows
+          .filter((slide) => slide.is_active)
+          .map((slide) => ({
+            id: slide.id,
+            src: slide.image_url,
+            alt: slide.alt_text,
+            showButton: slide.show_button,
+            buttonTextAr: slide.button_text_ar,
+            buttonTextEn: slide.button_text_en,
+            buttonUrl: slide.button_url,
+          }));
+        if (managedSlides.length === 0) return;
+        setSlides(managedSlides);
         setActiveIndex(0);
       })
       .catch((error) => {
@@ -118,12 +111,32 @@ export function HeroSlider() {
     return () => window.clearInterval(timer);
   }, [slides.length]);
 
+  if (!content.visible) return null;
+
+  const activeSlide = slides[activeIndex];
+  const isManagedSlide =
+    !!activeSlide && !FALLBACK_SLIDES.some((fallback) => fallback.id === activeSlide.id);
+  const buttonText = activeSlide?.showButton
+    ? lang === "ar"
+      ? activeSlide.buttonTextAr
+      : activeSlide.buttonTextEn
+    : isManagedSlide
+      ? ""
+      : lang === "ar"
+        ? content.cta_text_ar
+        : content.cta_text_en;
+  const buttonUrl = activeSlide?.showButton
+    ? activeSlide.buttonUrl
+    : isManagedSlide
+      ? ""
+      : content.cta_url;
+
   return (
     <div className="w-full">
       <div
         aria-label="Featured ROELIX home collection"
         aria-roledescription="carousel"
-        className="hero-slider relative h-[clamp(15rem,48vw,42rem)] w-full overflow-hidden bg-secondary"
+        className="hero-slider relative h-[clamp(28rem,58vw,46rem)] w-full overflow-hidden bg-secondary"
         role="region"
       >
         {slides.map((slide, index) => (
@@ -137,20 +150,26 @@ export function HeroSlider() {
             }`}
           />
         ))}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-navy/20 via-transparent to-white/10" />
-        {slides[activeIndex]?.showButton &&
-          slides[activeIndex].buttonTextEn.trim() &&
-          slides[activeIndex].buttonTextAr.trim() &&
-          isAllowedPromoUrl(slides[activeIndex].buttonUrl) && (
-            <a
-              href={slides[activeIndex].buttonUrl}
-              className={`btn-lux absolute bottom-8 z-10 max-w-[calc(100%-2rem)] whitespace-nowrap px-5 py-3 text-center text-[0.62rem] sm:bottom-12 sm:px-8 sm:py-4 sm:text-xs ${BUTTON_POSITION_CLASSES[slides[activeIndex].buttonPosition]}`}
-            >
-              {lang === "ar"
-                ? slides[activeIndex].buttonTextAr
-                : slides[activeIndex].buttonTextEn}
-            </a>
-          )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-black/10" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center text-white">
+          <h1 className="max-w-4xl font-serif text-4xl font-semibold leading-tight drop-shadow-md sm:text-6xl lg:text-7xl">
+            {lang === "ar" ? content.title_ar : content.title_en}
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/95 drop-shadow sm:text-lg">
+            {lang === "ar" ? content.description_ar : content.description_en}
+          </p>
+          {buttonText?.trim() &&
+            isAllowedPromoUrl(buttonUrl) &&
+            (!activeSlide?.showButton ||
+              (activeSlide.buttonTextEn.trim() && activeSlide.buttonTextAr.trim())) && (
+              <a
+                href={buttonUrl}
+                className="luxury-rounded mt-7 inline-flex min-h-12 items-center justify-center rounded-none bg-white px-9 py-3 text-sm font-semibold text-navy shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-background hover:shadow-xl active:scale-95"
+              >
+                {buttonText}
+              </a>
+            )}
+        </div>
       </div>
       <div
         aria-label="Choose a featured image"
