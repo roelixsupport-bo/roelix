@@ -110,6 +110,9 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
     }
 
     update({
+      deletedCategoryNames: draft.deletedCategoryNames.filter(
+        (name) => name.toLocaleLowerCase() !== label.toLocaleLowerCase(),
+      ),
       categories: [
         ...draft.categories,
         {
@@ -125,7 +128,16 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
   }
 
   function deleteCategory(id: string) {
+    const deletedCategories = draft.categories.filter(
+      (category) => category.id === id || category.parentId === id,
+    );
     update({
+      deletedCategoryNames: [
+        ...new Set([
+          ...draft.deletedCategoryNames,
+          ...deletedCategories.flatMap((category) => [category.name, category.label]),
+        ]),
+      ],
       categories: draft.categories.filter(
         (category) => category.id !== id && category.parentId !== id,
       ),

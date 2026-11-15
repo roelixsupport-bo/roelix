@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CATEGORIES, useStore } from "@/lib/store";
+import { DEFAULT_STOREFRONT_CONTENT, useSiteSettings } from "@/lib/site-settings";
+import { useStore } from "@/lib/store";
 import { ProductCard } from "@/components/site/productcard";
 
 type Search = { c?: string | undefined; wish?: boolean | undefined };
@@ -29,11 +30,39 @@ export const Route = createFileRoute("/shop")({
 function Shop() {
   const { c, wish } = Route.useSearch();
   const s = useStore();
-  const categories = [
-    ...new Set([...CATEGORIES, ...s.products.map((product) => product.category)]),
-  ];
+  const { settings } = useSiteSettings();
+  const storefront = settings?.storefront_content ?? DEFAULT_STOREFRONT_CONTENT;
+  const visibleCategories = storefront.categories.filter(
+    (category) =>
+      category.visible &&
+      (!category.parentId ||
+        storefront.categories.some((parent) => parent.id === category.parentId && parent.visible)),
+  );
+  const deletedCategoryNames = new Set(
+    storefront.deletedCategoryNames.map((name) => name.toLocaleLowerCase()),
+  );
+  const unconfiguredCategories = [...new Set(s.products.map((product) => product.category))]
+    .filter(
+      (name) =>
+        !storefront.categories.some((category) => category.name === name) &&
+        !deletedCategoryNames.has(name.toLocaleLowerCase()),
+    )
+    .map((name) => ({ id: name, name, label: name, parentId: null }));
+  const categories = [...visibleCategories, ...unconfiguredCategories];
+  const selectedCategory = visibleCategories.find((category) => category.name === c);
+  const selectedNames = selectedCategory
+    ? [
+        selectedCategory.name,
+        ...visibleCategories
+          .filter((category) => category.parentId === selectedCategory.id)
+          .map((category) => category.name),
+      ]
+    : null;
   const list = s.products.filter(
-    (p) => p.isPublished && (!c || p.category === c) && (!wish || s.wishlist.includes(p.id)),
+    (p) =>
+      p.isPublished &&
+      (!c || (selectedNames ? selectedNames.includes(p.category) : p.category === c)) &&
+      (!wish || s.wishlist.includes(p.id)),
   );
 
   return (
@@ -42,13 +71,13 @@ function Shop() {
       <p className="eyebrow text-center text-gold font-bold text-xs sm:text-sm">
         {wish ? (s.lang === "ar" ? "المفضلة" : "Saved") : "ROELIX House"}
       </p>
-      
+
       <h1 className="mt-2 sm:mt-3 text-center font-serif text-3xl sm:text-5xl font-bold tracking-tight text-foreground">
         {wish
           ? s.lang === "ar"
             ? "قائمة المفضلة"
             : "Your Wishlist"
-          : c ?? (s.lang === "ar" ? "جميع التشكيلات" : "All Collections")}
+          : (c ?? (s.lang === "ar" ? "جميع التشكيلات" : "All Collections"))}
       </h1>
 
       {/* تصنيفات التصفية (Scrollable Category Filters for Mobile) */}
@@ -64,19 +93,19 @@ function Shop() {
           >
             {s.lang === "ar" ? "الكل" : "All"}
           </Link>
-          
-          {categories.map((x) => (
+
+          {categories.map((category) => (
             <Link
-              key={x}
+              key={category.id}
               to="/shop"
-              search={{ c: x }}
+              search={{ c: category.name }}
               className={`eyebrow border px-4 py-2 sm:py-2.5 text-xs sm:text-sm whitespace-nowrap rounded-xs transition-colors shrink-0 ${
-                c === x
+                c === category.name
                   ? "bg-black text-white border-black font-bold shadow-xs"
                   : "border-border text-foreground hover:border-gold"
               }`}
             >
-              {x}
+              {category.label}
             </Link>
           ))}
         </div>

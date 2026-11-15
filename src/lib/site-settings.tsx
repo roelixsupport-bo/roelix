@@ -26,6 +26,7 @@ export type StorefrontContent = {
     title: string;
     showAllFilter: boolean;
   };
+  deletedCategoryNames: string[];
   categories: StorefrontCategory[];
 };
 
@@ -40,6 +41,7 @@ export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
     title: "Featured Collections",
     showAllFilter: true,
   },
+  deletedCategoryNames: [],
   categories: CATEGORIES.map((name) => ({
     id: name
       .toLowerCase()
@@ -216,6 +218,9 @@ function normalizeStorefrontContent(value: unknown): StorefrontContent {
   const content = value as Partial<StorefrontContent>;
   const featured = content.featured;
   const customBundle = content.customBundle;
+  const deletedCategoryNames = Array.isArray(content.deletedCategoryNames)
+    ? content.deletedCategoryNames.filter((name): name is string => typeof name === "string")
+    : [];
   const categories = Array.isArray(content.categories)
     ? content.categories
         .filter(
@@ -253,6 +258,7 @@ function normalizeStorefrontContent(value: unknown): StorefrontContent {
           : DEFAULT_STOREFRONT_CONTENT.featured.title,
       showAllFilter: typeof featured?.showAllFilter === "boolean" ? featured.showAllFilter : true,
     },
+    deletedCategoryNames,
     categories,
   };
 }

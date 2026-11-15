@@ -13,6 +13,7 @@ alter table public.site_settings
       "title": "Featured Collections",
       "showAllFilter": true
     },
+    "deletedCategoryNames": [],
     "categories": [
       {"id": "lighting-ambiance", "name": "Lighting & Ambiance", "label": "Lighting & Ambiance", "parentId": null, "visible": true},
       {"id": "luxury-towels", "name": "Luxury Towels", "label": "Luxury Towels", "parentId": null, "visible": true},

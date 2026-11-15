@@ -79,4 +79,20 @@ describe("storefront content settings", () => {
     );
     expect(mocks.reload).toHaveBeenCalledTimes(1);
   });
+
+  it("removes a deleted collection from settings and stores its name as a tombstone", async () => {
+    render(<StorefrontContentSettings isArabic={false} />);
+
+    const categoryInput = screen.getByRole("textbox", {
+      name: "Collection headings: Luxury Towels",
+    });
+    fireEvent.click(within(categoryInput.closest("div")!).getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save homepage content" }));
+
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+    const saved: StorefrontContent | undefined = mocks.save.mock.calls[0]?.[0];
+    expect(saved).toBeDefined();
+    expect(saved!.categories.some((category) => category.name === "Luxury Towels")).toBe(false);
+    expect(saved!.deletedCategoryNames).toContain("Luxury Towels");
+  });
 });
