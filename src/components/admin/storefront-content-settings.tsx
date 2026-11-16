@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   DEFAULT_STOREFRONT_CONTENT,
@@ -6,8 +7,10 @@ import {
   useSiteSettings,
   type StorefrontCategory,
   type StorefrontContent,
+  type StorefrontMarqueeItem,
 } from "@/lib/site-settings";
 import { isAllowedPromoUrl } from "@/lib/promo-slides";
+import { uploadHeroSlideImage, uploadHeroSlideVideo } from "@/lib/hero-slides";
 
 const COPY = {
   en: {
@@ -65,6 +68,25 @@ const COPY = {
     moveDown: "Move down",
     removeSection: "Remove list",
     sectionRequired: "Enter both titles and choose a collection.",
+    marquee: "Homepage scrolling strip",
+    marqueeDescription: "Add images, MP4 videos, or bilingual text items. Items move from left to right.",
+    addMarqueeItem: "Add strip item",
+    marqueeType: "Item type",
+    marqueeImage: "Image",
+    marqueeVideo: "Video",
+    marqueeText: "Text",
+    marqueeMediaUrl: "Media URL",
+    marqueeUpload: "Upload media",
+    marqueeTextEn: "Text (English)",
+    marqueeTextAr: "Text (Arabic)",
+    marqueeDetailEn: "Small text (English, optional)",
+    marqueeDetailAr: "Small text (Arabic, optional)",
+    marqueeLink: "Click destination (optional)",
+    marqueeInvalid: "Each visible strip item needs valid content and secure media or destination URLs.",
+    marqueeUploadError: "Could not upload this media.",
+    marqueeMoveUp: "Move item up",
+    marqueeMoveDown: "Move item down",
+    marqueeDelete: "Delete strip item",
   },
   ar: {
     title: "عناوين الصفحة الرئيسية والأقسام",
@@ -120,6 +142,25 @@ const COPY = {
     moveDown: "تحريك لأسفل",
     removeSection: "حذف القائمة",
     sectionRequired: "أدخل العنوانين واختر تصنيفًا.",
+    marquee: "الشريط المتحرك للصفحة الرئيسية",
+    marqueeDescription: "أضف صورًا أو فيديوهات MP4 أو نصوصًا باللغتين. يتحرك الشريط من اليسار إلى اليمين.",
+    addMarqueeItem: "إضافة عنصر للشريط",
+    marqueeType: "نوع العنصر",
+    marqueeImage: "صورة",
+    marqueeVideo: "فيديو",
+    marqueeText: "نص",
+    marqueeMediaUrl: "رابط الوسائط",
+    marqueeUpload: "رفع وسائط",
+    marqueeTextEn: "النص (بالإنجليزية)",
+    marqueeTextAr: "النص (بالعربية)",
+    marqueeDetailEn: "نص صغير (بالإنجليزية، اختياري)",
+    marqueeDetailAr: "نص صغير (بالعربية، اختياري)",
+    marqueeLink: "رابط الوجهة عند الضغط (اختياري)",
+    marqueeInvalid: "يجب أن يحتوي كل عنصر ظاهر على محتوى صالح وروابط وسائط أو وجهة آمنة.",
+    marqueeUploadError: "تعذر رفع هذه الوسائط.",
+    marqueeMoveUp: "تحريك العنصر لأعلى",
+    marqueeMoveDown: "تحريك العنصر لأسفل",
+    marqueeDelete: "حذف عنصر الشريط",
   },
 } as const;
 
@@ -132,6 +173,7 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
   const [newSectionTitleEn, setNewSectionTitleEn] = useState("");
   const [newSectionTitleAr, setNewSectionTitleAr] = useState("");
   const [newSectionCategoryId, setNewSectionCategoryId] = useState("");
+  const [uploadingMarqueeItem, setUploadingMarqueeItem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -239,6 +281,63 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
     update({ productSections });
   }
 
+  function addMarqueeItem() {
+    const item: StorefrontMarqueeItem = {
+      id: crypto.randomUUID(),
+      type: "text",
+      image_url: "",
+      video_url: "",
+      text_en: "",
+      text_ar: "",
+      detail_en: "",
+      detail_ar: "",
+      link_url: "",
+      visible: true,
+    };
+    update({ marquee: { ...draft.marquee, items: [...draft.marquee.items, item] } });
+  }
+
+  function updateMarqueeItem(id: string, changes: Partial<StorefrontMarqueeItem>) {
+    update({
+      marquee: {
+        ...draft.marquee,
+        items: draft.marquee.items.map((item) => (item.id === id ? { ...item, ...changes } : item)),
+      },
+    });
+  }
+
+  function moveMarqueeItem(id: string, direction: -1 | 1) {
+    const index = draft.marquee.items.findIndex((item) => item.id === id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= draft.marquee.items.length) return;
+    const items = [...draft.marquee.items];
+    const current = items[index];
+    const next = items[nextIndex];
+    if (!current || !next) return;
+    items[index] = next;
+    items[nextIndex] = current;
+    update({ marquee: { ...draft.marquee, items } });
+  }
+
+  async function uploadMarqueeMedia(item: StorefrontMarqueeItem, file?: File) {
+    if (!file) return;
+    setUploadingMarqueeItem(item.id);
+    try {
+      if (item.type === "image") {
+        const uploaded = await uploadHeroSlideImage(file);
+        updateMarqueeItem(item.id, { image_url: uploaded.imageUrl });
+      } else if (item.type === "video") {
+        const uploaded = await uploadHeroSlideVideo(file);
+        updateMarqueeItem(item.id, { video_url: uploaded.videoUrl });
+      }
+    } catch (error) {
+      console.error("Could not upload homepage strip media", error);
+      toast.error(error instanceof Error ? error.message : text.marqueeUploadError);
+    } finally {
+      setUploadingMarqueeItem(null);
+    }
+  }
+
   async function save() {
     if (!settings) {
       toast.error(text.loadError);
@@ -270,6 +369,21 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
           ? "استخدمي روابط تواصل آمنة تبدأ بـ https://."
           : "Use secure social links beginning with https://.",
       );
+      return;
+    }
+    if (
+      draft.marquee.items.some(
+        (item) =>
+          item.visible &&
+          ((item.link_url && !isAllowedPromoUrl(item.link_url)) ||
+            (item.type === "image" &&
+              (!item.image_url || !isAllowedPromoUrl(item.image_url))) ||
+            (item.type === "video" &&
+              (!item.video_url || !isAllowedPromoUrl(item.video_url))) ||
+            (item.type === "text" && !item.text_en.trim() && !item.text_ar.trim())),
+      )
+    ) {
+      toast.error(text.marqueeInvalid);
       return;
     }
     setSaving(true);
@@ -451,6 +565,140 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
               value={draft.customBundle.title}
               onChange={(title) => update({ customBundle: { ...draft.customBundle, title } })}
             />
+          </div>
+
+          <div className="space-y-4 border-t pt-5">
+            <header>
+              <h4 className="font-serif text-xl">{text.marquee}</h4>
+              <p className="mt-1 text-sm text-muted-foreground">{text.marqueeDescription}</p>
+            </header>
+            <CheckField
+              label={text.marquee}
+              checked={draft.marquee.visible}
+              onChange={(visible) => update({ marquee: { ...draft.marquee, visible } })}
+            />
+            <div className="space-y-3">
+              {draft.marquee.items.map((item, index) => (
+                <div key={item.id} className="space-y-3 border p-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="min-w-40 flex-1 space-y-2 text-sm">
+                      <span>{text.marqueeType}</span>
+                      <select
+                        aria-label={`${text.marqueeType}: ${index + 1}`}
+                        value={item.type}
+                        onChange={(event) =>
+                          updateMarqueeItem(item.id, {
+                            type: event.target.value as StorefrontMarqueeItem["type"],
+                          })
+                        }
+                        className="w-full border bg-background px-3 py-2"
+                      >
+                        <option value="image">{text.marqueeImage}</option>
+                        <option value="video">{text.marqueeVideo}</option>
+                        <option value="text">{text.marqueeText}</option>
+                      </select>
+                    </label>
+                    <CheckField
+                      label={text.show}
+                      checked={item.visible}
+                      onChange={(visible) => updateMarqueeItem(item.id, { visible })}
+                    />
+                    <button
+                      type="button"
+                      aria-label={`${text.marqueeMoveUp}: ${index + 1}`}
+                      disabled={index === 0}
+                      onClick={() => moveMarqueeItem(item.id, -1)}
+                      className="text-muted-foreground disabled:opacity-40"
+                    >
+                      <ArrowUp size={18} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`${text.marqueeMoveDown}: ${index + 1}`}
+                      disabled={index === draft.marquee.items.length - 1}
+                      onClick={() => moveMarqueeItem(item.id, 1)}
+                      className="text-muted-foreground disabled:opacity-40"
+                    >
+                      <ArrowDown size={18} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`${text.marqueeDelete}: ${index + 1}`}
+                      onClick={() =>
+                        update({
+                          marquee: {
+                            ...draft.marquee,
+                            items: draft.marquee.items.filter((entry) => entry.id !== item.id),
+                          },
+                        })
+                      }
+                      className="text-destructive"
+                    >
+                      <Trash2 size={18} aria-hidden="true" />
+                    </button>
+                  </div>
+                  {item.type === "text" ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <TextField
+                        label={text.marqueeTextEn}
+                        value={item.text_en}
+                        onChange={(text_en) => updateMarqueeItem(item.id, { text_en })}
+                      />
+                      <TextField
+                        label={text.marqueeTextAr}
+                        value={item.text_ar}
+                        onChange={(text_ar) => updateMarqueeItem(item.id, { text_ar })}
+                      />
+                      <TextField
+                        label={text.marqueeDetailEn}
+                        value={item.detail_en}
+                        onChange={(detail_en) => updateMarqueeItem(item.id, { detail_en })}
+                      />
+                      <TextField
+                        label={text.marqueeDetailAr}
+                        value={item.detail_ar}
+                        onChange={(detail_ar) => updateMarqueeItem(item.id, { detail_ar })}
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                      <TextField
+                        label={text.marqueeMediaUrl}
+                        value={item.type === "image" ? item.image_url : item.video_url}
+                        onChange={(url) =>
+                          updateMarqueeItem(
+                            item.id,
+                            item.type === "image" ? { image_url: url } : { video_url: url },
+                          )
+                        }
+                      />
+                      <label className="block space-y-2 text-sm">
+                        <span>{text.marqueeUpload}</span>
+                        <input
+                          type="file"
+                          accept={item.type === "image" ? "image/*" : "video/mp4,.mp4"}
+                          disabled={uploadingMarqueeItem === item.id}
+                          aria-label={`${text.marqueeUpload}: ${index + 1}`}
+                          onChange={(event) => {
+                            void uploadMarqueeMedia(item, event.target.files?.[0]);
+                            event.target.value = "";
+                          }}
+                          className="block max-w-full text-xs"
+                        />
+                      </label>
+                    </div>
+                  )}
+                  <TextField
+                    label={text.marqueeLink}
+                    value={item.link_url}
+                    onChange={(link_url) => updateMarqueeItem(item.id, { link_url })}
+                  />
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={addMarqueeItem} className="btn-lux">
+              {text.addMarqueeItem}
+            </button>
           </div>
 
           <div className="space-y-4 border-t pt-5">

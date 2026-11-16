@@ -24,6 +24,19 @@ export type StorefrontProductSection = {
   visible: boolean;
 };
 
+export type StorefrontMarqueeItem = {
+  id: string;
+  type: "image" | "video" | "text";
+  image_url: string;
+  video_url: string;
+  text_en: string;
+  text_ar: string;
+  detail_en: string;
+  detail_ar: string;
+  link_url: string;
+  visible: boolean;
+};
+
 export type StorefrontHeroContent = {
   visible: boolean;
   title_en: string;
@@ -75,6 +88,7 @@ export type StorefrontContent = {
   deletedCategoryNames: string[];
   categories: StorefrontCategory[];
   productSections: StorefrontProductSection[];
+  marquee: { visible: boolean; items: StorefrontMarqueeItem[] };
 };
 
 export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
@@ -119,6 +133,7 @@ export const DEFAULT_STOREFRONT_CONTENT: StorefrontContent = {
   },
   deletedCategoryNames: [],
   productSections: [],
+  marquee: { visible: true, items: [] },
   categories: CATEGORIES.map((name) => ({
     id: name
       .toLowerCase()
@@ -337,6 +352,15 @@ function normalizeStorefrontContent(value: unknown): StorefrontContent {
           typeof section.visible === "boolean",
       )
     : DEFAULT_STOREFRONT_CONTENT.productSections;
+    const marquee: Partial<StorefrontContent["marquee"]> =
+      content.marquee && typeof content.marquee === "object" ? content.marquee : {};
+    const marqueeItems: StorefrontMarqueeItem[] = Array.isArray(marquee.items)
+      ? marquee.items.filter(
+          (item): item is StorefrontMarqueeItem =>
+            typeof item?.id === "string" &&
+            (item.type === "image" || item.type === "video" || item.type === "text"),
+        )
+      : DEFAULT_STOREFRONT_CONTENT.marquee.items;
 
   return {
     navVisible: typeof content.navVisible === "boolean" ? content.navVisible : true,
@@ -433,6 +457,21 @@ function normalizeStorefrontContent(value: unknown): StorefrontContent {
     deletedCategoryNames,
     categories,
     productSections,
+    marquee: {
+      visible: typeof marquee.visible === "boolean" ? marquee.visible : true,
+      items: marqueeItems.map((item) => ({
+        id: item.id,
+        type: item.type,
+        image_url: textOrDefault(item.image_url, ""),
+        video_url: textOrDefault(item.video_url, ""),
+        text_en: textOrDefault(item.text_en, ""),
+        text_ar: textOrDefault(item.text_ar, ""),
+        detail_en: textOrDefault(item.detail_en, ""),
+        detail_ar: textOrDefault(item.detail_ar, ""),
+        link_url: textOrDefault(item.link_url, ""),
+        visible: typeof item.visible === "boolean" ? item.visible : true,
+      })),
+    },
   };
 }
 

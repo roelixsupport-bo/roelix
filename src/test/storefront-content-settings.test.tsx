@@ -143,4 +143,46 @@ describe("storefront content settings", () => {
       categoryShowcase: { visible: false },
     });
   });
+
+  it("adds a bilingual scrolling-strip item with an optional destination", async () => {
+    render(<StorefrontContentSettings isArabic={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add strip item" }));
+    const englishText = screen.getAllByRole("textbox", { name: "Text (English)" });
+    const arabicText = screen.getAllByRole("textbox", { name: "Text (Arabic)" });
+    const destinations = screen.getAllByRole("textbox", {
+      name: "Click destination (optional)",
+    });
+    fireEvent.change(englishText.at(-1)!, { target: { value: "New collection" } });
+    fireEvent.change(arabicText.at(-1)!, { target: { value: "مجموعة جديدة" } });
+    fireEvent.change(destinations.at(-1)!, { target: { value: "/shop" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save homepage content" }));
+
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+    const saved: StorefrontContent | undefined = mocks.save.mock.calls[0]?.[0];
+    expect(saved?.marquee.items).toContainEqual(
+      expect.objectContaining({
+        type: "text",
+        text_en: "New collection",
+        text_ar: "مجموعة جديدة",
+        link_url: "/shop",
+        visible: true,
+      }),
+    );
+  });
+
+  it("does not save a scrolling-strip item with an unsafe destination", () => {
+    render(<StorefrontContentSettings isArabic={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add strip item" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Text (English)" }), {
+      target: { value: "Unsafe link" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Click destination (optional)" }), {
+      target: { value: "javascript:alert(1)" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save homepage content" }));
+
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
 });

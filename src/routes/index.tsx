@@ -63,6 +63,15 @@ function Home() {
     (product) =>
       product.isPublished && (!selectedNames || selectedNames.includes(product.category)),
   );
+  const marqueeItems = storefront.marquee.items.filter(
+    (item) =>
+      item.visible &&
+      (item.type === "image"
+        ? item.image_url
+        : item.type === "video"
+          ? item.video_url
+          : item.text_en || item.text_ar),
+  );
   return (
     <>
       {storefront.hero.visible && (
@@ -260,20 +269,72 @@ function Home() {
         );
       })}
 
-      <section className="bg-secondary">
-        <div className="mx-auto grid max-w-7xl gap-12 px-6 py-24 text-center md:grid-cols-3">
-          {[
-            ["1000", "Thread Count Sateen"],
-            ["Giza", "Long-Staple Egyptian Cotton"],
-            ["100", "Night Luxury Guarantee"],
-          ].map(([n, l]) => (
-            <div key={l}>
-              <p className="font-serif text-6xl text-gold">{n}</p>
-              <p className="eyebrow mt-3">{l}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {storefront.marquee.visible && marqueeItems.length > 0 && (
+        <section
+          className="homepage-marquee bg-secondary"
+          aria-label={s.lang === "ar" ? "شريط مميز" : "Featured highlights"}
+          dir="ltr"
+        >
+          <div className="homepage-marquee__track">
+            {[0, 1].map((copy) => (
+              <div
+                key={copy}
+                className="homepage-marquee__group"
+                aria-hidden={copy === 1 ? true : undefined}
+              >
+                {marqueeItems.map((item) => (
+                  <MarqueeItem key={`${copy}-${item.id}`} item={item} language={s.lang} />
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </>
+  );
+}
+
+function MarqueeItem({
+  item,
+  language,
+}: {
+  item: (typeof DEFAULT_STOREFRONT_CONTENT.marquee.items)[number];
+  language: "ar" | "en";
+}) {
+  const content =
+    item.type === "image" ? (
+      <img
+        src={item.image_url}
+        alt={item.text_ar || item.text_en || (language === "ar" ? "صورة ترويجية" : "Featured image")}
+        loading="lazy"
+      />
+    ) : item.type === "video" ? (
+      <video
+        src={item.video_url}
+        autoPlay
+        muted
+        loop
+        playsInline
+        aria-label={item.text_ar || item.text_en || (language === "ar" ? "فيديو ترويجي" : "Featured video")}
+      />
+    ) : (
+      <div className="homepage-marquee__copy" dir={language === "ar" ? "rtl" : "ltr"}>
+        <span>{language === "ar" ? item.text_ar || item.text_en : item.text_en || item.text_ar}</span>
+        {(item.detail_en || item.detail_ar) && (
+          <small>{language === "ar" ? item.detail_ar || item.detail_en : item.detail_en || item.detail_ar}</small>
+        )}
+      </div>
+    );
+
+  return (
+    <div className="homepage-marquee__item">
+      {item.link_url ? (
+        <a href={item.link_url} aria-label={item.text_ar || item.text_en || undefined}>
+          {content}
+        </a>
+      ) : (
+        content
+      )}
+    </div>
   );
 }
