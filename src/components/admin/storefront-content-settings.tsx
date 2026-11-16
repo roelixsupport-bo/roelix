@@ -75,8 +75,11 @@ const COPY = {
     marqueeImage: "Image",
     marqueeVideo: "Video",
     marqueeText: "Text",
-    marqueeMediaUrl: "Media URL",
-    marqueeUpload: "Upload media",
+    marqueeChooseImage: "Choose an image from this device (JPG, PNG, WebP or AVIF, up to 15 MB)",
+    marqueeChooseVideo: "Choose an MP4 video from this device (up to 50 MB)",
+    marqueeUploading: "Uploading media to Supabase...",
+    marqueeUploaded: "Media uploaded. Select another file to replace it.",
+    marqueeUploadHint: "Choose a file from this device. It will upload to Supabase before saving.",
     marqueeTextEn: "Text (English)",
     marqueeTextAr: "Text (Arabic)",
     marqueeDetailEn: "Small text (English, optional)",
@@ -149,8 +152,11 @@ const COPY = {
     marqueeImage: "صورة",
     marqueeVideo: "فيديو",
     marqueeText: "نص",
-    marqueeMediaUrl: "رابط الوسائط",
-    marqueeUpload: "رفع وسائط",
+    marqueeChooseImage: "اختر صورة من هذا الجهاز (JPG أو PNG أو WebP أو AVIF، حتى 15 ميجابايت)",
+    marqueeChooseVideo: "اختر فيديو MP4 من هذا الجهاز (حتى 50 ميجابايت)",
+    marqueeUploading: "جارٍ رفع الوسائط إلى Supabase...",
+    marqueeUploaded: "تم رفع الملف. اختر ملفًا آخر لاستبداله.",
+    marqueeUploadHint: "اختر ملفًا من هذا الجهاز لرفعه إلى Supabase قبل الحفظ.",
     marqueeTextEn: "النص (بالإنجليزية)",
     marqueeTextAr: "النص (بالعربية)",
     marqueeDetailEn: "نص صغير (بالإنجليزية، اختياري)",
@@ -343,6 +349,7 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
       toast.error(text.loadError);
       return;
     }
+    if (uploadingMarqueeItem) return;
     if (!isAllowedPromoUrl(draft.hero.cta_url) || !isAllowedPromoUrl(draft.bundleBanner.cta_url)) {
       toast.error(
         isArabic
@@ -661,30 +668,37 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
                       />
                     </div>
                   ) : (
-                    <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                      <TextField
-                        label={text.marqueeMediaUrl}
-                        value={item.type === "image" ? item.image_url : item.video_url}
-                        onChange={(url) =>
-                          updateMarqueeItem(
-                            item.id,
-                            item.type === "image" ? { image_url: url } : { video_url: url },
-                          )
-                        }
-                      />
+                    <div className="grid gap-3">
                       <label className="block space-y-2 text-sm">
-                        <span>{text.marqueeUpload}</span>
+                        <span>
+                          {item.type === "image" ? text.marqueeChooseImage : text.marqueeChooseVideo}
+                        </span>
                         <input
                           type="file"
-                          accept={item.type === "image" ? "image/*" : "video/mp4,.mp4"}
+                          accept={
+                            item.type === "image"
+                              ? "image/jpeg,image/png,image/webp,image/avif"
+                              : "video/mp4,.mp4"
+                          }
                           disabled={uploadingMarqueeItem === item.id}
-                          aria-label={`${text.marqueeUpload}: ${index + 1}`}
+                          aria-label={`${item.type === "image" ? text.marqueeChooseImage : text.marqueeChooseVideo}: ${index + 1}`}
                           onChange={(event) => {
                             void uploadMarqueeMedia(item, event.target.files?.[0]);
                             event.target.value = "";
                           }}
                           className="block max-w-full text-xs"
                         />
+                        <span role="status" className="block text-xs text-muted-foreground">
+                          {uploadingMarqueeItem === item.id
+                            ? text.marqueeUploading
+                            : item.type === "image"
+                              ? item.image_url
+                                ? text.marqueeUploaded
+                                : text.marqueeUploadHint
+                              : item.video_url
+                                ? text.marqueeUploaded
+                                : text.marqueeUploadHint}
+                        </span>
                       </label>
                     </div>
                   )}
@@ -1004,8 +1018,13 @@ export function StorefrontContentSettings({ isArabic }: { isArabic: boolean }) {
             </div>
           </div>
 
-          <button type="button" disabled={saving} onClick={() => void save()} className="btn-lux">
-            {saving ? text.saving : text.save}
+          <button
+            type="button"
+            disabled={saving || uploadingMarqueeItem !== null}
+            onClick={() => void save()}
+            className="btn-lux"
+          >
+            {uploadingMarqueeItem ? text.marqueeUploading : saving ? text.saving : text.save}
           </button>
         </>
       )}

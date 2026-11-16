@@ -5,9 +5,21 @@ import type { StorefrontContent } from "@/lib/site-settings";
 const mocks = vi.hoisted(() => ({
   reload: vi.fn().mockResolvedValue(undefined),
   save: vi.fn().mockResolvedValue(undefined),
+  uploadImage: vi.fn().mockResolvedValue({
+    imageUrl: "https://cdn.example.test/marquee.png",
+    path: "marquee.png",
+  }),
+  uploadVideo: vi.fn().mockResolvedValue({
+    videoUrl: "https://cdn.example.test/marquee.mp4",
+    path: "marquee.mp4",
+  }),
 }));
 
 vi.mock("@/lib/supabase", () => ({ supabase: {} }));
+vi.mock("@/lib/hero-slides", () => ({
+  uploadHeroSlideImage: mocks.uploadImage,
+  uploadHeroSlideVideo: mocks.uploadVideo,
+}));
 
 vi.mock("@/lib/site-settings", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/site-settings")>();
@@ -184,5 +196,27 @@ describe("storefront content settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save homepage content" }));
 
     expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it("uploads a selected local image instead of asking for a media URL", async () => {
+    render(<StorefrontContentSettings isArabic={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add strip item" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Item type: 1" }), {
+      target: { value: "image" },
+    });
+    const file = new File(["image"], "banner.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText(/Choose an image from this device/), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() => expect(mocks.uploadImage).toHaveBeenCalledWith(file));
+    expect(await screen.findByText("Media uploaded. Select another file to replace it.")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Media URL" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save homepage content" }));
+    await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
+    const saved: StorefrontContent | undefined = mocks.save.mock.calls[0]?.[0];
+    expect(saved?.marquee.items[0]?.image_url).toBe("https://cdn.example.test/marquee.png");
   });
 });
