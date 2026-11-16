@@ -1,7 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /admin
-Disallow: /cart
-Disallow: /checkout
-
-Sitemap: https://roelix.com/sitemap.xml

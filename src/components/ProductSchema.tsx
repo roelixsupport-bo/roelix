@@ -51,11 +51,12 @@ export const ProductSchema: React.FC<ProductSchemaProps> = ({ product }) => {
       ...(url ? { url: url } : {}),
     },
   };
+  const serializedSchema = JSON.stringify(schemaData).replace(/</g, "\\u003c");
 
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+      dangerouslySetInnerHTML={{ __html: serializedSchema }}
     />
   );
 };

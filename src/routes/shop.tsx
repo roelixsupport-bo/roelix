@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { DEFAULT_STOREFRONT_CONTENT, useSiteSettings } from "@/lib/site-settings";
 import { useStore } from "@/lib/store";
 import { ProductCard } from "@/components/site/productcard";
+import { loadCategorySeo } from "@/lib/seo-data";
 
 type Search = { c?: string | undefined; wish?: boolean | undefined };
 
@@ -10,20 +11,34 @@ export const Route = createFileRoute("/shop")({
     c: typeof s["c"] === "string" ? s["c"] : undefined,
     wish: s["wish"] === true || s["wish"] === "true" ? true : undefined,
   }),
-  head: () => ({
-    meta: [
-      { title: "The Collections — ROELIX" },
-      {
-        name: "description",
-        content: "Shop luxury bedding sets, hotel pillows, mattress protectors and towels.",
-      },
-      { property: "og:title", content: "The Collections — ROELIX" },
-      {
-        property: "og:description",
-        content: "Luxury bedding sets, hotel pillows, mattress protectors and towels.",
-      },
-    ],
-  }),
+  loaderDeps: ({ search: { c, wish } }) => ({ category: c, wishlist: wish }),
+  loader: ({ deps }) => loadCategorySeo(deps.category, deps.wishlist),
+  head: ({ loaderData }) => {
+    const category = loaderData;
+    const title = category ? `${category.name} — ROELIX` : "The Collections — ROELIX";
+    const description =
+      category?.description ??
+      "Shop luxury bedding sets, hotel pillows, mattress protectors and towels from ROELIX.";
+    const image = category?.image;
+    const canonical = category
+      ? `${category.url}`
+      : "https://roelix.com/shop";
+
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:type", content: "website" },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        ...(image ? [{ property: "og:image", content: image }] : []),
+        { property: "og:url", content: canonical },
+        { name: "twitter:card", content: "summary_large_image" },
+        ...(image ? [{ name: "twitter:image", content: image }] : []),
+      ],
+      links: [{ rel: "canonical", href: canonical }],
+    };
+  },
   component: Shop,
 });
 

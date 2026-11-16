@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductSchema } from "@/components/ProductSchema";
 import { useProductReviews } from "@/hooks/use-product-reviews";
+import type { ProductSeoData } from "@/lib/seo-data";
 import { displayNameFor } from "@/lib/account";
 import { useAccount } from "@/lib/account-provider";
 import { useAuthDialog } from "@/lib/auth-dialog-provider";
@@ -157,12 +158,18 @@ function useProductMeta(product: Product | undefined, language: Language): void 
   }, [product, language]);
 }
 
-export function ProductDetail({ productId }: { productId: string }) {
+export function ProductDetail({
+  productId,
+  seoData,
+}: {
+  productId: string;
+  seoData?: ProductSeoData | null;
+}) {
   const s = useStore();
   const navigate = useNavigate();
   const copy = COPY[s.lang];
 
-  const product = s.find(productId);
+  const product = seoData?.product ?? s.find(productId);
   const [selection, setSelection] = useState<VariantSelection | null>(null);
   const [sizeChoice, setSizeChoice] = useState("");
   const [colourName, setColourName] = useState("");
@@ -428,12 +435,15 @@ export function ProductDetail({ productId }: { productId: string }) {
           price: Math.round(unitPrice * EGP_PER_USD),
           currency: "EGP",
           inStock: availableStock > 0,
+          ...(seoData?.url ? { url: seoData.url } : {}),
           ...(sku ? { sku } : {}),
-          ...(reviewSummary.count > 0
+          ...((reviewSummary.count > 0 ? reviewSummary : seoData?.rating)?.count
             ? {
                 aggregateRating: {
-                  average: Number(reviewSummary.average.toFixed(1)),
-                  count: reviewSummary.count,
+                  average: Number(
+                    (reviewSummary.count > 0 ? reviewSummary : seoData?.rating)?.average.toFixed(1),
+                  ),
+                  count: (reviewSummary.count > 0 ? reviewSummary : seoData?.rating)?.count ?? 0,
                 },
               }
             : {}),

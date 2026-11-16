@@ -16,8 +16,10 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CustomBundleRouteImport } from './routes/custom-bundle'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RefundsRouteImport } from './routes/refunds'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as ShippingRouteImport } from './routes/shipping'
 import { Route as ShopRouteImport } from './routes/shop'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
@@ -57,6 +59,11 @@ const RefundsRoute = RefundsRouteImport.update({
   path: '/refunds',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShippingRoute = ShippingRouteImport.update({
   id: '/shipping',
   path: '/shipping',
@@ -65,6 +72,11 @@ const ShippingRoute = ShippingRouteImport.update({
 const ShopRoute = ShopRouteImport.update({
   id: '/shop',
   path: '/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SuccessRoute = SuccessRouteImport.update({
@@ -95,8 +107,10 @@ export interface FileRoutesByFullPath {
   '/custom-bundle': typeof CustomBundleRoute
   '/privacy': typeof PrivacyRoute
   '/refunds': typeof RefundsRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/success': typeof SuccessRoute
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRoute
@@ -109,8 +123,10 @@ export interface FileRoutesByTo {
   '/custom-bundle': typeof CustomBundleRoute
   '/privacy': typeof PrivacyRoute
   '/refunds': typeof RefundsRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/success': typeof SuccessRoute
   '/terms': typeof TermsRoute
   '/admin': typeof AuthenticatedAdminRoute
@@ -125,8 +141,10 @@ export interface FileRoutesById {
   '/custom-bundle': typeof CustomBundleRoute
   '/privacy': typeof PrivacyRoute
   '/refunds': typeof RefundsRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/shipping': typeof ShippingRoute
   '/shop': typeof ShopRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/success': typeof SuccessRoute
   '/terms': typeof TermsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
@@ -141,8 +159,10 @@ export interface FileRouteTypes {
     | '/custom-bundle'
     | '/privacy'
     | '/refunds'
+    | '/robots.txt'
     | '/shipping'
     | '/shop'
+    | '/sitemap.xml'
     | '/success'
     | '/terms'
     | '/admin'
@@ -155,8 +175,10 @@ export interface FileRouteTypes {
     | '/custom-bundle'
     | '/privacy'
     | '/refunds'
+    | '/robots.txt'
     | '/shipping'
     | '/shop'
+    | '/sitemap.xml'
     | '/success'
     | '/terms'
     | '/admin'
@@ -170,8 +192,10 @@ export interface FileRouteTypes {
     | '/custom-bundle'
     | '/privacy'
     | '/refunds'
+    | '/robots.txt'
     | '/shipping'
     | '/shop'
+    | '/sitemap.xml'
     | '/success'
     | '/terms'
     | '/_authenticated/admin'
@@ -186,8 +210,10 @@ export interface RootRouteChildren {
   CustomBundleRoute: typeof CustomBundleRoute
   PrivacyRoute: typeof PrivacyRoute
   RefundsRoute: typeof RefundsRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   ShippingRoute: typeof ShippingRoute
   ShopRoute: typeof ShopRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SuccessRoute: typeof SuccessRoute
   TermsRoute: typeof TermsRoute
   ProductIdRoute: typeof ProductIdRoute
@@ -244,6 +270,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RefundsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shipping': {
       id: '/shipping'
       path: '/shipping'
@@ -256,6 +289,13 @@ declare module '@tanstack/react-router' {
       path: '/shop'
       fullPath: '/shop'
       preLoaderRoute: typeof ShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/success': {
@@ -308,8 +348,10 @@ const rootRouteChildren: RootRouteChildren = {
   CustomBundleRoute: CustomBundleRoute,
   PrivacyRoute: PrivacyRoute,
   RefundsRoute: RefundsRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   ShippingRoute: ShippingRoute,
   ShopRoute: ShopRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   SuccessRoute: SuccessRoute,
   TermsRoute: TermsRoute,
   ProductIdRoute: ProductIdRoute,
